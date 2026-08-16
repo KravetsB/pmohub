@@ -5,8 +5,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
   return {
-    // Replace YOUR_REPOSITORY_NAME with the exact GitHub repository name.
-    base: 'pmohub',
+    // GitHub Pages publishes this repository at /pmohub/.
+    base: '/pmohub/',
 
     plugins: [
       react(),
