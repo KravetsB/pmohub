@@ -267,7 +267,7 @@ export const ProjectsTab = () => {
                   </td>
                   <td className="px-4 py-3 min-w-0">
                     <div className="flex flex-wrap gap-1 max-w-full">
-                      {(p.implementer_dept_ids || []).map(id => {
+                      {Array.from(new Set((p.checklist ?? []).flatMap(item => item.implementer_dept_ids ?? []))).map(id => {
                         const d = departments.find(dep => dep.id === id);
                         if (!d) return null;
                         return (
@@ -276,7 +276,7 @@ export const ProjectsTab = () => {
                           </span>
                         );
                       })}
-                      {(!p.implementer_dept_ids || p.implementer_dept_ids.length === 0) && <span className="text-slate-400 text-xs">—</span>}
+                      {!(p.checklist ?? []).some(item => item.implementer_dept_ids?.length) && <span className="text-slate-400 text-xs">—</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3 min-w-0">

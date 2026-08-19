@@ -15,8 +15,8 @@ export const AdminTab = () => {
   const [activeSubTab, setActiveSubTab] = useState<'dicts' | 'rbac' | 'fields' | 'data'>('dicts');
 
     return (
-    <div className="flex min-h-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 pb-4">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm min-h-[400px]">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Адміністрування</h2>
         </div>
@@ -150,7 +150,7 @@ const DictionariesSection = () => {
   };
 
   return (
-    <div className="dictionary-tables space-y-8">
+    <div className="space-y-8">
       {/* Департаменти */}
       <div> 
         <div className="flex justify-between items-center mb-4">

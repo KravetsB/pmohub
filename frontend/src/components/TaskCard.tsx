@@ -16,7 +16,8 @@ export const TaskCard: React.FC<{ task: OperationalTask; onClick?: () => void; h
   const statusDefinition = getInitiativeStatus(effectiveStatus, initiativeStatuses);
   const progress = calculateProgress(task.checklist);
   
-  const implementerNames = (task.implementer_dept_ids || []).map(id => ((departments || [])).find(d => d.id === id)?.name).filter(Boolean).join(', ');
+  const implementerIds = Array.from(new Set((task.checklist ?? []).flatMap(item => item.implementer_dept_ids ?? [])));
+  const implementerNames = implementerIds.map(id => ((departments || [])).find(d => d.id === id)?.name).filter(Boolean).join(', ');
   const manager = ((managers || [])).find(m => m.id === task.manager_id);
   
   const crossFuncNames = (task.cross_functional_dept_ids || [])

@@ -186,7 +186,9 @@ export const Dashboard = () => {
     return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   };
   const capacityDepartments = (departments || []).filter(department => deptFilter === 'ALL' || department.id === deptFilter);
-  const capacityReserveData = capacityDepartments
+  const heatmapDepartments = capacityDepartments.filter(department => department.is_active !== false || annualCapacity.some(period => (period.loads.find(load => load.departmentId === department.id)?.load ?? 0) > 0));
+  const reserveDepartments = capacityDepartments.filter(department => department.is_active !== false);
+  const capacityReserveData = reserveDepartments
     .map(department => {
       const loads = annualCapacity.map(period => period.loads.find(item => item.departmentId === department.id)?.load ?? 0);
       const isAnnualView = quarter === 'ALL';
@@ -197,8 +199,7 @@ export const Dashboard = () => {
       const reserve = limit - load;
       return { id: department.id, name: department.name, load, limit, reserve };
     })
-    .sort((left, right) => left.reserve - right.reserve || right.load - left.load)
-    .slice(0, 5);
+    .sort((left, right) => left.reserve - right.reserve || right.load - left.load);
   const overloadedDepartmentCount = capacityReserveData.filter(department => department.reserve < 0).length;
 
   // New Graph: Size Breakdown Data
@@ -470,7 +471,7 @@ export const Dashboard = () => {
             <div className="grid grid-cols-[minmax(126px,1fr)_repeat(4,64px)] gap-2 px-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
               <span className="text-left">Відділ</span>{(['Q1', 'Q2', 'Q3', 'Q4'] as Quarter[]).map(item => <span key={item}>{item}</span>)}
             </div>
-            {capacityDepartments.map(department => (
+            {heatmapDepartments.map(department => (
               <div key={department.id} className="grid grid-cols-[minmax(126px,1fr)_repeat(4,64px)] items-center gap-2">
                 <span className="truncate px-1 text-sm font-bold text-slate-700" title={department.name}>{department.name}</span>
                 {annualCapacity.map(period => {
