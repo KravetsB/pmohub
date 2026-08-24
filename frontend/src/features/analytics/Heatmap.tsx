@@ -1,7 +1,7 @@
 import React from "react";
-import { useAppContext } from "../store";
-import { Quarter, Department } from "../types";
-import { calculateDepartmentLoads } from "../domain/capacity";
+import { useAppContext } from "../../store";
+import { Quarter, Department } from "../../types";
+import { calculateDepartmentLoads } from "../../domain/capacity";
 
 interface HeatmapProps {
   year: number;

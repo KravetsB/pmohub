@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { useAppContext } from "../store";
-import { OperationalTask, Project } from "../types";
-import { getYearSnapshot } from "../domain/initiatives";
+import { useAppContext } from "../../store";
+import { OperationalTask, Project } from "../../types";
+import { getYearSnapshot } from "../../domain/initiatives";
 
 export const PreparationStageModal = ({
   item,
