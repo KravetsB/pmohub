@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "./styles/initiative-card-modal.css";
 
 @layer base {
   select {

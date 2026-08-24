@@ -4,10 +4,10 @@
 
 - Source visual truth (standard state): `C:\Users\krave\AppData\Local\Temp\codex-clipboard-381818b9-f5a8-4811-b717-7ae88a5cdb30.png`
 - Source visual truth (selection state): `C:\Users\krave\AppData\Local\Temp\codex-clipboard-38a11606-af9a-43cc-9ba3-9c70b1de8000.png`
-- Browser-rendered implementation: `D:\dev\pmohub\frontend\backlog-implementation-final.png`
-- Browser-rendered selection state: `D:\dev\pmohub\frontend\backlog-selection-final.png`
-- Full comparison: `D:\dev\pmohub\frontend\backlog-design-comparison-final.png`
-- Focused selection comparison: `D:\dev\pmohub\frontend\backlog-selection-comparison-final.png`
+- Browser-rendered implementation: `D:\dev\pmohub\frontend\docs\qa\backlog-implementation-final.png`
+- Browser-rendered selection state: `D:\dev\pmohub\frontend\docs\qa\backlog-selection-final.png`
+- Full comparison: `D:\dev\pmohub\frontend\docs\qa\backlog-design-comparison-final.png`
+- Focused selection comparison: `D:\dev\pmohub\frontend\docs\qa\backlog-selection-comparison-final.png`
 - Verification URL: `http://localhost:3001/`
 - Browser: Codex in-app Browser.
 
@@ -66,7 +66,7 @@
 ## Annotation update — priority, goal preview and period availability
 
 - Source visual truth: the three Backlog annotations supplied in the current task.
-- Browser-rendered verification: `D:\dev\pmohub\frontend\backlog-annotations-final.png`.
+- Browser-rendered verification: `D:\dev\pmohub\frontend\docs\qa\backlog-annotations-final.png`.
 - Verification URL: `http://localhost:3001/`.
 - Focused regions: priority badges, strategic-goal preview and Q1–Q4 card controls.
 
@@ -90,7 +90,7 @@
 
 - Source visual truth: browser annotation #1 in the current task, targeting `tr:nth-of-type(2) > td.bg-slate-50.px-6 > div.flex.flex-wrap > span.rounded-xl.border` on `http://localhost:3001/`.
 - Source capture: current-task browser annotation image, 1807 × 1123 px, desktop Backlog / expanded initiative state.
-- Implementation capture: `D:\dev\pmohub\frontend\backlog-scope-status-final.png`, 1807 × 1123 px.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\backlog-scope-status-final.png`, 1807 × 1123 px.
 - CSS viewport and density: 1807 × 1123 CSS px, in-app Browser capture at 1:1; no density normalization required.
 - State: Super Admin, Backlog, 2026, Projects, “Нова клієнтська платформа” expanded.
 
@@ -125,7 +125,7 @@ The annotation specifies information to add rather than an exact new visual comp
 
 - Source visual truth: browser annotations #1–#3 in the current task on `http://localhost:3001/`.
 - Source captures: current-task browser annotation images, 1807 × 1123 px, desktop Backlog state.
-- Implementation capture: `D:\dev\pmohub\frontend\backlog-status-controls-final.png`, 1807 × 1123 px.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\backlog-status-controls-final.png`, 1807 × 1123 px.
 - CSS viewport and density: 1807 × 1123 CSS px at 1:1; no density normalization required.
 - State: Super Admin, Backlog, 2026, Projects, “Нова клієнтська платформа” expanded.
 
@@ -157,7 +157,7 @@ The annotation specifies information to add rather than an exact new visual comp
 
 - Source visual truth: browser annotations #1–#3 in the current task, plus the Backlog-modal behaviour specified in the user request.
 - Source captures: current-task browser annotation images, 1807 × 1123 px.
-- Implementation capture: `D:\dev\pmohub\frontend\backlog-adaptive-modal-final.png`, 1807 × 1123 px.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\backlog-adaptive-modal-final.png`, 1807 × 1123 px.
 - CSS viewport and density: 1807 × 1123 CSS px, in-app Browser capture at 1:1; no density normalization required.
 - State: Super Admin, Backlog, 2026, Projects; the modal was also opened and inspected.
 
@@ -190,7 +190,7 @@ The annotation specifies information to add rather than an exact new visual comp
 
 - Source visual truth: browser annotations #1–#2 and the additional Backlog requirements in the current task.
 - Source captures: current-task browser annotation images, 1355 × 842 px.
-- Implementation capture: `D:\dev\pmohub\frontend\backlog-columns-selection-final.png`, 1355 × 842 px.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\backlog-columns-selection-final.png`, 1355 × 842 px.
 - CSS viewport and density: 1355 × 842 CSS px, in-app Browser capture at 1:1; no density normalization required.
 - State: Super Admin, Backlog, 2026, Projects, first initiative expanded; Projects portfolio was also opened to verify priority colour.
 
@@ -224,7 +224,7 @@ The annotation specifies information to add rather than an exact new visual comp
 ### Comparison target and evidence
 
 - Source visual truth: browser annotations #1–#2 in the current task, 1694 × 1052 px.
-- Implementation capture: `D:\dev\pmohub\frontend\backlog-extension-controls-final.png`, 1694 × 1052 px.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\backlog-extension-controls-final.png`, 1694 × 1052 px.
 - CSS viewport and density: 1694 × 1052 CSS px, in-app Browser capture at 1:1; no density normalization required.
 - State: Super Admin, Backlog, 2026, Projects, bulk-extension mode with no rows selected.
 
@@ -256,7 +256,7 @@ The annotation specifies information to add rather than an exact new visual comp
 
 - Source visual truth: the current browser annotation for the expanded Backlog quarter card (“В процесі”), plus the preceding Backlog table annotations.
 - Source capture: current-task browser image, 1694 × 1052 px.
-- Implementation capture: `D:\dev\pmohub\frontend\backlog-status-and-column-order-final.png`, 1694 × 1052 px.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\backlog-status-and-column-order-final.png`, 1694 × 1052 px.
 - CSS viewport and density: 1694 × 1052 CSS px, in-app Browser capture at 1:1; no density normalization required.
 - State: Admin user, Backlog, 2026, Projects. The first Backlog item was expanded and the Projects portfolio table was opened as focused comparison states.
 
@@ -288,7 +288,7 @@ The annotation specifies information to add rather than an exact new visual comp
 ### Comparison target and evidence
 
 - Source visual truth: the three current browser annotations for the Projects portfolio table, 1694 × 1052 px.
-- Implementation capture: `D:\dev\pmohub\frontend\portfolio-status-priority-final.png`, 1694 × 1052 px.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\portfolio-status-priority-final.png`, 1694 × 1052 px.
 - CSS viewport and density: 1694 × 1052 CSS px, in-app Browser capture at 1:1; no density normalization required.
 - State: Admin user, Projects portfolio, 2026 Q3, Table view. The Operational Tasks table was opened as the corresponding content-state check.
 
@@ -322,7 +322,7 @@ The annotation specifies information to add rather than an exact new visual comp
 ### Comparison target and evidence
 
 - Source visual truth: [codex-clipboard-69c297f8-537e-4ada-b567-ce8e13356a4f.png](C:\Users\krave\AppData\Local\Temp\codex-clipboard-69c297f8-537e-4ada-b567-ce8e13356a4f.png), 1349 × 119 px.
-- Implementation capture: `D:\dev\pmohub\frontend\backlog-archive-banner-final.png`, 1694 × 1052 px; the focused archive-banner region was compared with the supplied source reference.
+- Implementation capture: `D:\dev\pmohub\frontend\docs\qa\backlog-archive-banner-final.png`, 1694 × 1052 px; the focused archive-banner region was compared with the supplied source reference.
 - CSS viewport and density: implementation at 1694 × 1052 CSS px in the in-app Browser at 1:1; the source is a cropped banner, so comparison is normalized to the banner content rather than browser chrome or page width.
 - State: Admin user, Backlog, Projects tab, 2025 archive year.
 
@@ -353,7 +353,7 @@ The annotation specifies information to add rather than an exact new visual comp
 ### Comparison target and evidence
 
 - Source visual truth: the five supplied modal references: [creation state](C:\Users\krave\AppData\Local\Temp\codex-clipboard-e60c5951-728f-4b81-b7e3-fcbe413579a4.png), [populated creation](C:\Users\krave\AppData\Local\Temp\codex-clipboard-e229365d-7360-4f36-b198-4b27db5ec361.png), [edit state](C:\Users\krave\AppData\Local\Temp\codex-clipboard-5283cad6-deb2-4e87-a81e-50587cf0b50d.png), [scope move](C:\Users\krave\AppData\Local\Temp\codex-clipboard-fd613384-8181-47eb-8a27-a6e063480610.png), and [card move](C:\Users\krave\AppData\Local\Temp\codex-clipboard-5a9fe7b8-d742-4953-b2d5-4221d0c48976.png).
-- Implementation captures: `D:\dev\pmohub\frontend\initiative-modal-final.png` and `D:\dev\pmohub\frontend\initiative-move-forms-final.png`, 1207 × 930 px browser capture.
+- Implementation captures: `D:\dev\pmohub\frontend\docs\qa\initiative-modal-final.png` and `D:\dev\pmohub\frontend\docs\qa\initiative-move-forms-final.png`, 1207 × 930 px browser capture.
 - CSS viewport and density: in-app Browser at 1:1. The references are narrower modal crops, so the review normalizes to the modal content region rather than surrounding page chrome.
 - States tested: editing a Q3 project card; adding/removing executor controls; card continuation panel; individual scope-item move panel. The same shared modal renders Operational Task cards.
 

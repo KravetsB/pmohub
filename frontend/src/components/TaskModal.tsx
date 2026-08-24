@@ -1,6 +1,6 @@
 import React from "react";
 import { OperationalTask, Quarter } from "../types";
-import { InitiativeCardModal } from "./InitiativeCardModal";
+import { InitiativeCardModal } from "./initiative-modal/InitiativeCardModal";
 
 interface Props {
   task: OperationalTask | null;

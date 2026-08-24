@@ -28,7 +28,7 @@ import { getPriorityBadgeStyle } from "../domain/priority";
 import { getAvailableYears, getCurrentPeriod, isBacklogLocked } from "../utils";
 import { BacklogModal } from "./BacklogModal";
 import { PreparationStageModal } from "./PreparationStageModal";
-import { InitiativeCardModal } from "./InitiativeCardModal";
+import { InitiativeCardModal } from "./initiative-modal/InitiativeCardModal";
 
 type Tab = "PROJECTS" | "TASKS";
 type Initiative = Project | OperationalTask;

@@ -1,6 +1,6 @@
 import React from "react";
 import { Project, Quarter } from "../types";
-import { InitiativeCardModal } from "./InitiativeCardModal";
+import { InitiativeCardModal } from "./initiative-modal/InitiativeCardModal";
 
 interface Props {
   project: Project | null;
