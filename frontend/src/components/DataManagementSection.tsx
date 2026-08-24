@@ -1,48 +1,48 @@
-import React, { useState, useRef } from 'react';
-import { useAppContext } from '../store';
-import { getAvailableYears } from '../utils';
-import { FullExportData } from '../types';
-import { 
-  FileSpreadsheet, 
-  FileJson, 
-  Download, 
-  Upload, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Database, 
-  Layers, 
-  Table, 
+import React, { useState, useRef } from "react";
+import { useAppContext } from "../store";
+import { getAvailableYears } from "../utils";
+import { FullExportData } from "../types";
+import {
+  FileSpreadsheet,
+  FileJson,
+  Download,
+  Upload,
+  AlertTriangle,
+  CheckCircle2,
+  Database,
+  Layers,
+  Table,
   Info,
   Check,
-  RotateCcw
-} from 'lucide-react';
+  RotateCcw,
+} from "lucide-react";
 
 export const DataManagementSection = () => {
-  const { 
-    projects, 
-    tasks, 
-    departments, 
-    managers, 
-    priorities, 
+  const {
+    projects,
+    tasks,
+    departments,
+    managers,
+    priorities,
     taskWeights,
-    initiativeSizes, 
+    initiativeSizes,
     customFields,
     users,
     rolePermissions,
     getFullDataSnapshot,
-    importFullData
+    importFullData,
   } = useAppContext();
 
-  const [excelYear, setExcelYear] = useState<number | 'ALL'>('ALL');
+  const [excelYear, setExcelYear] = useState<number | "ALL">("ALL");
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingJson, setIsExportingJson] = useState(false);
-  
+
   // JSON Import States
   const [importFile, setImportFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<FullExportData | null>(null);
-  const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
-  const [importError, setImportError] = useState<string>('');
-  const [importSuccess, setImportSuccess] = useState<string>('');
+  const [importMode, setImportMode] = useState<"replace" | "merge">("replace");
+  const [importError, setImportError] = useState<string>("");
+  const [importSuccess, setImportSuccess] = useState<string>("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,7 +51,7 @@ export const DataManagementSection = () => {
   const handleExportExcel = async () => {
     setIsExportingExcel(true);
     try {
-      const { exportPortfolioToExcel } = await import('../utils/excelExport');
+      const { exportPortfolioToExcel } = await import("../utils/excelExport");
       await exportPortfolioToExcel({
         projects,
         tasks,
@@ -61,7 +61,7 @@ export const DataManagementSection = () => {
         taskWeights,
         initiativeSizes,
         customFields,
-        selectedYear: excelYear
+        selectedYear: excelYear,
       });
       setIsExportingExcel(false);
     } catch (err) {
@@ -76,16 +76,16 @@ export const DataManagementSection = () => {
     try {
       const snapshot = getFullDataSnapshot();
       const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-        JSON.stringify(snapshot, null, 2)
+        JSON.stringify(snapshot, null, 2),
       )}`;
-      
+
       const now = new Date();
-      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
+      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
       const fileName = `pmo_hub_backup_${dateStr}.json`;
 
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', jsonString);
-      downloadAnchor.setAttribute('download', fileName);
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", jsonString);
+      downloadAnchor.setAttribute("download", fileName);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -99,8 +99,8 @@ export const DataManagementSection = () => {
 
   // Handle File Selection for Import
   const handleFileChange = (file: File) => {
-    setImportError('');
-    setImportSuccess('');
+    setImportError("");
+    setImportSuccess("");
     setImportFile(file);
 
     const reader = new FileReader();
@@ -110,8 +110,8 @@ export const DataManagementSection = () => {
         const parsed = JSON.parse(content);
 
         // Basic verification
-        if (!parsed || typeof parsed !== 'object') {
-          throw new Error('Файл не містить коректного JSON-об’єкта');
+        if (!parsed || typeof parsed !== "object") {
+          throw new Error("Файл не містить коректного JSON-об’єкта");
         }
 
         // Validate that it has at least some standard entities
@@ -120,18 +120,22 @@ export const DataManagementSection = () => {
         const hasDepts = Array.isArray(parsed.departments);
 
         if (!hasProjects && !hasTasks && !hasDepts) {
-          throw new Error('Файл не містить валідної структури PMO Hub (відсутні масиви проєктів, задач або відділів)');
+          throw new Error(
+            "Файл не містить валідної структури PMO Hub (відсутні масиви проєктів, задач або відділів)",
+          );
         }
 
         setParsedData(parsed as FullExportData);
         setIsImportModalOpen(true);
       } catch (err: unknown) {
-        setImportError(err instanceof Error ? err.message : 'Помилка при читанні JSON-файлу');
+        setImportError(
+          err instanceof Error ? err.message : "Помилка при читанні JSON-файлу",
+        );
         setParsedData(null);
       }
     };
     reader.onerror = () => {
-      setImportError('Не вдалося прочитати файл');
+      setImportError("Не вдалося прочитати файл");
       setParsedData(null);
     };
     reader.readAsText(file);
@@ -143,24 +147,34 @@ export const DataManagementSection = () => {
 
     const result = importFullData(parsedData, importMode);
     if (result.success) {
-      setImportSuccess(`${result.message}. Оновлено проєктів: ${result.counts.projects}, задач: ${result.counts.tasks}.`);
+      setImportSuccess(
+        `${result.message}. Оновлено проєктів: ${result.counts.projects}, задач: ${result.counts.tasks}.`,
+      );
       setIsImportModalOpen(false);
       setParsedData(null);
       setImportFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } else {
       setImportError(result.message);
     }
   };
 
   // Compute stats for available years in Excel
-  const allYears = Array.from(new Set([
-    ...projects.map(p => p.year),
-    ...tasks.map(t => t.year),
-    ...projects.flatMap(project => Object.keys(project.yearSnapshots ?? {}).map(Number)),
-    ...tasks.flatMap(task => Object.keys(task.yearSnapshots ?? {}).map(Number)),
-    ...getAvailableYears()
-  ])).filter(Boolean).sort((a, b) => a - b);
+  const allYears = Array.from(
+    new Set([
+      ...projects.map((p) => p.year),
+      ...tasks.map((t) => t.year),
+      ...projects.flatMap((project) =>
+        Object.keys(project.yearSnapshots ?? {}).map(Number),
+      ),
+      ...tasks.flatMap((task) =>
+        Object.keys(task.yearSnapshots ?? {}).map(Number),
+      ),
+      ...getAvailableYears(),
+    ]),
+  )
+    .filter(Boolean)
+    .sort((a, b) => a - b);
 
   return (
     <div className="space-y-8">
@@ -169,7 +183,12 @@ export const DataManagementSection = () => {
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3 text-emerald-800 text-sm">
           <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
           <div className="flex-1 font-medium">{importSuccess}</div>
-          <button onClick={() => setImportSuccess('')} className="text-emerald-600 hover:text-emerald-900 font-bold text-xs">Закрити</button>
+          <button
+            onClick={() => setImportSuccess("")}
+            className="text-emerald-600 hover:text-emerald-900 font-bold text-xs"
+          >
+            Закрити
+          </button>
         </div>
       )}
 
@@ -177,7 +196,12 @@ export const DataManagementSection = () => {
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-center gap-3 text-rose-800 text-sm">
           <AlertTriangle size={20} className="text-rose-600 shrink-0" />
           <div className="flex-1 font-medium">{importError}</div>
-          <button onClick={() => setImportError('')} className="text-rose-600 hover:text-rose-900 font-bold text-xs">Закрити</button>
+          <button
+            onClick={() => setImportError("")}
+            className="text-rose-600 hover:text-rose-900 font-bold text-xs"
+          >
+            Закрити
+          </button>
         </div>
       )}
 
@@ -189,9 +213,12 @@ export const DataManagementSection = () => {
               <FileSpreadsheet size={26} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Експорт звітності в Excel (.xlsx)</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                Експорт звітності в Excel (.xlsx)
+              </h3>
               <p className="text-slate-500 text-sm">
-                Формує багатосторінковий документ з аналітикою, беклогами та квартальними аркушами проєктів і задач.
+                Формує багатосторінковий документ з аналітикою, беклогами та
+                квартальними аркушами проєктів і задач.
               </p>
             </div>
           </div>
@@ -199,12 +226,18 @@ export const DataManagementSection = () => {
           <div className="flex items-center gap-3 self-start md:self-auto">
             <select
               value={excelYear}
-              onChange={(e) => setExcelYear(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+              onChange={(e) =>
+                setExcelYear(
+                  e.target.value === "ALL" ? "ALL" : Number(e.target.value),
+                )
+              }
               className="border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
             >
               <option value="ALL">Всі роки (повний звіт)</option>
-              {allYears.map(y => (
-                <option key={y} value={y}>{y} рік</option>
+              {allYears.map((y) => (
+                <option key={y} value={y}>
+                  {y} рік
+                </option>
               ))}
             </select>
 
@@ -265,15 +298,27 @@ export const DataManagementSection = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-600 pt-2 border-t border-slate-200">
             <div className="flex items-start gap-2">
               <span className="text-emerald-600 font-bold">✓</span>
-              <span><strong>Кольоровий фон назви:</strong> Фон клітинки назви ініціативи автоматично зафарбовується у колір її статусу (зелений, жовтий, червоний, сірий).</span>
+              <span>
+                <strong>Кольоровий фон назви:</strong> Фон клітинки назви
+                ініціативи автоматично зафарбовується у колір її статусу
+                (зелений, жовтий, червоний, сірий).
+              </span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-emerald-600 font-bold">✓</span>
-              <span><strong>Кольоровий скоуп (чекліст):</strong> Кожне підзавдання в колонці скоупу містить кольоровий індикатор та оформлений текст відповідно до свого статусу.</span>
+              <span>
+                <strong>Кольоровий скоуп (чекліст):</strong> Кожне підзавдання в
+                колонці скоупу містить кольоровий індикатор та оформлений текст
+                відповідно до свого статусу.
+              </span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-emerald-600 font-bold">✓</span>
-              <span><strong>Розділений беклог:</strong> Окремі аркуші для беклогу проєктів та задач, блакитні заголовки та повне збереження кастомних полів.</span>
+              <span>
+                <strong>Розділений беклог:</strong> Окремі аркуші для беклогу
+                проєктів та задач, блакитні заголовки та повне збереження
+                кастомних полів.
+              </span>
             </div>
           </div>
         </div>
@@ -289,19 +334,27 @@ export const DataManagementSection = () => {
                 <FileJson size={26} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Експорт бази у JSON</h3>
-                <p className="text-slate-500 text-xs mt-0.5">Повна резервна копія всіх сутностей</p>
+                <h3 className="text-lg font-bold text-slate-900">
+                  Експорт бази у JSON
+                </h3>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  Повна резервна копія всіх сутностей
+                </p>
               </div>
             </div>
 
             <p className="text-slate-600 text-sm mb-4 leading-relaxed">
-              Створює єдиний файл резервної копії (.json), який містить усі проєкти, операційні задачі, беклог, довідники, відділи, стратегічні задачі, права доступу та кастомні поля.
+              Створює єдиний файл резервної копії (.json), який містить усі
+              проєкти, операційні задачі, беклог, довідники, відділи,
+              стратегічні задачі, права доступу та кастомні поля.
             </p>
 
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs text-slate-600 space-y-1 mb-6">
               <div className="flex justify-between">
                 <span>Проєктів у системі:</span>
-                <span className="font-bold text-slate-800">{projects.length}</span>
+                <span className="font-bold text-slate-800">
+                  {projects.length}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Операційних задач:</span>
@@ -309,11 +362,15 @@ export const DataManagementSection = () => {
               </div>
               <div className="flex justify-between">
                 <span>Відділів:</span>
-                <span className="font-bold text-slate-800">{departments.length}</span>
+                <span className="font-bold text-slate-800">
+                  {departments.length}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Користувацьких полів:</span>
-                <span className="font-bold text-slate-800">{customFields.length}</span>
+                <span className="font-bold text-slate-800">
+                  {customFields.length}
+                </span>
               </div>
             </div>
           </div>
@@ -345,18 +402,27 @@ export const DataManagementSection = () => {
                 <Database size={26} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Імпорт даних з JSON</h3>
-                <p className="text-slate-500 text-xs mt-0.5">Відновлення або об'єднання з резервної копії</p>
+                <h3 className="text-lg font-bold text-slate-900">
+                  Імпорт даних з JSON
+                </h3>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  Відновлення або об'єднання з резервної копії
+                </p>
               </div>
             </div>
 
             <p className="text-slate-600 text-sm mb-4 leading-relaxed">
-              Завантажте збережений раніше JSON-файл для відновлення структури або додавання нових даних. Перед застосуванням відкриється вікно попереднього перегляду.
+              Завантажте збережений раніше JSON-файл для відновлення структури
+              або додавання нових даних. Перед застосуванням відкриється вікно
+              попереднього перегляду.
             </p>
 
             {/* Drop / Upload Zone */}
             <div
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={(e) => {
                 e.preventDefault();
@@ -367,9 +433,9 @@ export const DataManagementSection = () => {
               }}
               onClick={() => fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors mb-4 ${
-                isDragging 
-                  ? 'border-indigo-500 bg-indigo-50/50' 
-                  : 'border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-slate-50'
+                isDragging
+                  ? "border-indigo-500 bg-indigo-50/50"
+                  : "border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-slate-50"
               }`}
             >
               <input
@@ -384,8 +450,12 @@ export const DataManagementSection = () => {
                 }}
               />
               <Upload size={24} className="mx-auto text-slate-400 mb-2" />
-              <p className="text-xs font-bold text-slate-700">Натисніть для вибору або перетягніть .json файл</p>
-              <p className="text-[11px] text-slate-400 mt-1">Підтримуються бекап-файли PMO Hub</p>
+              <p className="text-xs font-bold text-slate-700">
+                Натисніть для вибору або перетягніть .json файл
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Підтримуються бекап-файли PMO Hub
+              </p>
             </div>
           </div>
 
@@ -408,34 +478,60 @@ export const DataManagementSection = () => {
                 <Database size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Підтвердження імпорту даних</h3>
-                <p className="text-xs text-slate-500">Файл: {importFile?.name}</p>
+                <h3 className="text-lg font-bold text-slate-900">
+                  Підтвердження імпорту даних
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Файл: {importFile?.name}
+                </p>
               </div>
             </div>
 
             {/* Found Data Overview */}
             <div className="mb-5">
-              <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Знайдено в файлі:</p>
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Знайдено в файлі:
+              </p>
               <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-600">Проєктів:</span>
-                  <span className="font-bold text-slate-900">{Array.isArray(parsedData.projects) ? parsedData.projects.length : 0}</span>
+                  <span className="font-bold text-slate-900">
+                    {Array.isArray(parsedData.projects)
+                      ? parsedData.projects.length
+                      : 0}
+                  </span>
                 </div>
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-600">Операційних задач:</span>
-                  <span className="font-bold text-slate-900">{Array.isArray(parsedData.tasks) ? parsedData.tasks.length : 0}</span>
+                  <span className="font-bold text-slate-900">
+                    {Array.isArray(parsedData.tasks)
+                      ? parsedData.tasks.length
+                      : 0}
+                  </span>
                 </div>
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-600">Відділів:</span>
-                  <span className="font-bold text-slate-900">{Array.isArray(parsedData.departments) ? parsedData.departments.length : 0}</span>
+                  <span className="font-bold text-slate-900">
+                    {Array.isArray(parsedData.departments)
+                      ? parsedData.departments.length
+                      : 0}
+                  </span>
                 </div>
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-600">Менеджерів:</span>
-                  <span className="font-bold text-slate-900">{Array.isArray(parsedData.managers) ? parsedData.managers.length : 0}</span>
+                  <span className="font-bold text-slate-900">
+                    {Array.isArray(parsedData.managers)
+                      ? parsedData.managers.length
+                      : 0}
+                  </span>
                 </div>
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-600">Кастомних полів:</span>
-                  <span className="font-bold text-slate-900">{Array.isArray(parsedData.customFields) ? parsedData.customFields.length : 0}</span>
+                  <span className="font-bold text-slate-900">
+                    {Array.isArray(parsedData.customFields)
+                      ? parsedData.customFields.length
+                      : 0}
+                  </span>
                 </div>
               </div>
             </div>
@@ -446,19 +542,19 @@ export const DataManagementSection = () => {
                 Оберіть режим імпорту:
               </label>
 
-              <label 
+              <label
                 className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  importMode === 'replace' 
-                    ? 'border-rose-300 bg-rose-50/60 ring-2 ring-rose-200' 
-                    : 'border-slate-200 hover:bg-slate-50'
+                  importMode === "replace"
+                    ? "border-rose-300 bg-rose-50/60 ring-2 ring-rose-200"
+                    : "border-slate-200 hover:bg-slate-50"
                 }`}
               >
                 <input
                   type="radio"
                   name="importMode"
                   value="replace"
-                  checked={importMode === 'replace'}
-                  onChange={() => setImportMode('replace')}
+                  checked={importMode === "replace"}
+                  onChange={() => setImportMode("replace")}
                   className="mt-1 text-rose-600 focus:ring-rose-500"
                 />
                 <div className="flex-1">
@@ -474,19 +570,19 @@ export const DataManagementSection = () => {
                 </div>
               </label>
 
-              <label 
+              <label
                 className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  importMode === 'merge' 
-                    ? 'border-indigo-300 bg-indigo-50/60 ring-2 ring-indigo-200' 
-                    : 'border-slate-200 hover:bg-slate-50'
+                  importMode === "merge"
+                    ? "border-indigo-300 bg-indigo-50/60 ring-2 ring-indigo-200"
+                    : "border-slate-200 hover:bg-slate-50"
                 }`}
               >
                 <input
                   type="radio"
                   name="importMode"
                   value="merge"
-                  checked={importMode === 'merge'}
-                  onChange={() => setImportMode('merge')}
+                  checked={importMode === "merge"}
+                  onChange={() => setImportMode("merge")}
                   className="mt-1 text-indigo-600 focus:ring-indigo-500"
                 />
                 <div className="flex-1">
@@ -494,7 +590,8 @@ export const DataManagementSection = () => {
                     Об'єднання (Merge)
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Додає нові елементи та оновлює існуючі за ID, не видаляючи інші поточні записи.
+                    Додає нові елементи та оновлює існуючі за ID, не видаляючи
+                    інші поточні записи.
                   </p>
                 </div>
               </label>
@@ -507,7 +604,7 @@ export const DataManagementSection = () => {
                   setIsImportModalOpen(false);
                   setParsedData(null);
                   setImportFile(null);
-                  if (fileInputRef.current) fileInputRef.current.value = '';
+                  if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
                 className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors text-sm"
               >
@@ -516,12 +613,14 @@ export const DataManagementSection = () => {
               <button
                 onClick={handleConfirmImport}
                 className={`px-5 py-2 rounded-xl font-bold text-sm text-white transition-all shadow-sm ${
-                  importMode === 'replace' 
-                    ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800' 
-                    : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800'
+                  importMode === "replace"
+                    ? "bg-rose-600 hover:bg-rose-700 active:bg-rose-800"
+                    : "bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800"
                 }`}
               >
-                {importMode === 'replace' ? 'Замінити всі дані' : 'Об\'єднати дані'}
+                {importMode === "replace"
+                  ? "Замінити всі дані"
+                  : "Об'єднати дані"}
               </button>
             </div>
           </div>

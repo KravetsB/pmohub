@@ -1,0 +1,244 @@
+/*
+ * Component styles for InitiativeCardModal.
+ *
+ * The modal still uses Tailwind for layout and responsive composition. These
+ * rules collect the recurring visual controls that would otherwise be a large
+ * inline <style> block in the React component.
+ */
+.initiative-modal .modal-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  color: #334155;
+}
+
+.initiative-modal .modal-field {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  padding: 11px 15px;
+  font-size: 15px;
+  line-height: 20px;
+  color: #1e293b;
+  outline: none;
+}
+
+.initiative-modal .modal-field:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px #e0e7ff;
+}
+
+.initiative-modal .modal-field:disabled {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.initiative-modal .modal-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: #4f39f4;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 2px 5px rgba(79, 57, 244, .25);
+}
+
+.initiative-modal .modal-primary:hover {
+  background: #4338ca;
+}
+
+.initiative-modal .modal-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: #f8faff;
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
+}
+
+.initiative-modal .modal-secondary:hover {
+  background: #eef2ff;
+}
+
+.initiative-modal .modal-tab {
+  border-bottom: 2px solid transparent;
+  padding: 11px 13px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.initiative-modal .modal-tab-active {
+  border-color: #4f39f4;
+  color: #4f39f4;
+}
+
+.initiative-modal .department-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid;
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+}
+
+.initiative-modal .department-chip-idle {
+  border-color: #dbe3ee;
+  background: #fff;
+  color: #50627e;
+}
+
+.initiative-modal .department-chip-idle:hover {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.initiative-modal .department-chip-involved {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #fff;
+}
+
+.initiative-modal .department-chip-executor {
+  border-color: #4f39f4;
+  background: #4f39f4;
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(79, 57, 244, .28);
+}
+
+.initiative-modal .executor-chip-label {
+  margin-left: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .24);
+  padding: 2px 5px;
+  font-size: 9px;
+  line-height: 12px;
+  color: #fff;
+}
+
+.initiative-modal .department-chip:disabled {
+  cursor: default;
+}
+
+.initiative-modal .scope-select {
+  height: 32px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #f8faff;
+  padding: 0 26px 0 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4f39f4;
+  outline: none;
+}
+
+.initiative-modal .icon-action {
+  display: inline-flex;
+  height: 32px;
+  width: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #8092ae;
+}
+
+.initiative-modal .icon-action:hover {
+  border-color: #a5b4fc;
+  background: #eef2ff;
+  color: #4f39f4;
+}
+
+.initiative-modal .scope-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+}
+
+.initiative-modal .scope-item-GREEN {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.initiative-modal .scope-item-YELLOW {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.initiative-modal .scope-item-RED {
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.initiative-modal .scope-item-number {
+  display: inline-flex;
+  height: 24px;
+  min-width: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #eef2ff;
+  padding: 0 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #4f39f4;
+}
+
+.initiative-modal .scope-item-GREEN .scope-item-number {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.initiative-modal .scope-item-YELLOW .scope-item-number {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.initiative-modal .scope-item-RED .scope-item-number {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.initiative-modal .move-panel {
+  border: 1px solid #c7d2fe;
+  border-radius: 16px;
+  background: #eef2ff;
+  padding: 14px;
+}
+
+.initiative-modal .move-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #3730a3;
+}
+
+@media (max-width: 640px) {
+  .initiative-modal .modal-scroll {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .initiative-modal .department-chip {
+    font-size: 11px;
+  }
+
+  .initiative-modal .modal-label {
+    font-size: 13px;
+  }
+}
