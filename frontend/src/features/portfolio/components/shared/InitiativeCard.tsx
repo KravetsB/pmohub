@@ -1,17 +1,17 @@
 import React from "react";
-import { OperationalTask, Project } from "../../../shared/types";
-import { calculateProgress, stripHtml } from "../../../shared/utils";
-import { useAppContext } from "../../../app/store";
+import { OperationalTask, Project } from "../../../../shared/types";
+import { calculateProgress, stripHtml } from "../../../../shared/utils";
+import { useAppContext } from "../../../../app/store";
 import {
   getInitiativeSize,
   getInitiativeWeight,
-} from "../../../domain/capacity";
+} from "../../../../domain/capacity";
 import {
   colorWithAlpha,
   getPriorityBadgeStyle,
-} from "../../../domain/priority";
-import { getInitiativeStatus } from "../../../domain/health";
-import { RichTextPreview } from "../../../components/ui/RichTextEditor";
+} from "../../../../domain/priority";
+import { getInitiativeStatus } from "../../../../domain/health";
+import { RichTextPreview } from "../../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCard.module.css";
 
 type Initiative = Project | OperationalTask;

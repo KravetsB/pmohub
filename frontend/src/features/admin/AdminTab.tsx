@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { BookOpen, FileSpreadsheet, ShieldCheck, Sliders } from "lucide-react";
-import { DictionariesSection } from "./components/DictionariesSection";
+import { DictionariesSection } from "./components/dictionaries/DictionariesSection";
 import { RbacSection } from "./components/RbacSection";
 import { CustomFieldsSection } from "./components/CustomFieldsSection";
 import styles from "./components/AdminTab.module.css";

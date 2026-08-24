@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { AppProvider, useAppContext } from './store';
 import { Dashboard } from '../features/analytics/Dashboard';
-import { ProjectsTab } from '../features/portfolio/ProjectsTab';
-import { TasksTab } from '../features/portfolio/TasksTab';
+import { ProjectsTab } from '../features/portfolio/projects/ProjectsTab';
+import { TasksTab } from '../features/portfolio/tasks/TasksTab';
 import { BacklogTab } from '../features/backlog/BacklogTab';
 import { Login } from '../features/auth/Login';
 import { SystemAlertDialog } from '../components/ui/SystemAlertDialog';
