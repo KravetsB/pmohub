@@ -16,7 +16,7 @@ import {
   getInitiativeStatusStyle,
 } from "../../domain/health";
 import { getPriorityBadgeStyle, colorWithAlpha } from "../../domain/priority";
-import { RichTextPreview } from "../../components/RichTextEditor";
+import { RichTextPreview } from "../../components/ui/RichTextEditor";
 
 export const TasksTab = () => {
   const {

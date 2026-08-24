@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useAppContext } from "../store";
-import { User } from "../types";
+import { useAppContext } from "../../store";
+import { User } from "../../types";
 import { Eye, EyeOff } from "lucide-react";
 
 export const Login = () => {

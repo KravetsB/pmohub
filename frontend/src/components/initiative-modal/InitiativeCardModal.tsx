@@ -22,8 +22,8 @@ import {
   validateChecklistCapacity,
 } from "../../domain/capacity";
 import { canEditInitiative } from "../../domain/permissions";
-import { ScopeMergeConfirmDialog } from "../ScopeMergeConfirmDialog";
-import { RichTextEditor } from "../RichTextEditor";
+import { ScopeMergeConfirmDialog } from "../ui/ScopeMergeConfirmDialog";
+import { RichTextEditor } from "../ui/RichTextEditor";
 import styles from "./InitiativeCardModal.module.css";
 
 type Initiative = Project | OperationalTask;

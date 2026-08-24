@@ -5,11 +5,11 @@ import { Dashboard } from './features/analytics/Dashboard';
 import { ProjectsTab } from './features/portfolio/ProjectsTab';
 import { TasksTab } from './features/portfolio/TasksTab';
 import { BacklogTab } from './features/backlog/BacklogTab';
-import { Login } from './components/Login';
-import { SystemAlertDialog } from './components/SystemAlertDialog';
+import { Login } from './features/auth/Login';
+import { SystemAlertDialog } from './components/ui/SystemAlertDialog';
 import { LayoutDashboard, FolderKanban, CheckSquare, Archive, Settings, LogOut, KeyRound, Eye, EyeOff, Menu, X } from 'lucide-react';
 
-const AdminTab = React.lazy(() => import('./components/AdminTab').then(module => ({ default: module.AdminTab })));
+const AdminTab = React.lazy(() => import('./features/admin/AdminTab').then(module => ({ default: module.AdminTab })));
 
 function AppContent() {
   const { currentUser, logout, departments, updateUser, rolePermissions } = useAppContext();

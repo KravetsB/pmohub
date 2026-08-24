@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { BookOpen, FileSpreadsheet, ShieldCheck, Sliders } from "lucide-react";
-import { DictionariesSection } from "./admin/DictionariesSection";
-import { RbacSection } from "./admin/RbacSection";
-import { CustomFieldsSection } from "./admin/CustomFieldsSection";
-import styles from "./admin/AdminTab.module.css";
+import { DictionariesSection } from "./components/DictionariesSection";
+import { RbacSection } from "./components/RbacSection";
+import { CustomFieldsSection } from "./components/CustomFieldsSection";
+import styles from "./components/AdminTab.module.css";
 
 const DataManagementSection = React.lazy(() =>
   import("./DataManagementSection").then((module) => ({

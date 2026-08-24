@@ -5,7 +5,7 @@ import { useAppContext } from "../../../store";
 import { getInitiativeSize, getInitiativeWeight } from "../../../domain/capacity";
 import { colorWithAlpha, getPriorityBadgeStyle } from "../../../domain/priority";
 import { getInitiativeStatus } from "../../../domain/health";
-import { RichTextPreview } from "../../../components/RichTextEditor";
+import { RichTextPreview } from "../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCard.module.css";
 
 type Initiative = Project | OperationalTask;
