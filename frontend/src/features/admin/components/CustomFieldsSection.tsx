@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
-import { useAppContext } from "../../../store";
-import { CustomFieldType } from "../../../types";
+import { useAppContext } from "../../../app/store";
+import { CustomFieldType } from "../../../shared/types";
 
 export const CustomFieldsSection = () => {
   const { customFields, addCustomField, deleteCustomField, updateCustomField } =

@@ -1,6 +1,6 @@
 import React from "react";
-import { OperationalTask, Quarter } from "../../types";
-import { InitiativeCardModal } from "../../components/initiative-modal/InitiativeCardModal";
+import { OperationalTask, Quarter } from "../../../shared/types";
+import { InitiativeCardModal } from "../../initiatives/components/InitiativeCardModal";
 
 interface Props {
   task: OperationalTask | null;

@@ -1,6 +1,6 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
-import { ScopeMergePreview } from "../../types";
+import { ScopeMergePreview } from "../../shared/types";
 
 export const ScopeMergeConfirmDialog = ({
   preview,

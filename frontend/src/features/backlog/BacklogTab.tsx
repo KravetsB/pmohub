@@ -10,8 +10,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useAppContext } from "../../store";
-import { OperationalTask, Project, Quarter } from "../../types";
+import { useAppContext } from "../../app/store";
+import { OperationalTask, Project, Quarter } from "../../shared/types";
 import { canViewInitiative, getPermissions } from "../../domain/permissions";
 import {
   getChainId,
@@ -25,10 +25,10 @@ import {
   getInitiativeStatusStyle,
 } from "../../domain/health";
 import { getPriorityBadgeStyle } from "../../domain/priority";
-import { getAvailableYears, getCurrentPeriod, isBacklogLocked } from "../../utils";
-import { BacklogModal } from "./BacklogModal";
-import { PreparationStageModal } from "./PreparationStageModal";
-import { InitiativeCardModal } from "../../components/initiative-modal/InitiativeCardModal";
+import { getAvailableYears, getCurrentPeriod, isBacklogLocked } from "../../shared/utils";
+import { BacklogModal } from "./components/BacklogModal";
+import { PreparationStageModal } from "./components/PreparationStageModal";
+import { InitiativeCardModal } from "../initiatives/components/InitiativeCardModal";
 
 type Tab = "PROJECTS" | "TASKS";
 type Initiative = Project | OperationalTask;

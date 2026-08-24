@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useAppContext } from '../../store';
-import { Project, OperationalTask, Quarter } from '../../types';
+import { useAppContext } from '../../app/store';
+import { Project, OperationalTask, Quarter } from '../../shared/types';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
-import { getComputedTotalWeight, truncateText, getAvailableYears, getCurrentQuarter } from '../../utils';
+import { getComputedTotalWeight, truncateText, getAvailableYears, getCurrentQuarter } from '../../shared/utils';
 import { getInitiativeStatus } from '../../domain/health';
 import { averageInitiativeDuration, capacityByQuarter, healthCounts, averageScopeProgress, scopeStatusCounts, sizeBreakdown, AnalyticsCard, normalizeHealthStatus } from '../../domain/analytics';
 import { getYearSnapshot } from '../../domain/initiatives';

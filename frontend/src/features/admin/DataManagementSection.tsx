@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
-import { useAppContext } from "../../store";
-import { getAvailableYears } from "../../utils";
-import { FullExportData } from "../../types";
+import { useAppContext } from "../../app/store";
+import { getAvailableYears } from "../../shared/utils";
+import { FullExportData } from "../../shared/types";
 import {
   FileSpreadsheet,
   FileJson,
@@ -51,7 +51,7 @@ export const DataManagementSection = () => {
   const handleExportExcel = async () => {
     setIsExportingExcel(true);
     try {
-      const { exportPortfolioToExcel } = await import("../../utils/excelExport");
+      const { exportPortfolioToExcel } = await import("../../shared/excelExport");
       await exportPortfolioToExcel({
         projects,
         tasks,

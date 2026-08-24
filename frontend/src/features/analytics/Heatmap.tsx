@@ -1,6 +1,6 @@
 import React from "react";
-import { useAppContext } from "../../store";
-import { Quarter, Department } from "../../types";
+import { useAppContext } from "../../app/store";
+import { Quarter, Department } from "../../shared/types";
 import { calculateDepartmentLoads } from "../../domain/capacity";
 
 interface HeatmapProps {

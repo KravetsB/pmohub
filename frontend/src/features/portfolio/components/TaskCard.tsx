@@ -1,6 +1,6 @@
 import React from "react";
-import { OperationalTask } from "../../types";
-import { InitiativeCard } from "./components/InitiativeCard";
+import { OperationalTask } from "../../../shared/types";
+import { InitiativeCard } from "./InitiativeCard";
 
 /** Backwards-compatible task-specific entry point for existing portfolio views. */
 export const TaskCard: React.FC<{

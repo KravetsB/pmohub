@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ArrowRight, Plus, Trash2, X } from "lucide-react";
-import { useAppContext } from "../../store";
+import { useAppContext } from "../../../app/store";
 import {
   ChecklistItem,
   CustomFieldDef,
@@ -9,21 +9,21 @@ import {
   Project,
   Quarter,
   ScopeMergePreview,
-} from "../../types";
+} from "../../../shared/types";
 import {
   getCurrentPeriod,
   getCurrentQuarter,
   getValidYears,
   isPeriodLocked,
   qToNum,
-} from "../../utils";
+} from "../../../shared/utils";
 import {
   makeWeightSnapshot,
   validateChecklistCapacity,
-} from "../../domain/capacity";
-import { canEditInitiative } from "../../domain/permissions";
-import { ScopeMergeConfirmDialog } from "../ui/ScopeMergeConfirmDialog";
-import { RichTextEditor } from "../ui/RichTextEditor";
+} from "../../../domain/capacity";
+import { canEditInitiative } from "../../../domain/permissions";
+import { ScopeMergeConfirmDialog } from "../../../components/ui/ScopeMergeConfirmDialog";
+import { RichTextEditor } from "../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCardModal.module.css";
 
 type Initiative = Project | OperationalTask;

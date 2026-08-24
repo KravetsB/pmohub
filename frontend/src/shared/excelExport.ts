@@ -11,8 +11,8 @@ import {
   Quarter, 
   HealthStatus,
   ChecklistItem
-} from '../types';
-import { stripHtml, calculateProgress, getComputedTotalWeight } from '../utils';
+} from './types';
+import { stripHtml, calculateProgress, getComputedTotalWeight } from './utils';
 import { materializeBacklogYear } from '../domain/initiatives';
 
 interface ExcelExportParams {

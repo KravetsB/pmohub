@@ -5,8 +5,8 @@ import {
   initialTaskWeights,
   initialTasks,
 } from './demoData';
-import { validateChecklistCapacity } from './domain/capacity';
-import { getChainId, reconcileBacklogYears } from './domain/initiatives';
+import { validateChecklistCapacity } from '../domain/capacity';
+import { getChainId, reconcileBacklogYears } from '../domain/initiatives';
 
 describe('розширений демо-набір', () => {
   it('містить валідні квартальні картки, підготовчі етапи та пов’язані річні записи', () => {

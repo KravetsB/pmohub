@@ -4,20 +4,20 @@ import {
   InitiativeSizeDef, InitiativeStatusDef, InitiativeYearSnapshot, Manager, MutationResult, OperationalTask,
   PriorityDef, Project, Quarter, RolePermissions, SavePassportCommand, ScopeMergePreview,
   TaskWeightDef, User,
-} from './types';
+} from '../shared/types';
 import {
   initialCustomFields, initialDepartments, initialInitiativeSizes, initialManagers,
   initialPriorities, initialInitiativeStatuses, initialProjects, initialRolePermissions, initialTaskWeights,
   initialTasks, initialUsers,
 } from './demoData';
-import { getInitiativeWeight, makeSizeSnapshot, makeWeightSnapshot, validateChecklistCapacity } from './domain/capacity';
+import { getInitiativeWeight, makeSizeSnapshot, makeWeightSnapshot, validateChecklistCapacity } from '../domain/capacity';
 import {
   deleteInitiative as deleteInitiativeRecord, getChainId, getYearSnapshot, makeHistory, preparationFrom,
   continueCard as continueCardRecord, moveCard as moveCardRecord, moveChecklistItem as moveChecklistItemRecord,
   passportFrom, reconcileBacklogYears,
-} from './domain/initiatives';
-import { canDeleteInitiative, canEditInitiative, getPermissions } from './domain/permissions';
-import { getCurrentPeriod, isBacklogLocked, isPeriodLocked, qToNum } from './utils';
+} from '../domain/initiatives';
+import { canDeleteInitiative, canEditInitiative, getPermissions } from '../domain/permissions';
+import { getCurrentPeriod, isBacklogLocked, isPeriodLocked, qToNum } from '../shared/utils';
 
 type InitiativeKind = 'project' | 'task';
 type Initiative = Project | OperationalTask;

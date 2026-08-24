@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppProvider, useAppContext } from '../../store';
+import { AppProvider, useAppContext } from '../../app/store';
 import { BacklogTab } from './BacklogTab';
 
 const BacklogHarness = () => {

@@ -1,15 +1,15 @@
 import { Edit2, Eye } from "lucide-react";
-import { TaskModal } from "./TaskModal";
+import { TaskModal } from "./components/TaskModal";
 import React, { useState } from "react";
 import {
   getAvailableYears,
   truncateText,
   isPeriodLocked,
   stripHtml,
-} from "../../utils";
-import { useAppContext } from "../../store";
-import { TaskCard } from "./TaskCard";
-import { OperationalTask } from "../../types";
+} from "../../shared/utils";
+import { useAppContext } from "../../app/store";
+import { TaskCard } from "./components/TaskCard";
+import { OperationalTask } from "../../shared/types";
 import { passportFrom } from "../../domain/initiatives";
 import {
   getInitiativeStatus,
@@ -47,10 +47,10 @@ export const TasksTab = () => {
         : currentMonth < 9
           ? "Q3"
           : "Q4"
-  ) as import("../../types").Quarter;
+  ) as import("../../shared/types").Quarter;
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] =
-    useState<import("../../types").Quarter>(currentQuarter);
+    useState<import("../../shared/types").Quarter>(currentQuarter);
   const isArchive = isPeriodLocked(selectedYear, selectedQuarter);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 

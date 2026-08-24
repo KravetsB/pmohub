@@ -1,7 +1,7 @@
 import React from "react";
-import { OperationalTask, Project } from "../../../types";
-import { calculateProgress, stripHtml } from "../../../utils";
-import { useAppContext } from "../../../store";
+import { OperationalTask, Project } from "../../../shared/types";
+import { calculateProgress, stripHtml } from "../../../shared/utils";
+import { useAppContext } from "../../../app/store";
 import { getInitiativeSize, getInitiativeWeight } from "../../../domain/capacity";
 import { colorWithAlpha, getPriorityBadgeStyle } from "../../../domain/priority";
 import { getInitiativeStatus } from "../../../domain/health";

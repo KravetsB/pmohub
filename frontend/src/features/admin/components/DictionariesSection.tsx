@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Trash2, Power, PowerOff, Pencil, X } from "lucide-react";
-import { useAppContext } from "../../../store";
-import { MutationResult } from "../../../types";
-import { truncateText } from "../../../utils";
+import { useAppContext } from "../../../app/store";
+import { MutationResult } from "../../../shared/types";
+import { truncateText } from "../../../shared/utils";
 import { CircularColorInput } from "./CircularColorInput";
 import styles from "./DictionariesSection.module.css";
 

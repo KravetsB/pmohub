@@ -10,7 +10,7 @@ import {
   RolePermissions,
   TaskWeightDef,
   User,
-} from './types';
+} from '../shared/types';
 
 export const initialRolePermissions: RolePermissions[] = [
   { role: 'SUPER_ADMIN', canCreateEditProjects: true, canDeleteProjects: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: true },

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Check, Copy, Power, PowerOff, Trash2, X } from "lucide-react";
-import { useAppContext } from "../../../store";
-import { UserRole } from "../../../types";
-import { generatePassword, truncateText } from "../../../utils";
+import { useAppContext } from "../../../app/store";
+import { UserRole } from "../../../shared/types";
+import { generatePassword, truncateText } from "../../../shared/utils";
 
 export const RbacSection = () => {
   const {

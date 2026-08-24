@@ -1,19 +1,19 @@
 import React, { useState } from "react";
-import { useAppContext } from "../../store";
+import { useAppContext } from "../../../app/store";
 import {
   InitiativeYearSnapshot,
   OperationalTask,
   Priority,
   Project,
   Quarter,
-} from "../../types";
+} from "../../../shared/types";
 import {
   getCurrentPeriod,
   getValidQuarters,
   isBacklogLocked,
   isPeriodLocked,
   truncateText,
-} from "../../utils";
+} from "../../../shared/utils";
 
 interface BacklogModalProps {
   onClose: () => void;

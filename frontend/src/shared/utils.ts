@@ -1,6 +1,6 @@
 import { TaskWeightDef, InitiativeSizeDef } from './types';
-import { getInitiativeWeight } from './domain/capacity';
-export { getHealthColors, getHealthLabel } from './domain/health';
+import { getInitiativeWeight } from '../domain/capacity';
+export { getHealthColors, getHealthLabel } from '../domain/health';
 
 
 export const getComputedTotalWeight = (checklist: any[] | undefined, taskWeights: TaskWeightDef[], targetYear?: number, targetQuarter?: import('./types').Quarter): number => {
