@@ -1,43 +1,41 @@
 import { Edit2, Eye } from "lucide-react";
-import { ProjectModal } from "./ProjectModal";
+import { TaskModal } from "./TaskModal";
 import React, { useState } from "react";
 import {
   getAvailableYears,
   truncateText,
   isPeriodLocked,
   stripHtml,
-} from "../utils";
-import { useAppContext } from "../store";
-import { ProjectCard } from "./ProjectCard";
-import { Project } from "../types";
-import { passportFrom } from "../domain/initiatives";
+} from "../../utils";
+import { useAppContext } from "../../store";
+import { TaskCard } from "./TaskCard";
+import { OperationalTask } from "../../types";
+import { passportFrom } from "../../domain/initiatives";
 import {
-  getHealthLabel,
-  getHealthStatusPresentation,
   getInitiativeStatus,
   getInitiativeStatusStyle,
-} from "../domain/health";
-import { getPriorityBadgeStyle, colorWithAlpha } from "../domain/priority";
-import { RichTextPreview } from "./RichTextEditor";
+} from "../../domain/health";
+import { getPriorityBadgeStyle, colorWithAlpha } from "../../domain/priority";
+import { RichTextPreview } from "../../components/RichTextEditor";
 
-export const ProjectsTab = () => {
+export const TasksTab = () => {
   const {
-    projects,
-    updateProject,
+    tasks,
+    updateTask,
     currentUser,
     customFields,
     departments,
     managers,
     priorities,
     initiativeStatuses,
-    deleteProject,
+    deleteTask,
     rolePermissions,
     savePassport,
     createBacklogWithCards,
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingTask, setEditingTask] = useState<OperationalTask | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -49,10 +47,10 @@ export const ProjectsTab = () => {
         : currentMonth < 9
           ? "Q3"
           : "Q4"
-  ) as import("../types").Quarter;
+  ) as import("../../types").Quarter;
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] =
-    useState<import("../types").Quarter>(currentQuarter);
+    useState<import("../../types").Quarter>(currentQuarter);
   const isArchive = isPeriodLocked(selectedYear, selectedQuarter);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 
@@ -61,30 +59,30 @@ export const ProjectsTab = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchGoal, setSearchGoal] = useState<string>("");
 
-  let portfolioProjects = projects.filter(
-    (p) =>
-      !p.is_backlog && p.year === selectedYear && p.quarter === selectedQuarter,
+  let portfolioTasks = tasks.filter(
+    (t) =>
+      !t.is_backlog && t.year === selectedYear && t.quarter === selectedQuarter,
   );
   if (filterManager) {
-    portfolioProjects = portfolioProjects.filter(
-      (p) => p.manager_id === filterManager,
+    portfolioTasks = portfolioTasks.filter(
+      (t) => t.manager_id === filterManager,
     );
   }
   if (filterPriority) {
-    portfolioProjects = portfolioProjects.filter(
-      (p) => p.priority === filterPriority,
+    portfolioTasks = portfolioTasks.filter(
+      (t) => t.priority === filterPriority,
     );
   }
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
-    portfolioProjects = portfolioProjects.filter((p) =>
-      p.name.toLowerCase().includes(q),
+    portfolioTasks = portfolioTasks.filter((t) =>
+      t.name.toLowerCase().includes(q),
     );
   }
   if (searchGoal) {
     const q = searchGoal.toLowerCase();
-    portfolioProjects = portfolioProjects.filter((p) => {
-      return (p.strategic_goal ?? "").toLowerCase().includes(q);
+    portfolioTasks = portfolioTasks.filter((t) => {
+      return (t.strategic_goal ?? "").toLowerCase().includes(q);
     });
   }
 
@@ -98,8 +96,8 @@ export const ProjectsTab = () => {
     : currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
   const canEdit = isArchive ? canEditArchive : canEditNormal;
 
-  const projCustomFields = (customFields || []).filter(
-    (cf) => cf.entityType === "project" && cf.showInTable,
+  const taskCustomFields = (customFields || []).filter(
+    (cf) => cf.entityType === "task" && cf.showInTable,
   );
 
   const getRowBgClass = (status?: string) => {
@@ -130,13 +128,13 @@ export const ProjectsTab = () => {
     }
   };
 
-  const openEditModal = (proj: Project) => {
-    setEditingProject(proj);
+  const openEditModal = (task: OperationalTask) => {
+    setEditingTask(task);
     setIsReadOnlyModal(!canEdit);
     setIsModalOpen(true);
   };
   const openCreateModal = () => {
-    setEditingProject(null);
+    setEditingTask(null);
     setIsReadOnlyModal(false);
     setIsModalOpen(true);
   };
@@ -181,10 +179,10 @@ export const ProjectsTab = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">
-            Портфель Проєктів
+            Портфель Операційних задач
           </h2>
           <p className="text-slate-500 mt-1 text-sm">
-            Всі проєкти обраного періоду.
+            Всі задачі обраного періоду.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
@@ -230,7 +228,7 @@ export const ProjectsTab = () => {
               onClick={openCreateModal}
               className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-sm whitespace-nowrap"
             >
-              + Додати проєкт
+              + Додати задачу
             </button>
           )}
         </div>
@@ -289,17 +287,17 @@ export const ProjectsTab = () => {
           )}
         </div>
       </div>
-      {portfolioProjects.length === 0 ? (
+      {portfolioTasks.length === 0 ? (
         <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-8 text-center">
-          <p className="text-slate-400 font-bold text-sm">Портфель порожній.</p>
+          <p className="text-slate-400 font-bold text-sm">Задачі відсутні.</p>
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          {portfolioProjects.map((p) => (
-            <div key={p.id} className="relative group h-fit">
-              <ProjectCard
-                project={p}
-                onClick={() => openEditModal(p)}
+          {portfolioTasks.map((t) => (
+            <div key={t.id} className="relative group h-fit">
+              <TaskCard
+                task={t}
+                onClick={() => openEditModal(t)}
                 hideColorPicker={!canEdit}
               />
             </div>
@@ -314,10 +312,10 @@ export const ProjectsTab = () => {
                   Менеджер
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-80 min-w-[260px]">
-                  Назва проєкту
+                  Назва задачі
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-48">
-                  Статус проєкту
+                  Статус задачі
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-52">
                   Стратегічна задача
@@ -337,7 +335,7 @@ export const ProjectsTab = () => {
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-52">
                   Примітки
                 </th>
-                {projCustomFields.map((cf) => (
+                {taskCustomFields.map((cf) => (
                   <th
                     key={cf.id}
                     className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-40 truncate"
@@ -350,21 +348,21 @@ export const ProjectsTab = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {portfolioProjects.map((p) => {
-                const status = p.health_status || "DEFAULT";
+              {portfolioTasks.map((t) => {
+                const status = t.health_status || "DEFAULT";
                 const statusPresentation = getInitiativeStatus(
                   status,
                   initiativeStatuses,
                 );
                 const managerName =
-                  managers?.find((m) => m.id === p.manager_id)?.name || "—";
-                const goalName = p.strategic_goal || "—";
+                  managers?.find((m) => m.id === t.manager_id)?.name || "—";
+                const goalName = t.strategic_goal || "—";
                 const priority = priorities?.find(
-                  (item) => item.id === p.priority,
+                  (item) => item.id === t.priority,
                 );
                 return (
                   <tr
-                    key={p.id}
+                    key={t.id}
                     className="transition-colors border-b border-slate-100/80"
                     style={{
                       backgroundColor: colorWithAlpha(
@@ -385,13 +383,13 @@ export const ProjectsTab = () => {
                       <div className="min-w-0">
                         <span
                           className="block font-bold text-slate-800 break-words line-clamp-2 hover:line-clamp-none transition-all cursor-pointer hover:text-indigo-600 leading-snug"
-                          title={p.name}
-                          onClick={() => openEditModal(p)}
+                          title={t.name}
+                          onClick={() => openEditModal(t)}
                         >
-                          {p.name}
+                          {t.name}
                         </span>
                         <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          {p.id}
+                          {t.id}
                         </div>
                       </div>
                     </td>
@@ -421,7 +419,7 @@ export const ProjectsTab = () => {
                                   key={item.id}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    updateProject(p.id, {
+                                    updateTask(t.id, {
                                       health_status: item.id,
                                     });
                                   }}
@@ -453,24 +451,26 @@ export const ProjectsTab = () => {
                       <span
                         className="inline-flex w-32 justify-center truncate rounded-full border px-2.5 py-1 text-xs font-bold"
                         style={getPriorityBadgeStyle(
-                          priority?.id ?? p.priority,
+                          priority?.id ?? t.priority,
                           priorities,
                         )}
-                        title={priority?.name ?? p.priority ?? "Не обрано"}
+                        title={priority?.name ?? t.priority ?? "Не обрано"}
                       >
-                        {priority?.name ?? p.priority ?? "—"}
+                        {priority?.name ?? t.priority ?? "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3 min-w-0">
                       <div className="flex flex-wrap gap-1 max-w-full">
                         {Array.from(
                           new Set(
-                            (p.checklist ?? []).flatMap(
+                            (t.checklist ?? []).flatMap(
                               (item) => item.implementer_dept_ids ?? [],
                             ),
                           ),
                         ).map((id) => {
-                          const d = departments.find((dep) => dep.id === id);
+                          const d = (departments || []).find(
+                            (dep) => dep.id === id,
+                          );
                           if (!d) return null;
                           return (
                             <span
@@ -482,15 +482,17 @@ export const ProjectsTab = () => {
                             </span>
                           );
                         })}
-                        {!(p.checklist ?? []).some(
+                        {!(t.checklist ?? []).some(
                           (item) => item.implementer_dept_ids?.length,
                         ) && <span className="text-slate-400 text-xs">—</span>}
                       </div>
                     </td>
                     <td className="px-4 py-3 min-w-0">
                       <div className="flex flex-wrap gap-1 max-w-full">
-                        {(p.cross_functional_dept_ids || []).map((id) => {
-                          const d = departments.find((dep) => dep.id === id);
+                        {(t.cross_functional_dept_ids || []).map((id) => {
+                          const d = (departments || []).find(
+                            (dep) => dep.id === id,
+                          );
                           if (!d) return null;
                           return (
                             <span
@@ -502,16 +504,16 @@ export const ProjectsTab = () => {
                             </span>
                           );
                         })}
-                        {(!p.cross_functional_dept_ids ||
-                          p.cross_functional_dept_ids.length === 0) && (
+                        {(!t.cross_functional_dept_ids ||
+                          t.cross_functional_dept_ids.length === 0) && (
                           <span className="text-slate-400 text-xs">—</span>
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3 min-w-0">
-                      {p.checklist && p.checklist.length > 0 ? (
+                      {t.checklist && t.checklist.length > 0 ? (
                         <ul className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-1">
-                          {p.checklist.map((c) => (
+                          {t.checklist.map((c) => (
                             <li
                               key={c.id}
                               className="text-xs flex items-start gap-1.5 text-slate-700"
@@ -542,29 +544,29 @@ export const ProjectsTab = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 min-w-0">
-                      {p.notes ? (
+                      {t.notes ? (
                         <RichTextPreview
-                          value={p.notes}
-                          title={stripHtml(p.notes)}
+                          value={t.notes}
+                          title={stripHtml(t.notes)}
                           className="rich-text-card-preview transition-all"
                         />
                       ) : (
                         "—"
                       )}
                     </td>
-                    {projCustomFields.map((cf) => (
+                    {taskCustomFields.map((cf) => (
                       <td
                         key={cf.id}
                         className="px-4 py-3 text-xs text-slate-700 min-w-0"
                       >
                         <span
                           className="block break-words line-clamp-2 hover:line-clamp-none transition-all"
-                          title={String(p.custom_fields?.[cf.id] ?? "")}
+                          title={String(t.custom_fields?.[cf.id] ?? "")}
                         >
-                          {p.custom_fields?.[cf.id] !== undefined &&
-                          p.custom_fields?.[cf.id] !== null &&
-                          p.custom_fields?.[cf.id] !== ""
-                            ? String(p.custom_fields[cf.id])
+                          {t.custom_fields?.[cf.id] !== undefined &&
+                          t.custom_fields?.[cf.id] !== null &&
+                          t.custom_fields?.[cf.id] !== ""
+                            ? String(t.custom_fields[cf.id])
                             : "—"}
                         </span>
                       </td>
@@ -573,7 +575,7 @@ export const ProjectsTab = () => {
                       className={`px-4 py-3 whitespace-nowrap text-right sticky right-0 ${getStickyBgClass(status)} shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]`}
                     >
                       <button
-                        onClick={() => openEditModal(p)}
+                        onClick={() => openEditModal(t)}
                         className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors bg-white rounded shadow-sm border border-slate-200"
                         title={!canEdit ? "Переглянути" : "Редагувати"}
                       >
@@ -589,29 +591,29 @@ export const ProjectsTab = () => {
       )}
 
       {isModalOpen && (
-        <ProjectModal
-          project={editingProject}
+        <TaskModal
+          task={editingTask}
           defaultYear={selectedYear}
           defaultQuarter={selectedQuarter}
           isReadOnly={isReadOnlyModal}
           onClose={() => setIsModalOpen(false)}
-          onSave={(proj, syncTargets) => {
-            if (editingProject) {
+          onSave={(t, syncTargets) => {
+            if (editingTask) {
               const backlogYears = (syncTargets ?? [])
                 .filter((id) => id.startsWith("BACKLOG_YEAR:"))
                 .map((id) => Number(id.split(":")[1]));
-              if ((syncTargets ?? []).includes(editingProject.backlog_id ?? ""))
-                backlogYears.push(editingProject.year);
+              if ((syncTargets ?? []).includes(editingTask.backlog_id ?? ""))
+                backlogYears.push(editingTask.year);
               const cardIds = (syncTargets ?? []).filter((id) =>
-                projects.some((card) => !card.is_backlog && card.id === id),
+                tasks.some((card) => !card.is_backlog && card.id === id),
               );
               const result = savePassport({
-                kind: "project",
-                source: { type: "card", cardId: editingProject.id },
-                passportPatch: passportFrom(proj),
+                kind: "task",
+                source: { type: "card", cardId: editingTask.id },
+                passportPatch: passportFrom(t),
                 sourceCardPatch: {
-                  checklist: proj.checklist,
-                  health_status: proj.health_status,
+                  checklist: t.checklist,
+                  health_status: t.health_status,
                 },
                 targets: { backlogYears, cardIds },
               });
@@ -621,24 +623,24 @@ export const ProjectsTab = () => {
               }
             } else {
               const master = {
-                ...proj,
+                ...t,
                 is_backlog: true,
                 backlog_id: undefined,
                 checklist: [],
                 quarter: "Q1" as const,
                 yearSnapshots: {
-                  [String(proj.year)]: {
-                    ...passportFrom(proj),
-                    year: proj.year,
+                  [String(t.year)]: {
+                    ...passportFrom(t),
+                    year: t.year,
                     history: [],
                   },
                 },
               };
               const result = createBacklogWithCards(
-                "project",
+                "task",
                 master,
-                [proj.quarter],
-                proj.checklist,
+                [t.quarter],
+                t.checklist,
               );
               if (!result.success) {
                 alert(result.message);
@@ -648,7 +650,7 @@ export const ProjectsTab = () => {
             setIsModalOpen(false);
           }}
           onDelete={(id) => {
-            const result = deleteProject(id);
+            const result = deleteTask(id);
             if (!result.success) {
               alert(result.message);
               return;

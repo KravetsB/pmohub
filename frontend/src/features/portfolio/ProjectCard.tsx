@@ -1,6 +1,6 @@
 import React from 'react';
-import { Project } from '../types';
-import { InitiativeCard } from './portfolio/InitiativeCard';
+import { Project } from '../../types';
+import { InitiativeCard } from './components/InitiativeCard';
 
 /** Backwards-compatible project-specific entry point for existing portfolio views. */
 export const ProjectCard: React.FC<{ project: Project; onClick?: () => void; hideColorPicker?: boolean; isBacklogView?: boolean }> = ({ project, onClick, hideColorPicker, isBacklogView }) => (

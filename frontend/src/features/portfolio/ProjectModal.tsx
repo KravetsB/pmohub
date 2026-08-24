@@ -1,12 +1,12 @@
 import React from "react";
-import { OperationalTask, Quarter } from "../types";
-import { InitiativeCardModal } from "./initiative-modal/InitiativeCardModal";
+import { Project, Quarter } from "../../types";
+import { InitiativeCardModal } from "../../components/initiative-modal/InitiativeCardModal";
 
 interface Props {
-  task: OperationalTask | null;
+  project: Project | null;
   onClose: () => void;
   onSave: (
-    task: OperationalTask,
+    project: Project,
     syncTargets?: string[],
     initialQuarters?: Quarter[],
   ) => void;
@@ -17,12 +17,12 @@ interface Props {
   defaultIsBacklog?: boolean;
 }
 
-export const TaskModal = (props: Props) => (
+export const ProjectModal = (props: Props) => (
   <InitiativeCardModal
-    kind="task"
-    item={props.task}
+    kind="project"
+    item={props.project}
     onClose={props.onClose}
-    onSave={(item, targets) => props.onSave(item as OperationalTask, targets)}
+    onSave={(item, targets) => props.onSave(item as Project, targets)}
     onDelete={props.onDelete}
     isReadOnly={props.isReadOnly}
     defaultYear={props.defaultYear}
