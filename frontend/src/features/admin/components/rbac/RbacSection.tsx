@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Check, Copy, Power, PowerOff, Trash2, X } from "lucide-react";
-import { useAppContext } from "../../../app/store";
-import { UserRole } from "../../../shared/types";
-import { generatePassword, truncateText } from "../../../shared/utils";
+import { useAppContext } from "../../../../app/store";
+import { UserRole } from "../../../../shared/types";
+import { generatePassword, truncateText } from "../../../../shared/utils";
+import styles from "./RbacSection.module.css";
 
 export const RbacSection = () => {
   const {
@@ -55,47 +56,32 @@ export const RbacSection = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className={styles.section}>
       <div>
-        <h3 className="font-bold text-slate-800 mb-4">Матриця прав доступу</h3>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto max-w-full min-w-0">
-          <table className="min-w-full divide-y divide-slate-200 text-sm table-fixed w-full min-w-full">
-            <thead className="bg-slate-50">
+        <h3 className={styles.sectionTitle}>Матриця прав доступу</h3>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Роль
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Read-Only
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Створення/Редагування
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Видалення
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Доступ до Адмін
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Редагування архіву
-                </th>
+                <th>Роль</th>
+                <th className={styles.headerCenter}>Read-Only</th>
+                <th className={styles.headerCenter}>Створення/Редагування</th>
+                <th className={styles.headerCenter}>Видалення</th>
+                <th className={styles.headerCenter}>Доступ до Адмін</th>
+                <th className={styles.headerCenter}>Редагування архіву</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
+            <tbody>
               {rolePermissions.map((rp) => (
-                <tr
-                  key={rp.role}
-                  className="hover:bg-slate-50 transition-colors"
-                >
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 font-bold text-slate-800">
+                <tr key={rp.role}>
+                  <td className={styles.strong}>
                     {rp.role === "SUPER_ADMIN"
                       ? "Супер адмін (SUPER_ADMIN)"
                       : rp.role === "ADMIN"
                         ? "Адміністратор (ADMIN)"
                         : "Користувач (USER)"}
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className={styles.center}>
                     <input
                       type="checkbox"
                       checked={rp.isReadOnly}
@@ -104,10 +90,10 @@ export const RbacSection = () => {
                           isReadOnly: e.target.checked,
                         })
                       }
-                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                      className={styles.checkbox}
                     />
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className={styles.center}>
                     <input
                       type="checkbox"
                       checked={rp.canCreateEditProjects}
@@ -116,10 +102,10 @@ export const RbacSection = () => {
                           canCreateEditProjects: e.target.checked,
                         })
                       }
-                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                      className={styles.checkbox}
                     />
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className={styles.center}>
                     <input
                       type="checkbox"
                       checked={rp.canDeleteProjects}
@@ -128,10 +114,10 @@ export const RbacSection = () => {
                           canDeleteProjects: e.target.checked,
                         })
                       }
-                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                      className={styles.checkbox}
                     />
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className={styles.center}>
                     <input
                       type="checkbox"
                       checked={rp.canAccessAdmin}
@@ -140,10 +126,10 @@ export const RbacSection = () => {
                           canAccessAdmin: e.target.checked,
                         })
                       }
-                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                      className={styles.checkbox}
                     />
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className={styles.center}>
                     <input
                       type="checkbox"
                       checked={rp.canEditArchive ?? false}
@@ -152,7 +138,7 @@ export const RbacSection = () => {
                           canEditArchive: e.target.checked,
                         })
                       }
-                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                      className={styles.checkbox}
                     />
                   </td>
                 </tr>
@@ -163,52 +149,37 @@ export const RbacSection = () => {
       </div>
 
       <div>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-slate-800">Користувачі системи</h3>
+        <div className={styles.sectionHeader}>
+          <h3 className={styles.sectionTitle}>Користувачі системи</h3>
           <button
             onClick={() => setIsAddUserModalOpen(true)}
-            className="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
+            className={styles.addUserButton}
           >
             + Додати користувача
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto max-w-full min-w-0">
-          <table className="min-w-full divide-y divide-slate-200 text-sm table-fixed w-full min-w-full">
-            <thead className="bg-slate-50">
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  ПІБ
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Ел. пошта
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Департамент
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Роль
-                </th>
-                <th className="px-6 py-4 text-right"></th>
+                <th>ПІБ</th>
+                <th>Ел. пошта</th>
+                <th>Департамент</th>
+                <th>Роль</th>
+                <th className={styles.headerRight}></th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
+            <tbody>
               {(users || []).map((user) => (
-                <tr
-                  key={user.id}
-                  className="hover:bg-slate-50 transition-colors"
-                >
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 font-bold text-slate-800">
-                    {user.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-600">
-                    {user.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-600">
+                <tr key={user.id}>
+                  <td className={styles.strong}>{user.name}</td>
+                  <td className={styles.tableCell}>{user.email}</td>
+                  <td className={styles.tableCell}>
                     {departments.find((d) => d.id === user.departmentId)
                       ?.name || "—"}
                   </td>
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0">
+                  <td className={styles.tableCell}>
                     <select
                       value={user.role}
                       onChange={(e) =>
@@ -216,7 +187,7 @@ export const RbacSection = () => {
                           role: e.target.value as UserRole,
                         })
                       }
-                      className="border border-slate-300 rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-xs font-bold truncate"
+                      className={styles.roleSelect}
                     >
                       <option value="SUPER_ADMIN">
                         Супер адмін (SUPER_ADMIN)
@@ -225,7 +196,7 @@ export const RbacSection = () => {
                       <option value="USER">Користувач (USER)</option>
                     </select>
                   </td>
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-right">
+                  <td className={styles.tableCellRight}>
                     <button
                       onClick={() =>
                         setDeleteConfirm({
@@ -234,7 +205,7 @@ export const RbacSection = () => {
                           onConfirm: () => deleteUser(user.id),
                         })
                       }
-                      className="text-slate-400 hover:text-rose-500 transition-colors"
+                      className={styles.iconButton}
                       title="Видалити"
                     >
                       <Trash2 size={16} />
@@ -248,27 +219,23 @@ export const RbacSection = () => {
       </div>
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-md my-auto shadow-2xl border border-slate-200 p-6 flex flex-col">
-            <div className="flex items-center gap-3 text-rose-600 mb-3">
-              <div className="p-2.5 bg-rose-100 rounded-xl">
+        <div className={styles.backdrop}>
+          <div className={styles.dialog}>
+            <div className={styles.dialogLead}>
+              <div className={styles.dangerIcon}>
                 <Trash2 size={24} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
-                Підтвердження видалення
-              </h3>
+              <h3 className={styles.dialogTitle}>Підтвердження видалення</h3>
             </div>
-            <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+            <p className={styles.dialogDescription}>
               Ви дійсно бажаєте видалити користувача{" "}
-              <span className="font-bold text-slate-800">
-                «{deleteConfirm.name}»
-              </span>
-              ? Цю дію неможливо скасувати.
+              <span className={styles.emphasis}>«{deleteConfirm.name}»</span>?
+              Цю дію неможливо скасувати.
             </p>
-            <div className="flex justify-end gap-3 mt-auto">
+            <div className={styles.dialogActions}>
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors"
+                className={styles.cancelButton}
               >
                 Скасувати
               </button>
@@ -277,7 +244,7 @@ export const RbacSection = () => {
                   deleteConfirm.onConfirm();
                   setDeleteConfirm(null);
                 }}
-                className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 rounded-lg font-bold transition-colors shadow-sm"
+                className={styles.dangerButton}
               >
                 Видалити
               </button>
@@ -287,35 +254,28 @@ export const RbacSection = () => {
       )}
 
       {isAddUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] my-auto shadow-xl border border-slate-200 flex flex-col p-6 overflow-y-auto">
-            <h3 className="text-xl font-bold text-slate-900 mb-6">
+        <div className={styles.backdrop}>
+          <div className={`${styles.dialog} ${styles.dialogTall}`}>
+            <h3 className={styles.newUserTitle}>
               {generatedPassword ? "Користувача створено" : "Новий користувач"}
             </h3>
 
             {generatedPassword ? (
-              <div className="space-y-4">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-emerald-800 text-sm">
-                  Користувач{" "}
-                  <strong className="font-bold">{newUserName}</strong> успішно
-                  доданий до системи. Передайте йому ці дані для входу:
+              <div className={styles.formStack}>
+                <div className={styles.successMessage}>
+                  Користувач <strong>{newUserName}</strong> успішно доданий до
+                  системи. Передайте йому ці дані для входу:
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Ел. пошта
-                  </label>
-                  <div className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 text-slate-800 font-medium">
-                    {newUserEmail}
-                  </div>
+                  <label className={styles.fieldLabel}>Ел. пошта</label>
+                  <div className={styles.valueBox}>{newUserEmail}</div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Тимчасовий пароль
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 text-slate-900 font-mono tracking-wider font-bold">
+                  <label className={styles.fieldLabel}>Тимчасовий пароль</label>
+                  <div className={styles.passwordRow}>
+                    <div className={`${styles.valueBox} ${styles.passwordBox}`}>
                       {generatedPassword}
                     </div>
                     <button
@@ -324,7 +284,7 @@ export const RbacSection = () => {
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
-                      className="p-2.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 transition-colors"
+                      className={styles.copyButton}
                       title="Скопіювати пароль"
                     >
                       {copied ? <Check size={20} /> : <Copy size={20} />}
@@ -332,7 +292,7 @@ export const RbacSection = () => {
                   </div>
                 </div>
 
-                <div className="mt-8 flex justify-end">
+                <div className={styles.dialogActions}>
                   <button
                     onClick={() => {
                       setIsAddUserModalOpen(false);
@@ -341,7 +301,7 @@ export const RbacSection = () => {
                       setNewUserDept("");
                       setGeneratedPassword("");
                     }}
-                    className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-lg font-bold transition-colors w-full shadow-sm"
+                    className={styles.closeButton}
                   >
                     Закрити
                   </button>
@@ -349,9 +309,9 @@ export const RbacSection = () => {
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <div className={styles.formStack}>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className={styles.fieldLabel}>
                       Ім'я та Прізвище
                     </label>
                     <input
@@ -361,13 +321,11 @@ export const RbacSection = () => {
                         setNewUserName(e.target.value);
                         setError("");
                       }}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className={styles.input}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Ел. пошта
-                    </label>
+                    <label className={styles.fieldLabel}>Ел. пошта</label>
                     <input
                       type="email"
                       value={newUserEmail}
@@ -375,20 +333,18 @@ export const RbacSection = () => {
                         setNewUserEmail(e.target.value);
                         setError("");
                       }}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className={styles.input}
                     />
                   </div>
-                  <div className="min-w-0">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Департамент
-                    </label>
+                  <div>
+                    <label className={styles.fieldLabel}>Департамент</label>
                     <select
                       value={newUserDept}
                       onChange={(e) => {
                         setNewUserDept(e.target.value);
                         setError("");
                       }}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate"
+                      className={styles.select}
                     >
                       <option value="">Оберіть департамент</option>
                       {(departments || []).map((d) => (
@@ -398,16 +354,14 @@ export const RbacSection = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="min-w-0">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Роль
-                    </label>
+                  <div>
+                    <label className={styles.fieldLabel}>Роль</label>
                     <select
                       value={newUserRole}
                       onChange={(e) =>
                         setNewUserRole(e.target.value as UserRole)
                       }
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate"
+                      className={styles.select}
                     >
                       <option value="SUPER_ADMIN">
                         Супер адмін (SUPER_ADMIN)
@@ -418,13 +372,9 @@ export const RbacSection = () => {
                   </div>
                 </div>
 
-                {error && (
-                  <p className="text-rose-600 text-sm mt-4 font-medium">
-                    {error}
-                  </p>
-                )}
+                {error && <p className={styles.formError}>{error}</p>}
 
-                <div className="mt-8 flex justify-end gap-3">
+                <div className={styles.dialogActions}>
                   <button
                     onClick={() => {
                       setIsAddUserModalOpen(false);
@@ -434,13 +384,13 @@ export const RbacSection = () => {
                       setNewUserDept("");
                       setGeneratedPassword("");
                     }}
-                    className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors"
+                    className={styles.cancelButton}
                   >
                     Скасувати
                   </button>
                   <button
                     onClick={handleAddUser}
-                    className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold transition-colors shadow-sm"
+                    className={styles.primaryButton}
                   >
                     Додати
                   </button>

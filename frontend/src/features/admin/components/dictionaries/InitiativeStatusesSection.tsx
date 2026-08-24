@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAppContext } from "../../../../app/store";
-import { CircularColorInput } from "../CircularColorInput";
+import { CircularColorInput } from "./CircularColorInput";
 import { ProtectedDelete } from "./DepartmentsSection";
 import styles from "./DictionariesSection.module.css";
 import table from "./DictionaryTable.module.css";

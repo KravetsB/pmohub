@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
-import { useAppContext } from "../../../app/store";
-import { CustomFieldType } from "../../../shared/types";
+import { useAppContext } from "../../../../app/store";
+import { CustomFieldType } from "../../../../shared/types";
+import styles from "./CustomFieldsSection.module.css";
 
 export const CustomFieldsSection = () => {
   const { customFields, addCustomField, deleteCustomField, updateCustomField } =
@@ -86,45 +87,39 @@ export const CustomFieldsSection = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
-        <h3 className="font-bold text-slate-800 mb-4">Створити нове поле</h3>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+    <div className={styles.section}>
+      <div className={styles.createPanel}>
+        <h3 className={styles.sectionTitle}>Створити нове поле</h3>
+        <div className={styles.formGrid}>
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Назва поля
-            </label>
+            <label className={styles.fieldLabel}>Назва поля</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+              className={styles.input}
               placeholder="напр. Бюджет"
             />
           </div>
-          <div className="min-w-0">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Тип сутності
-            </label>
+          <div className={styles.formField}>
+            <label className={styles.fieldLabel}>Тип сутності</label>
             <select
               value={entityType}
               onChange={(e) =>
                 setEntityType(e.target.value as "project" | "task")
               }
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate"
+              className={styles.select}
             >
               <option value="project">Проєкт</option>
               <option value="task">Операційна задача</option>
             </select>
           </div>
-          <div className="min-w-0">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Тип даних
-            </label>
+          <div className={styles.formField}>
+            <label className={styles.fieldLabel}>Тип даних</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as CustomFieldType)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate"
+              className={styles.select}
             >
               <option value="TEXT">Текст</option>
               <option value="NUMBER">Число</option>
@@ -133,113 +128,98 @@ export const CustomFieldsSection = () => {
               <option value="RICHTEXT">Текст з форматуванням (Примітки)</option>
             </select>
           </div>
-          <div className="flex flex-col justify-end">
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer mb-2">
+          <div className={styles.optionToggles}>
+            <label className={styles.checkLabel}>
               <input
                 type="checkbox"
                 checked={showInTable}
                 onChange={(e) => setShowInTable(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                className={styles.checkbox}
               />
               Показувати в таблиці
             </label>
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer mb-2">
+            <label className={styles.checkLabel}>
               <input
                 type="checkbox"
                 checked={showInCards}
                 onChange={(e) => setShowInCards(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                className={styles.checkbox}
               />
               Показувати в картках
             </label>
           </div>
         </div>
         {type === "SELECT" && (
-          <div className="mb-4">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Варіанти (через кому)
-            </label>
+          <div className={styles.formField}>
+            <label className={styles.fieldLabel}>Варіанти (через кому)</label>
             <input
               type="text"
               value={optionsStr}
               onChange={(e) => setOptionsStr(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+              className={styles.input}
               placeholder="Option 1, Option 2"
             />
           </div>
         )}
-        <button
-          onClick={handleAdd}
-          className="bg-indigo-500 text-white font-bold px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
-        >
+        <button onClick={handleAdd} className={styles.addButton}>
           Додати поле
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto max-w-full min-w-0">
-        <table className="min-w-full divide-y divide-slate-200 text-sm table-fixed w-full min-w-full">
-          <thead className="bg-slate-50">
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                Назва
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                Сутність
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                Тип
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                Відображення
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                Статус
-              </th>
-              <th aria-label="Дії" className="w-32 py-4 pl-2 pr-3" />
+              <th>Назва</th>
+              <th>Сутність</th>
+              <th>Тип</th>
+              <th>Відображення</th>
+              <th>Статус</th>
+              <th aria-label="Дії" className={styles.headerActions} />
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-slate-100">
+          <tbody>
             {customFields.map((cf) => (
-              <tr key={cf.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4 whitespace-normal break-words min-w-0 font-bold text-slate-800">
-                  {cf.name}
-                </td>
-                <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500">
+              <tr key={cf.id}>
+                <td className={styles.strong}>{cf.name}</td>
+                <td>
                   {cf.entityType === "project" ? "Проєкт" : "Операційна задача"}
                 </td>
-                <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500">
+                <td>
                   {cf.type}{" "}
                   {cf.type === "SELECT" && (
-                    <span className="text-xs">({cf.options?.join(", ")})</span>
+                    <span className={styles.smallText}>
+                      ({cf.options?.join(", ")})
+                    </span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500 text-xs space-y-1">
+                <td className={styles.displayCell}>
                   {cf.showInTable && (
                     <div>
-                      <span className="font-bold">Таблиця:</span> Так
+                      <span className={styles.emphasis}>Таблиця:</span> Так
                     </div>
                   )}
                   {cf.showInCards && (
                     <div>
-                      <span className="font-bold">Картки:</span> Так
+                      <span className={styles.emphasis}>Картки:</span> Так
                     </div>
                   )}
                   {!cf.showInTable && !cf.showInCards && (
-                    <div className="text-slate-400">Тільки в модалці</div>
+                    <div className={styles.emptyDisplay}>Тільки в модалці</div>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-normal break-words min-w-0">
+                <td>
                   <span
-                    className={`px-2 py-1 rounded text-xs font-bold uppercase ${cf.isActive !== false ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
+                    className={`${styles.status} ${cf.isActive !== false ? styles.statusActive : styles.statusInactive}`}
                   >
                     {cf.isActive !== false ? "Активно" : "Деактивовано"}
                   </span>
                 </td>
-                <td className="w-32 px-3 py-4 whitespace-nowrap text-right">
-                  <div className="flex items-center justify-end gap-3">
+                <td className={styles.actionsCell}>
+                  <div className={styles.rowActions}>
                     <button
                       onClick={() => openEdit(cf)}
-                      className="text-slate-400 transition-colors hover:text-indigo-600"
+                      className={styles.iconButton}
                       title="Редагувати поле"
                     >
                       <Pencil size={16} />
@@ -250,7 +230,7 @@ export const CustomFieldsSection = () => {
                           isActive: cf.isActive === false ? true : false,
                         })
                       }
-                      className={`text-slate-400 transition-colors ${cf.isActive !== false ? "hover:text-amber-500" : "hover:text-emerald-500"}`}
+                      className={`${styles.iconButton} ${cf.isActive !== false ? styles.deactivate : styles.activate}`}
                       title={
                         cf.isActive !== false ? "Деактивувати" : "Активувати"
                       }
@@ -269,7 +249,7 @@ export const CustomFieldsSection = () => {
                           onConfirm: () => deleteCustomField(cf.id),
                         })
                       }
-                      className="text-slate-400 hover:text-rose-500 transition-colors"
+                      className={`${styles.iconButton} ${styles.deleteButton}`}
                       title="Видалити"
                     >
                       <Trash2 size={16} />
@@ -280,10 +260,7 @@ export const CustomFieldsSection = () => {
             ))}
             {customFields.length === 0 && (
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-6 py-8 text-center text-slate-400 font-medium"
-                >
+                <td colSpan={6} className={styles.emptyState}>
                   Немає кастомних полів
                 </td>
               </tr>
@@ -293,45 +270,43 @@ export const CustomFieldsSection = () => {
       </div>
 
       {editingField && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-3 backdrop-blur-sm sm:p-6">
-          <div className="my-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-start justify-between gap-4">
+        <div className={styles.backdrop}>
+          <div className={styles.dialog}>
+            <div className={styles.dialogHeader}>
               <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  Редагування поля
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
+                <h3 className={styles.dialogTitle}>Редагування поля</h3>
+                <p className={styles.dialogHelp}>
                   Зміни застосуються до нових і наявних форм.
                 </p>
               </div>
               <button
                 onClick={() => setEditingField(null)}
                 aria-label="Закрити"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className={styles.closeButton}
               >
                 <X size={22} />
               </button>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-bold text-slate-700 sm:col-span-2">
+            <div className={styles.dialogGrid}>
+              <label className={`${styles.dialogLabel} ${styles.spanTwo}`}>
                 Назва поля
                 <input
                   value={editName}
                   onChange={(event) => setEditName(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                  className={styles.dialogInput}
                 />
               </label>
-              <div className="block text-sm font-bold text-slate-700">
+              <div className={styles.dialogLabel}>
                 Тип сутності
-                <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-500">
+                <div className={styles.readOnlyValue}>
                   {editEntityType === "project"
                     ? "Проєкт"
                     : "Операційна задача"}
                 </div>
               </div>
-              <div className="block text-sm font-bold text-slate-700">
+              <div className={styles.dialogLabel}>
                 Тип даних
-                <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-500">
+                <div className={styles.readOnlyValue}>
                   {editType === "TEXT"
                     ? "Текст"
                     : editType === "NUMBER"
@@ -344,18 +319,18 @@ export const CustomFieldsSection = () => {
                 </div>
               </div>
               {editType === "SELECT" && (
-                <label className="block text-sm font-bold text-slate-700 sm:col-span-2">
+                <label className={`${styles.dialogLabel} ${styles.spanTwo}`}>
                   Значення списку (через кому)
                   <input
                     value={editOptions}
                     onChange={(event) => setEditOptions(event.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                    className={styles.dialogInput}
                     placeholder="Варіант 1, Варіант 2"
                   />
                 </label>
               )}
-              <div className="space-y-2 text-sm font-bold text-slate-700 sm:col-span-2">
-                <label className="flex items-center gap-2">
+              <div className={`${styles.dialogChecks} ${styles.spanTwo}`}>
+                <label>
                   <input
                     type="checkbox"
                     checked={editShowInTable}
@@ -365,7 +340,7 @@ export const CustomFieldsSection = () => {
                   />
                   Показувати в таблиці
                 </label>
-                <label className="flex items-center gap-2">
+                <label>
                   <input
                     type="checkbox"
                     checked={editShowInCards}
@@ -377,17 +352,17 @@ export const CustomFieldsSection = () => {
                 </label>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className={styles.dialogFooter}>
               <button
                 onClick={() => setEditingField(null)}
-                className="rounded-lg px-4 py-2 font-bold text-slate-600 hover:bg-slate-100"
+                className={styles.cancelButton}
               >
                 Скасувати
               </button>
               <button
                 onClick={saveEdit}
                 disabled={!editName.trim()}
-                className="rounded-lg bg-indigo-600 px-5 py-2 font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className={styles.saveButton}
               >
                 Зберегти зміни
               </button>
@@ -397,27 +372,23 @@ export const CustomFieldsSection = () => {
       )}
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-md my-auto shadow-2xl border border-slate-200 p-6 flex flex-col">
-            <div className="flex items-center gap-3 text-rose-600 mb-3">
-              <div className="p-2.5 bg-rose-100 rounded-xl">
+        <div className={styles.backdrop}>
+          <div className={`${styles.dialog} ${styles.deleteDialog}`}>
+            <div className={styles.dangerLead}>
+              <div className={styles.dangerIcon}>
                 <Trash2 size={24} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
-                Підтвердження видалення
-              </h3>
+              <h3 className={styles.dialogTitle}>Підтвердження видалення</h3>
             </div>
-            <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+            <p className={styles.dangerDescription}>
               Ви дійсно бажаєте видалити кастомне поле{" "}
-              <span className="font-bold text-slate-800">
-                «{deleteConfirm.name}»
-              </span>
-              ? Цю дію неможливо скасувати.
+              <span className={styles.emphasis}>«{deleteConfirm.name}»</span>?
+              Цю дію неможливо скасувати.
             </p>
-            <div className="flex justify-end gap-3 mt-auto">
+            <div className={styles.dialogFooter}>
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors"
+                className={styles.cancelButton}
               >
                 Скасувати
               </button>
@@ -426,7 +397,7 @@ export const CustomFieldsSection = () => {
                   deleteConfirm.onConfirm();
                   setDeleteConfirm(null);
                 }}
-                className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 rounded-lg font-bold transition-colors shadow-sm"
+                className={styles.dangerButton}
               >
                 Видалити
               </button>

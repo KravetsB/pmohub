@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { BookOpen, FileSpreadsheet, ShieldCheck, Sliders } from "lucide-react";
 import { DictionariesSection } from "./components/dictionaries/DictionariesSection";
-import { RbacSection } from "./components/RbacSection";
-import { CustomFieldsSection } from "./components/CustomFieldsSection";
-import styles from "./components/AdminTab.module.css";
+import { RbacSection } from "./components/rbac/RbacSection";
+import { CustomFieldsSection } from "./components/custom-fields/CustomFieldsSection";
+import styles from "./AdminTab.module.css";
 
 const DataManagementSection = React.lazy(() =>
-  import("./DataManagementSection").then((module) => ({
+  import("./components/DataManagementSection").then((module) => ({
     default: module.DataManagementSection,
   })),
 );
