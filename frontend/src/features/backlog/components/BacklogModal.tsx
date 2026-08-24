@@ -14,6 +14,7 @@ import {
   isPeriodLocked,
   truncateText,
 } from "../../../shared/utils";
+import styles from "./BacklogModals.module.css";
 
 interface BacklogModalProps {
   onClose: () => void;
@@ -153,10 +154,10 @@ export const BacklogModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-[780px] max-h-[96vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden">
-        <div className="flex justify-between items-center gap-4 px-6 py-5 border-b border-slate-100">
-          <h2 className="text-[20px] font-extrabold text-slate-800">
+    <div className={styles.backdrop}>
+      <div className={styles.backlogModal}>
+        <div className={styles.modalHeader}>
+          <h2 className={styles.modalTitle}>
             {editItem
               ? isReadOnly
                 ? `Перегляд ${type === "PROJECTS" ? "проєкту" : "операційної задачі"} за ${selectedYear}`
@@ -166,30 +167,30 @@ export const BacklogModal = ({
           <button
             onClick={onClose}
             aria-label="Закрити"
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 text-2xl"
+            className={styles.closeButton}
           >
             ×
           </button>
         </div>
-        <div className="p-6 space-y-5 overflow-y-auto">
+        <div className={styles.modalBody}>
           {error && (
-            <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm font-semibold text-rose-700">
+            <div className={styles.error}>
               {error}
             </div>
           )}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Назва <span className="text-rose-500">*</span>
+            <label className={styles.fieldLabel}>
+              Назва <span className={styles.required}>*</span>
             </label>
             <input
               disabled={isReadOnly}
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 text-[18px] font-semibold leading-6 text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className={styles.nameInput}
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
+            <label className={styles.fieldLabel}>
               Стратегічна задача
             </label>
             <textarea
@@ -197,21 +198,21 @@ export const BacklogModal = ({
               value={strategicGoal}
               onChange={(event) => setStrategicGoal(event.target.value)}
               rows={5}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none resize-y"
+              className={styles.goalTextarea}
               placeholder="Введіть назву стратегічної задачі за наявності"
             />
           </div>
           {false && (
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className={styles.hiddenFieldGrid}>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
+                <label className={styles.hiddenFieldLabel}>
                   Менеджер
                 </label>
                 <select
                   disabled={isReadOnly}
                   value={managerId}
                   onChange={(event) => setManagerId(event.target.value)}
-                  className="w-full border border-slate-300 rounded-xl px-4 py-2.5"
+                  className={styles.hiddenSelect}
                 >
                   <option value="">Не обрано</option>
                   {managers.map((manager) => (
@@ -222,14 +223,14 @@ export const BacklogModal = ({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
+                <label className={styles.hiddenFieldLabel}>
                   Пріоритет
                 </label>
                 <select
                   disabled={isReadOnly}
                   value={priority}
                   onChange={(event) => setPriority(event.target.value)}
-                  className="w-full border border-slate-300 rounded-xl px-4 py-2.5"
+                  className={styles.hiddenSelect}
                 >
                   <option value="">Не обрано</option>
                   {priorities
@@ -246,24 +247,24 @@ export const BacklogModal = ({
               </div>
             </div>
           )}
-          <p className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm leading-6 text-indigo-800">
+          <p className={styles.infoBox}>
             Після збереження заповніть менеджера, пріоритет і залучені
             підрозділи у картці <b>«Підготовчий етап»</b>. Виконавців можна
             налаштувати лише в квартальних картках.
           </p>
-          {false && <div className="border-t pt-5 grid sm:grid-cols-2 gap-4" />}
+          {false && <div className={styles.hiddenDivider} />}
         </div>
-        <div className="flex justify-end gap-3 border-t border-slate-100 bg-white px-6 py-4">
+        <div className={styles.modalFooter}>
           <button
             onClick={onClose}
-            className="h-10 px-3 text-sm font-extrabold text-slate-600"
+            className={styles.footerCancel}
           >
             {isReadOnly ? "Закрити" : "Скасувати"}
           </button>
           {!isReadOnly && (
             <button
               onClick={handleSave}
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 px-5 text-sm font-extrabold text-white shadow-[0_2px_5px_rgba(79,57,244,.25)] hover:bg-indigo-700"
+              className={styles.footerSave}
             >
               Зберегти
             </button>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAppContext } from "../../../app/store";
 import { OperationalTask, Project } from "../../../shared/types";
 import { getYearSnapshot } from "../../../domain/initiatives";
+import styles from "./BacklogModals.module.css";
 
 export const PreparationStageModal = ({
   item,
@@ -40,37 +41,37 @@ export const PreparationStageModal = ({
     onClose();
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between border-b border-slate-100 p-6">
+    <div className={styles.preparationBackdrop}>
+      <div className={styles.preparationModal}>
+        <div className={styles.preparationHeader}>
           <div>
-            <h2 className="text-xl font-extrabold text-slate-800">
+            <h2 className={styles.preparationTitle}>
               Підготовчий етап · {item.year}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className={styles.preparationDescription}>
               Нульовий квартал: дані використаються для першої картки року.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-2xl text-slate-400 hover:text-slate-700"
+            className={styles.plainCloseButton}
           >
             ×
           </button>
         </div>
-        <div className="space-y-5 p-6">
+        <div className={styles.preparationBody}>
           {error && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">
+            <div className={styles.error}>
               {error}
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-bold text-slate-700">
+          <div className={styles.twoColumnFields}>
+            <label className={styles.selectLabel}>
               Менеджер
               <select
                 value={managerId}
                 onChange={(event) => setManagerId(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-slate-300 px-4 py-3 font-normal outline-none focus:border-indigo-500"
+                className={styles.selectField}
               >
                 <option value="">Не обрано</option>
                 {managers
@@ -85,12 +86,12 @@ export const PreparationStageModal = ({
                   ))}
               </select>
             </label>
-            <label className="text-sm font-bold text-slate-700">
+            <label className={styles.selectLabel}>
               Пріоритет
               <select
                 value={priority}
                 onChange={(event) => setPriority(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-slate-300 px-4 py-3 font-normal outline-none focus:border-indigo-500"
+                className={styles.selectField}
               >
                 <option value="">Не обрано</option>
                 {priorities
@@ -107,10 +108,10 @@ export const PreparationStageModal = ({
             </label>
           </div>
           <div>
-            <p className="mb-2 text-sm font-bold text-slate-700">
+            <p className={styles.departmentLabel}>
               Залучені підрозділи
             </p>
-            <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className={styles.departmentPicker}>
               {departments
                 .filter(
                   (department) =>
@@ -122,7 +123,7 @@ export const PreparationStageModal = ({
                     type="button"
                     key={department.id}
                     onClick={() => toggle(department.id)}
-                    className={`rounded-lg border px-3 py-2 text-xs font-bold transition ${departmentIds.includes(department.id) ? "border-amber-400 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300"}`}
+                    className={`${styles.departmentChip} ${departmentIds.includes(department.id) ? styles.departmentChipSelected : ""}`}
                   >
                     {departmentIds.includes(department.id) ? "✓ " : ""}
                     {department.name}
@@ -131,16 +132,16 @@ export const PreparationStageModal = ({
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 p-5">
+        <div className={styles.preparationFooter}>
           <button
             onClick={onClose}
-            className="rounded-xl px-5 py-2.5 font-bold text-slate-600"
+            className={styles.preparationCancel}
           >
             Скасувати
           </button>
           <button
             onClick={save}
-            className="rounded-xl bg-indigo-600 px-5 py-2.5 font-bold text-white shadow-sm hover:bg-indigo-700"
+            className={styles.preparationSave}
           >
             Зберегти
           </button>

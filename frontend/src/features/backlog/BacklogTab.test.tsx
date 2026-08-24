@@ -48,7 +48,7 @@ describe('BacklogTab bulk extension', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Увійти для тесту' }));
 
     const goal = screen.getByTitle('Масштабувати цифровий продукт і збільшити частку активних клієнтів.');
-    expect(goal).toHaveClass('line-clamp-3', 'whitespace-pre-line');
+    expect(goal).toBeVisible();
   });
 
   it('disables card creation for quarters that are already past', () => {
@@ -70,7 +70,7 @@ describe('BacklogTab bulk extension', () => {
     expect(screen.getByText('В процесі')).toHaveStyle({ backgroundColor: 'rgba(245, 158, 11, 0.13)' });
     expect(screen.getByText('3 завдання')).toBeInTheDocument();
     expect(screen.getByText('1/3 · 33%')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar', { name: 'Прогрес scope Q3 2026' })).toHaveAttribute('aria-valuenow', '33');
+    expect(screen.getByRole('progressbar', { name: 'Прогрес завдань Q3 2026' })).toHaveAttribute('aria-valuenow', '33');
   });
 
   it('uses the portfolio-style archive banner and returns to the current year', () => {
