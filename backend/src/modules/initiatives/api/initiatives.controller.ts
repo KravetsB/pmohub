@@ -18,6 +18,7 @@ import {
   QuarterCardResponseDto,
   QuarterCardsResponseDto,
   UpdateCardDto,
+  UpdateBacklogDto,
   UpdateInitiativeDto,
   UpdateInitiativeYearDto,
   UpdatePreparationDto,
@@ -41,6 +42,7 @@ export class InitiativesController {
   update(@Param('id') id: string, @Body() dto: UpdateInitiativeDto, @CurrentUser() user: AuthUser) {
     return this.initiatives.updateInitiative(id, dto, user);
   }
+
 }
 
 @ApiTags('initiative-years')
@@ -66,6 +68,12 @@ export class InitiativeYearsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateInitiativeYearDto, @CurrentUser() user: AuthUser) {
     return this.initiatives.updateYear(id, dto, user);
+  }
+
+  @RequirePermissions('canCreateEditProjects')
+  @Patch(':id/backlog')
+  updateBacklog(@Param('id') id: string, @Body() dto: UpdateBacklogDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.updateBacklog(id, dto, user);
   }
 
   @RequirePermissions('canCreateEditProjects')
@@ -102,8 +110,8 @@ export class QuarterCardsController {
 
   @Get()
   @ApiOkResponse({ type: QuarterCardsResponseDto })
-  list(@Query('kind') kind?: string, @Query('year') year?: string, @Query('quarter') quarter?: QuarterDto) {
-    return this.queries.listCards({ kind, year: year ? Number(year) : undefined, quarter });
+  list(@Query('kind') kind?: string, @Query('year') year?: string, @Query('quarter') quarter?: QuarterDto, @Query('view') view?: string) {
+    return this.queries.listCards({ kind, year: year ? Number(year) : undefined, quarter, view });
   }
 
   @Get(':id')

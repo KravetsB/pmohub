@@ -16,6 +16,7 @@ export class UsersService {
   async list() { return (await this.prisma.user.findMany({ orderBy: { name: 'asc' } })).map(publicUser); }
 
   async create(dto: CreateUserDto, actor: { id: string; name: string; role: string }) {
+    await this.assertMayAdmin(actor.role);
     this.assertMayManageRole(actor.role, dto.role);
     const temporaryPassword = this.generateTemporaryPassword();
     try {
@@ -33,6 +34,7 @@ export class UsersService {
   }
 
   async issueTemporaryPassword(id: string, actor: { id: string; name: string; role: string }) {
+    await this.assertMayAdmin(actor.role);
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError('NOT_FOUND', 'Користувача не знайдено', HttpStatus.NOT_FOUND);
     if (actor.role !== 'SUPER_ADMIN' && user.role === 'SUPER_ADMIN') {
@@ -49,8 +51,10 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto, actor: { id: string; name: string; role: string }) {
+    await this.assertMayAdmin(actor.role);
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError('NOT_FOUND', 'Користувача не знайдено', HttpStatus.NOT_FOUND);
+    if (id === actor.id && dto.role && dto.role !== user.role) throw new AppError('ACTIVE_USER_ROLE', 'Не можна змінити власну роль', HttpStatus.CONFLICT);
     this.assertMayManageRole(actor.role, user.role);
     if (dto.role) this.assertMayManageRole(actor.role, dto.role);
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -62,6 +66,7 @@ export class UsersService {
   }
 
   async deactivate(id: string, actor: { id: string; name: string; role: string }) {
+    await this.assertMayAdmin(actor.role);
     if (id === actor.id) throw new AppError('ACTIVE_USER_DELETE', 'Не можна видалити активного користувача');
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError('NOT_FOUND', 'Користувача не знайдено', HttpStatus.NOT_FOUND);
@@ -84,6 +89,13 @@ export class UsersService {
   private assertMayManageRole(actorRole: string, targetRole: string) {
     if (actorRole !== 'SUPER_ADMIN' && targetRole === 'SUPER_ADMIN') {
       throw new AppError('SUPER_ADMIN_PROTECTED', 'Лише SUPER_ADMIN може керувати обліковими записами SUPER_ADMIN', HttpStatus.FORBIDDEN);
+    }
+  }
+
+  private async assertMayAdmin(role: string) {
+    const permission = await this.prisma.rolePermission.findUnique({ where: { role } });
+    if (!permission?.canAccessAdmin || permission.isReadOnly) {
+      throw new AppError('FORBIDDEN', 'Недостатньо прав адміністратора', HttpStatus.FORBIDDEN);
     }
   }
 }

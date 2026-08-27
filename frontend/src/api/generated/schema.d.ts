@@ -180,6 +180,22 @@ export interface paths {
         patch: operations["InitiativeYearsController_update"];
         trace?: never;
     };
+    "/api/v1/initiative-years/{id}/backlog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["InitiativeYearsController_updateBacklog"];
+        trace?: never;
+    };
     "/api/v1/initiative-years/{id}/preparation": {
         parameters: {
             query?: never;
@@ -581,6 +597,35 @@ export interface components {
             /** @default [] */
             department_ids: string[];
         };
+        CreateScopeItemDto: {
+            /** Format: uuid */
+            lineage_id?: string;
+            text: string;
+            /** @enum {string} */
+            status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
+            /** Format: uuid */
+            weight_definition_id: string;
+            /** @default [] */
+            executor_department_ids: string[];
+        };
+        InitialQuarterCardDto: {
+            /** Format: uuid */
+            manager_id?: string;
+            /** Format: uuid */
+            priority_id?: string;
+            /** @default [] */
+            department_ids: string[];
+            /** @enum {string} */
+            quarter: "Q1" | "Q2" | "Q3" | "Q4";
+            /** Format: uuid */
+            status_id?: string;
+            notes?: string;
+            custom_fields?: {
+                [key: string]: unknown;
+            };
+            /** @default [] */
+            scope: components["schemas"]["CreateScopeItemDto"][];
+        };
         CreateInitiativeDto: {
             /** @enum {string} */
             kind: "PROJECT" | "OPERATIONAL_TASK";
@@ -588,6 +633,7 @@ export interface components {
             year: number;
             strategic_goal?: string;
             preparation: components["schemas"]["PreparationInputDto"];
+            initial_card?: components["schemas"]["InitialQuarterCardDto"];
         };
         UpdateInitiativeDto: {
             name: string;
@@ -641,6 +687,12 @@ export interface components {
             strategic_goal?: string;
             revision: number;
         };
+        UpdateBacklogDto: {
+            name: string;
+            strategic_goal?: string;
+            initiative_revision: number;
+            year_revision: number;
+        };
         UpdatePreparationDto: {
             /** Format: uuid */
             manager_id?: string;
@@ -670,7 +722,7 @@ export interface components {
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
-            weight_definition_id: string | null;
+            weight_definition_id: string;
             weight_snapshot: Record<string, never>;
             executor_department_ids: string[];
             executors: Record<string, never>[];
@@ -723,10 +775,7 @@ export interface components {
         };
         ScopeItemDto: {
             /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
             lineage_id?: string;
-            revision?: number;
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
@@ -734,6 +783,9 @@ export interface components {
             weight_definition_id: string;
             /** @default [] */
             executor_department_ids: string[];
+            /** Format: uuid */
+            id?: string;
+            revision?: number;
         };
         UpdateCardDto: {
             revision: number;
@@ -1086,6 +1138,29 @@ export interface operations {
             };
         };
     };
+    InitiativeYearsController_updateBacklog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBacklogDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     InitiativeYearsController_updatePreparation: {
         parameters: {
             query?: never;
@@ -1175,6 +1250,7 @@ export interface operations {
                 kind?: string;
                 year?: string;
                 quarter?: string;
+                view?: string;
             };
             header?: never;
             path?: never;

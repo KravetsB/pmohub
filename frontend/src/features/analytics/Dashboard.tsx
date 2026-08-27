@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../app/store';
-import { Project, OperationalTask, Quarter } from '../../shared/types';
+import { InitiativeViewModel, Quarter } from '../../shared/types';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { getComputedTotalWeight, truncateText, getAvailableYears, getCurrentQuarter } from '../../shared/utils';
 import { getInitiativeStatus } from '../../domain/health';
@@ -8,7 +8,8 @@ import { averageInitiativeDuration, capacityByQuarter, healthCounts, averageScop
 import { getYearSnapshot } from '../../domain/initiatives';
 
 export const Dashboard = () => {
-  const { projects, tasks, departments, managers, priorities, initiativeStatuses, taskWeights, initiativeSizes } = useAppContext();
+  const { projects, tasks, departments, managers, priorities, initiativeStatuses, taskWeights, initiativeSizes, setInitiativeDataScope } = useAppContext();
+  useEffect(() => { setInitiativeDataScope({ mode: 'dashboard' }); }, [setInitiativeDataScope]);
   
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [quarter, setQuarter] = useState<Quarter | 'ALL'>(getCurrentQuarter());
@@ -16,18 +17,18 @@ export const Dashboard = () => {
   const [managerFilter, setManagerFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'PROJECTS' | 'TASKS'>('ALL');
 
-  const isVisibleForUser = (item: Project | OperationalTask, departmentId?: string) => !departmentId
+  const isVisibleForUser = (item: InitiativeViewModel, departmentId?: string) => !departmentId
     || (item.implementer_dept_ids || []).includes(departmentId)
     || (item.cross_functional_dept_ids || []).includes(departmentId);
 
   // One selector for every chart that describes quarterly portfolio cards.
   const getFilteredItems = (targetYear: number, targetQuarter: Quarter | 'ALL'): AnalyticsCard[] => {
     let p = projects
-      .filter(proj => !proj.is_backlog && proj.year === targetYear && (targetQuarter === 'ALL' ? true : proj.quarter === targetQuarter))
+      .filter(proj => proj.record_type === 'CARD' && proj.year === targetYear && (targetQuarter === 'ALL' ? true : proj.quarter === targetQuarter))
       .map(proj => ({ ...proj, type: 'PROJECT' as const }));
 
     let t = tasks
-      .filter(task => !task.is_backlog && task.year === targetYear && (targetQuarter === 'ALL' ? true : task.quarter === targetQuarter))
+      .filter(task => task.record_type === 'CARD' && task.year === targetYear && (targetQuarter === 'ALL' ? true : task.quarter === targetQuarter))
       .map(task => ({ ...task, type: 'TASK' as const }));
 
     if (typeFilter === 'PROJECTS') t = [];
@@ -46,8 +47,8 @@ export const Dashboard = () => {
 
   const activeItems = getFilteredItems(year, quarter);
   const getFilteredBacklog = (targetYear: number) => {
-    const matches = (record: Project | OperationalTask, type: 'PROJECT' | 'TASK') => {
-      if (!record.is_backlog || record.year !== targetYear) return false;
+    const matches = (record: InitiativeViewModel, type: 'PROJECT' | 'TASK') => {
+      if (record.record_type !== 'YEAR' || record.year !== targetYear) return false;
       if (typeFilter === 'PROJECTS' && type !== 'PROJECT') return false;
       if (typeFilter === 'TASKS' && type !== 'TASK') return false;
       const snapshot = getYearSnapshot(record, targetYear);
@@ -65,8 +66,8 @@ export const Dashboard = () => {
   };
   const filteredBacklog = getFilteredBacklog(year);
   const allBacklogCount = filteredBacklog.length;
-  const allQuarterCards = [...projects, ...tasks].filter(item => !item.is_backlog);
-  const preparationItems = filteredBacklog.filter(record => !allQuarterCards.some(card => card.backlog_id === record.id));
+  const allQuarterCards = [...projects, ...tasks].filter(item => item.record_type === 'CARD');
+  const preparationItems = filteredBacklog.filter(record => !allQuarterCards.some(card => card.initiative_year_id === record.id));
   const preparationReadiness = preparationItems.map(record => {
     const snapshot = getYearSnapshot(record, year);
     const stage = snapshot?.preparationStage;
@@ -115,7 +116,7 @@ export const Dashboard = () => {
   // History Stacked Data (All Years)
   const currentCalendarYear = new Date().getFullYear();
   const allYears = Array.from(new Set([...projects, ...tasks]
-    .filter(item => !item.is_backlog && item.year <= currentCalendarYear)
+    .filter(item => item.record_type === 'CARD' && item.year <= currentCalendarYear)
     .map(item => item.year)))
     .sort();
   const historyData = allYears.map(y => {

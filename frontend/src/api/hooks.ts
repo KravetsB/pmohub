@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiRequest, loadBootstrap, loadInitiativeCardModel, loadInitiativeYearModel, loadInitiativeYears, loadQuarterCards } from './apiClient';
+import { ApiResponse, apiRequest, loadBootstrap, loadInitiativeCardModel, loadInitiativeYearModel, loadInitiativeYears, loadPermissions, loadQuarterCards, loadUsers } from './apiClient';
 import { queryKeys } from './queryClient';
 
 export const useBootstrapQuery = (enabled: boolean) => useQuery({
@@ -9,14 +9,14 @@ export const useBootstrapQuery = (enabled: boolean) => useQuery({
   staleTime: 30_000,
 });
 
-export const useInitiativeYearsQuery = (kind: 'project' | 'task', enabled = true) => useQuery({
-  queryKey: queryKeys.initiativeYears(kind),
-  queryFn: ({ signal }) => loadInitiativeYears(kind, signal),
+export const useInitiativeYearsQuery = (kind: 'project' | 'task', enabled = true, year?: number) => useQuery({
+  queryKey: queryKeys.initiativeYears(kind, year),
+  queryFn: ({ signal }) => loadInitiativeYears(kind, signal, year),
   enabled,
 });
-export const useQuarterCardsQuery = (kind: 'project' | 'task', enabled = true) => useQuery({
-  queryKey: queryKeys.portfolioCards(kind),
-  queryFn: ({ signal }) => loadQuarterCards(kind, signal),
+export const useQuarterCardsQuery = (kind: 'project' | 'task', enabled = true, year?: number, quarter?: string, view?: 'analytics') => useQuery({
+  queryKey: queryKeys.portfolioCards(kind, year, quarter, view ?? 'detail'),
+  queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter, view),
   enabled,
 });
 export const useQuarterCardDetailQuery = (id?: string) => useQuery({
@@ -27,6 +27,16 @@ export const useQuarterCardDetailQuery = (id?: string) => useQuery({
 export const useInitiativeYearQuery = (id?: string) => useQuery({ queryKey: queryKeys.initiativeYear(id ?? ''), queryFn: ({ signal }) => loadInitiativeYearModel(id!, signal).then((response) => response.data), enabled: Boolean(id) });
 export const useAuditQuery = (aggregateType?: string, aggregateId?: string) => useQuery({
   queryKey: queryKeys.audit(aggregateType ?? '', aggregateId ?? ''),
-  queryFn: ({ signal }) => apiRequest<Array<{ id: string; date: string; author: string; action: string; code: string }>>(`/audit/${aggregateType}/${aggregateId}`, { signal }),
+  queryFn: ({ signal }) => apiRequest<ApiResponse<Array<{ id: string; date: string; author: string; action: string; code: string }>>>(`/audit/${aggregateType}/${aggregateId}`, { signal }).then((response) => response.data),
   enabled: Boolean(aggregateType && aggregateId),
+});
+export const useUsersQuery = (enabled = false) => useQuery({
+  queryKey: queryKeys.users,
+  queryFn: ({ signal }) => loadUsers(signal),
+  enabled,
+});
+export const usePermissionsQuery = (enabled = false) => useQuery({
+  queryKey: queryKeys.permissions,
+  queryFn: ({ signal }) => loadPermissions(signal),
+  enabled,
 });

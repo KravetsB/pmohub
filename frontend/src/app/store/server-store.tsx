@@ -2,16 +2,16 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ReferenceDataState, CustomFieldDef, Department, InitiativeMetadata, InitiativeYearReadModel, QuarterCardReadModel,
-  InitiativeSizeDef, InitiativeStatusDef, Manager, MutationResult, OperationalTask,
-  PriorityDef, Project, Quarter, RolePermissions,
+  InitiativeSizeDef, InitiativeStatusDef, InitiativeViewModel, Manager, MutationResult,
+  PriorityDef, Quarter, RolePermissions,
   TaskWeightDef, User,
 } from "../../shared/types";
 import {
-  ApiError, changePassword as changeApiPassword, loadBootstrap, loadInitiativeCardModel, loadInitiativeYears, loadQuarterCards,
+  ApiError, changePassword as changeApiPassword, loadBootstrap, loadInitiativeCardModel, loadInitiativeYears, loadPermissions, loadQuarterCards, loadUsers,
   loginSession, logoutSession, refreshSession, setAuthFailureHandler, toInitiativeYearViewModel, toQuarterCardViewModel,
 } from "../../api/apiClient";
 import { queryKeys } from "../../api/queryClient";
-import { useBootstrapQuery, useInitiativeYearsQuery, useQuarterCardsQuery } from "../../api/hooks";
+import { useBootstrapQuery, useInitiativeYearsQuery, usePermissionsQuery, useQuarterCardsQuery, useUsersQuery } from "../../api/hooks";
 import { getChainId, getYearSnapshot, preparationMetadataFrom } from "../../domain/initiatives";
 import { getPermissions } from "../../domain/permissions";
 import { executeBackendMutation } from "./backend-mutation";
@@ -20,12 +20,31 @@ import { fail, ok } from "./helpers";
 import { serverCommands } from "./server-commands";
 import { uuidOrUndefined } from "./api-contract-mappers";
 
-type Initiative = Project | OperationalTask;
+type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
+export type InitiativeDataScope =
+  | { mode: "dashboard" }
+  | { mode: "none" }
+  | { mode: "projects" | "tasks"; year: number; quarter: Quarter }
+  | { mode: "backlog"; kind: InitiativeKind; year: number };
+
+const initialDataScope = (): InitiativeDataScope => {
+  const tab = typeof window === "undefined" ? "dashboard" : window.sessionStorage.getItem("pmohub-active-tab");
+  const now = new Date();
+  const year = now.getFullYear();
+  const quarter = `Q${Math.floor(now.getMonth() / 3) + 1}` as Quarter;
+  if (tab === "projects" || tab === "tasks") return { mode: tab, year, quarter };
+  if (tab === "backlog") return { mode: "backlog", kind: "project", year };
+  if (tab === "admin") return { mode: "none" };
+  return { mode: "dashboard" };
+};
 
 export interface AppContextType extends ReferenceDataState {
   isHydrating: boolean;
   backendEnabled: true;
+  enableAdminData: () => void;
+  disableAdminData: () => void;
+  setInitiativeDataScope: (scope: InitiativeDataScope) => void;
   authenticate: (email: string, password: string) => Promise<MutationResult>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<MutationResult>;
   login: (user: User) => MutationResult;
@@ -34,11 +53,11 @@ export interface AppContextType extends ReferenceDataState {
   updateUser: (id: string, patch: Partial<User>) => Promise<MutationResult>;
   deleteUser: (id: string) => Promise<MutationResult>;
   resetUserPassword: (id: string) => Promise<MutationResult<{ temporary_password: string }>>;
-  addProject: (item: Project) => Promise<MutationResult>;
-  updateProject: (id: string, patch: Partial<Project>) => Promise<MutationResult>;
+  addProject: (item: InitiativeViewModel) => Promise<MutationResult>;
+  updateProject: (id: string, patch: Partial<InitiativeViewModel>) => Promise<MutationResult>;
   deleteProject: (id: string) => Promise<MutationResult>;
-  addTask: (item: OperationalTask) => Promise<MutationResult>;
-  updateTask: (id: string, patch: Partial<OperationalTask>) => Promise<MutationResult>;
+  addTask: (item: InitiativeViewModel) => Promise<MutationResult>;
+  updateTask: (id: string, patch: Partial<InitiativeViewModel>) => Promise<MutationResult>;
   deleteTask: (id: string) => Promise<MutationResult>;
   moveCard: (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => Promise<MutationResult>;
   continueCard: (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => Promise<MutationResult>;
@@ -46,7 +65,7 @@ export interface AppContextType extends ReferenceDataState {
   copyScopeItem: (cardId: string, itemId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => Promise<MutationResult>;
   createBacklogSnapshot: (kind: InitiativeKind, masterId: string, sourceYear: number, targetYear: number) => Promise<MutationResult>;
   createBacklogSnapshots: (kind: InitiativeKind, masterIds: string[], sourceYear: number, targetYear: number) => Promise<MutationResult<{ created: number }>>;
-  createBacklogWithCards: (kind: InitiativeKind, master: Project | OperationalTask, quarters: Quarter[], initialScope?: Project["checklist"]) => Promise<MutationResult>;
+  createBacklogWithCards: (kind: InitiativeKind, master: InitiativeViewModel, quarters: Quarter[], initialScope?: InitiativeViewModel["checklist"]) => Promise<MutationResult>;
   updatePreparationStage: (kind: InitiativeKind, masterId: string, patch: Partial<InitiativeMetadata>) => Promise<MutationResult>;
   addPriority: (item: PriorityDef) => Promise<MutationResult>;
   updatePriority: (id: string, patch: Partial<PriorityDef>) => Promise<MutationResult>;
@@ -85,37 +104,80 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
   const [sessionReady, setSessionReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [adminDataEnabled, setAdminDataEnabled] = useState(false);
+  const enableAdminData = useCallback(() => setAdminDataEnabled(true), []);
+  const disableAdminData = useCallback(() => setAdminDataEnabled(false), []);
+  const [dataScope, setInitiativeDataScope] = useState<InitiativeDataScope>(initialDataScope);
   const bootstrapQuery = useBootstrapQuery(authenticated);
-  const projectYearsQuery = useInitiativeYearsQuery("project", authenticated);
-  const taskYearsQuery = useInitiativeYearsQuery("task", authenticated);
-  const projectCardsQuery = useQuarterCardsQuery("project", authenticated);
-  const taskCardsQuery = useQuarterCardsQuery("task", authenticated);
-  const reload = useCallback(async () => {
+  const dashboardMode = dataScope.mode === "dashboard";
+  const projectMode = dataScope.mode === "projects";
+  const taskMode = dataScope.mode === "tasks";
+  const projectBacklogMode = dataScope.mode === "backlog" && dataScope.kind === "project";
+  const taskBacklogMode = dataScope.mode === "backlog" && dataScope.kind === "task";
+  const projectYear = projectMode || projectBacklogMode ? dataScope.year : undefined;
+  const taskYear = taskMode || taskBacklogMode ? dataScope.year : undefined;
+  const projectQuarter = projectMode ? dataScope.quarter : undefined;
+  const taskQuarter = taskMode ? dataScope.quarter : undefined;
+  const projectYearsQuery = useInitiativeYearsQuery("project", authenticated && (dashboardMode || projectBacklogMode), projectYear);
+  const taskYearsQuery = useInitiativeYearsQuery("task", authenticated && (dashboardMode || taskBacklogMode), taskYear);
+  const projectNextYearsQuery = useInitiativeYearsQuery("project", authenticated && projectBacklogMode, projectBacklogMode ? dataScope.year + 1 : undefined);
+  const taskNextYearsQuery = useInitiativeYearsQuery("task", authenticated && taskBacklogMode, taskBacklogMode ? dataScope.year + 1 : undefined);
+  const projectCardsQuery = useQuarterCardsQuery("project", authenticated && (dashboardMode || projectMode || projectBacklogMode), projectYear, projectQuarter, dashboardMode ? "analytics" : undefined);
+  const taskCardsQuery = useQuarterCardsQuery("task", authenticated && (dashboardMode || taskMode || taskBacklogMode), taskYear, taskQuarter, dashboardMode ? "analytics" : undefined);
+  const usersQuery = useUsersQuery(authenticated && adminDataEnabled);
+  const permissionsQuery = usePermissionsQuery(authenticated && adminDataEnabled);
+  const refreshBootstrap = useCallback(async () => {
+    await queryClient.fetchQuery({ queryKey: queryKeys.bootstrap, queryFn: ({ signal }) => loadBootstrap(signal), staleTime: 0 });
+  }, [queryClient]);
+  const refreshKind = useCallback(async (kind: InitiativeKind) => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.initiativeYears("project") }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.initiativeYears("task") }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.portfolioCards("project") }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.portfolioCards("task") }),
-    ]);
-    await Promise.all([
-      queryClient.fetchQuery({ queryKey: queryKeys.bootstrap, queryFn: ({ signal }) => loadBootstrap(signal), staleTime: 0 }),
-      queryClient.fetchQuery({ queryKey: queryKeys.initiativeYears("project"), queryFn: ({ signal }) => loadInitiativeYears("project", signal), staleTime: 0 }),
-      queryClient.fetchQuery({ queryKey: queryKeys.initiativeYears("task"), queryFn: ({ signal }) => loadInitiativeYears("task", signal), staleTime: 0 }),
-      queryClient.fetchQuery({ queryKey: queryKeys.portfolioCards("project"), queryFn: ({ signal }) => loadQuarterCards("project", signal), staleTime: 0 }),
-      queryClient.fetchQuery({ queryKey: queryKeys.portfolioCards("task"), queryFn: ({ signal }) => loadQuarterCards("task", signal), staleTime: 0 }),
+      queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" }),
+      queryClient.refetchQueries({ queryKey: ["quarter-cards", kind], type: "active" }),
     ]);
   }, [queryClient]);
-  const executeRemote = useCallback(<T,>(request: () => Promise<CommandResponse<T>>, refresh: () => Promise<void> = async () => { await reload(); }) =>
+  const refreshAllInitiatives = useCallback(async () => {
+    await Promise.all([refreshKind("project"), refreshKind("task")]);
+  }, [refreshKind]);
+  const refreshInitialData = useCallback(async () => {
+    const requests: Array<Promise<unknown>> = [refreshBootstrap()];
+    const loadKind = (kind: InitiativeKind, includeYears: boolean, year?: number, quarter?: Quarter, view?: "analytics") => {
+      if (includeYears) requests.push(queryClient.fetchQuery({ queryKey: queryKeys.initiativeYears(kind, year), queryFn: ({ signal }) => loadInitiativeYears(kind, signal, year), staleTime: 0 }));
+      requests.push(queryClient.fetchQuery({ queryKey: queryKeys.portfolioCards(kind, year, quarter, view ?? "detail"), queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter, view), staleTime: 0 }));
+    };
+    if (dataScope.mode === "dashboard") {
+      loadKind("project", true, undefined, undefined, "analytics");
+      loadKind("task", true, undefined, undefined, "analytics");
+    } else if (dataScope.mode === "projects") loadKind("project", false, dataScope.year, dataScope.quarter);
+    else if (dataScope.mode === "tasks") loadKind("task", false, dataScope.year, dataScope.quarter);
+    else if (dataScope.mode === "backlog") {
+      loadKind(dataScope.kind, true, dataScope.year);
+      requests.push(queryClient.fetchQuery({ queryKey: queryKeys.initiativeYears(dataScope.kind, dataScope.year + 1), queryFn: ({ signal }) => loadInitiativeYears(dataScope.kind, signal, dataScope.year + 1), staleTime: 0 }));
+    }
+    await Promise.all(requests);
+  }, [dataScope, queryClient, refreshBootstrap]);
+  const refreshUsers = useCallback(async () => {
+    if (!adminDataEnabled) return;
+    await queryClient.fetchQuery({ queryKey: queryKeys.users, queryFn: ({ signal }) => loadUsers(signal), staleTime: 0 });
+  }, [adminDataEnabled, queryClient]);
+  const refreshPermissions = useCallback(async () => {
+    if (adminDataEnabled) {
+      await queryClient.fetchQuery({ queryKey: queryKeys.permissions, queryFn: ({ signal }) => loadPermissions(signal), staleTime: 0 });
+    }
+    await refreshBootstrap();
+  }, [adminDataEnabled, queryClient, refreshBootstrap]);
+  const executeRemote = useCallback(<T,>(request: () => Promise<CommandResponse<T>>, refresh: () => Promise<void> = refreshInitialData) =>
     executeBackendMutation<T>(request, refresh),
-  [reload]);
+  [refreshInitialData]);
 
   useEffect(() => {
     setAuthFailureHandler(() => { setAuthenticated(false); queryClient.clear(); });
-    refreshSession().then(async () => { setAuthenticated(true); await reload(); })
+    refreshSession().then(async () => { setAuthenticated(true); await refreshInitialData(); })
       .catch(() => setAuthenticated(false)).finally(() => setSessionReady(true));
     return () => setAuthFailureHandler(null);
-  }, [reload]);
+    // Session restoration runs once. Feature scope changes are handled by the
+    // enabled TanStack Query hooks and must never trigger another refresh login.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient]);
 
   const bootstrap = bootstrapQuery.data ?? queryClient.getQueryData<Partial<ReferenceDataState>>(queryKeys.bootstrap);
   const state: ReferenceDataState = {
@@ -125,16 +187,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     taskWeights: bootstrap?.taskWeights ?? [],
     initiativeSizes: bootstrap?.initiativeSizes ?? [],
     managers: bootstrap?.managers ?? [],
-    users: bootstrap?.users ?? [],
-    rolePermissions: bootstrap?.rolePermissions ?? [],
+    users: usersQuery.data ?? [],
+    rolePermissions: permissionsQuery.data ?? bootstrap?.rolePermissions ?? [],
     customFields: bootstrap?.customFields ?? [],
     currentUser: bootstrap?.currentUser ?? null,
     projects: [
       ...(projectYearsQuery.data ?? []).map(toInitiativeYearViewModel),
+      ...(projectBacklogMode ? (projectNextYearsQuery.data ?? []).map(toInitiativeYearViewModel) : []),
       ...(projectCardsQuery.data ?? []).map(toQuarterCardViewModel),
     ],
     tasks: [
       ...(taskYearsQuery.data ?? []).map(toInitiativeYearViewModel),
+      ...(taskBacklogMode ? (taskNextYearsQuery.data ?? []).map(toInitiativeYearViewModel) : []),
       ...(taskCardsQuery.data ?? []).map(toQuarterCardViewModel),
     ],
   };
@@ -151,10 +215,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       department_ids: raw.cross_functional_dept_ids.filter((id) => uuidOrUndefined(id)),
     },
   });
+  const initialCardBody = (record: Initiative) => {
+    const statusId = healthStatusId(record.health_status, record);
+    const fallbackWeightId = state.taskWeights.find((weight) => weight.is_active && weight.is_default)?.id;
+    const scope = record.checklist.map((item) => ({
+      text: item.text,
+      status_code: (item.color === "GRAY" ? "DEFAULT" : (item.color ?? (item.is_completed ? "GREEN" : "DEFAULT"))) as "DEFAULT" | "GREEN" | "YELLOW" | "RED",
+      weight_definition_id: uuidOrUndefined(item.weightId ?? item.weightSnapshot?.definitionId) ?? fallbackWeightId ?? "",
+      executor_department_ids: (item.implementer_dept_ids ?? []).filter((id) => uuidOrUndefined(id)),
+    }));
+    if (!statusId || scope.some((item) => !item.weight_definition_id)) return null;
+    return {
+      quarter: record.quarter,
+      manager_id: uuidOrUndefined(record.manager_id),
+      priority_id: uuidOrUndefined(record.priority),
+      department_ids: record.cross_functional_dept_ids.filter((id) => uuidOrUndefined(id)),
+      status_id: statusId,
+      notes: record.notes,
+      custom_fields: record.custom_fields ?? {},
+      scope,
+    };
+  };
   const cardBody = (record: Initiative, revision = record.revision) => {
     const statusId = healthStatusId(record.health_status, record);
     if (!revision || !statusId) return null;
-    const fallbackWeightId = state.taskWeights.find((weight) => weight.is_active && weight.weight === 0)?.id;
+    const fallbackWeightId = state.taskWeights.find((weight) => weight.is_active && weight.is_default)?.id;
     const scope = record.checklist.map((item) => ({
       ...(uuidOrUndefined(item.id) ? { id: uuidOrUndefined(item.id) } : {}),
       ...(uuidOrUndefined(item.id) && item.revision ? { revision: item.revision } : {}),
@@ -181,53 +266,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const hasRevision = (item: Initiative | undefined): item is Initiative & { revision: number } => typeof item?.revision === "number";
   const adminAllowed = () => Boolean(getPermissions(state.currentUser, state.rolePermissions)?.canAccessAdmin);
   const authenticate = async (email: string, password: string): Promise<MutationResult> => {
-    try { await loginSession(email, password); setAuthenticated(true); await reload(); return ok("Вхід виконано"); }
+    try { await loginSession(email, password); setAuthenticated(true); await refreshInitialData(); return ok("Вхід виконано"); }
     catch (error) { return fail(error instanceof ApiError ? error.message : "Не вдалося підключитися до сервера"); }
   };
-  const logout = () => { setAuthenticated(false); void logoutSession().finally(() => queryClient.clear()); };
+  const logout = () => { setAuthenticated(false); setAdminDataEnabled(false); void logoutSession().finally(() => queryClient.clear()); };
   const changePassword = async (currentPassword: string, newPassword: string): Promise<MutationResult> => {
-    try { await changeApiPassword(currentPassword, newPassword); await reload(); return ok("Пароль успішно змінено"); }
+    try { await changeApiPassword(currentPassword, newPassword); return ok("Пароль успішно змінено"); }
     catch (error) { return fail(error instanceof ApiError ? error.message : "Не вдалося змінити пароль"); }
   };
 
   const addUser = async (user: User): Promise<MutationResult<{ temporary_password: string }>> => {
     if (!adminAllowed()) return fail("Недостатньо прав");
-    const result = await executeRemote<{ user: User; temporary_password: string }>(() => serverCommands.user("POST", undefined, { name: user.name, email: user.email, role: user.role, department_id: user.departmentId }));
+    const result = await executeRemote<{ user: User; temporary_password: string }>(() => serverCommands.user("POST", undefined, { name: user.name, email: user.email, role: user.role, department_id: user.departmentId }), refreshUsers);
     return result.success && result.data ? ok(result.message, { temporary_password: result.data.temporary_password }) : fail(result.message);
   };
   const updateUser = (id: string, patch: Partial<User>) => executeRemote(() => serverCommands.user("PATCH", id, {
     ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.email !== undefined ? { email: patch.email } : {}),
     ...(patch.role !== undefined ? { role: patch.role } : {}), ...(patch.departmentId !== undefined ? { department_id: patch.departmentId } : {}),
-  }));
-  const deleteUser = (id: string) => state.currentUser?.id === id ? Promise.resolve(fail("Не можна видалити активного користувача")) : executeRemote(() => serverCommands.user("DELETE", id));
+  }), refreshUsers);
+  const deleteUser = (id: string) => state.currentUser?.id === id ? Promise.resolve(fail("Не можна видалити активного користувача")) : executeRemote(() => serverCommands.user("DELETE", id), refreshUsers);
   const resetUserPassword = async (id: string): Promise<MutationResult<{ temporary_password: string }>> => {
-    const result = await executeRemote<{ user: unknown; temporary_password: string }>(() => serverCommands.resetUserPassword(id));
+    const result = await executeRemote<{ user: unknown; temporary_password: string }>(() => serverCommands.resetUserPassword(id), refreshUsers);
     return result.success && result.data ? ok(result.message, { temporary_password: result.data.temporary_password }) : fail(result.message);
   };
 
-  const addInitiative = (kind: InitiativeKind, raw: Initiative): Promise<MutationResult> => raw.is_backlog
-    ? executeRemote(() => serverCommands.createInitiative(createBody(kind, raw)))
-    : raw.backlog_id ? executeRemote(() => serverCommands.createCard(raw.backlog_id!, { quarter: raw.quarter }))
-    : Promise.resolve(fail("Потрібен валідний master backlog_id"));
+  const addInitiative = (kind: InitiativeKind, raw: Initiative): Promise<MutationResult> => raw.record_type === "YEAR"
+    ? executeRemote(() => serverCommands.createInitiative(createBody(kind, raw)), () => refreshKind(kind))
+    : raw.initiative_year_id ? executeRemote(() => serverCommands.createCard(raw.initiative_year_id!, { quarter: raw.quarter }), () => refreshKind(kind))
+    : Promise.resolve(fail("Потрібен валідний initiative_year_id"));
   const updateInitiative = <T extends Initiative>(kind: InitiativeKind, id: string, patch: Partial<T>): Promise<MutationResult> => {
     const record = recordsFor(kind).find((item) => item.id === id);
     if (!hasRevision(record)) return Promise.resolve(fail("Запис не знайдено або недоступний для цієї команди"));
-    if (record.is_backlog) {
-      return (async () => {
-        if (!record.initiative_revision) return fail("Відсутня revision кореня ініціативи");
-        const rename = await executeRemote(() => serverCommands.updateInitiative(getChainId(record), record.initiative_revision!, patch.name ?? record.name), async () => {});
-        if (!rename.success) return rename;
-        const goal = await executeRemote(() => serverCommands.updateYear(record.id, record.revision!, patch.strategic_goal ?? record.strategic_goal), async () => {});
-        if (!goal.success) return goal;
-        await reload();
-        return ok("Дані беклогу оновлено");
-      })();
+    if (record.record_type === "YEAR") {
+      if (!record.initiative_revision) return Promise.resolve(fail("Відсутня revision кореня ініціативи"));
+      return executeRemote(() => serverCommands.updateBacklog(record.id, {
+        initiative_revision: record.initiative_revision!,
+        year_revision: record.revision!,
+        name: patch.name ?? record.name,
+        strategic_goal: patch.strategic_goal ?? record.strategic_goal,
+      }), () => refreshKind(kind));
     }
     const refreshCard = async () => {
       const response = await loadInitiativeCardModel(id);
       if (!response.data) throw new Error("Канонічну картку не отримано");
-      queryClient.setQueryData<QuarterCardReadModel[]>(queryKeys.portfolioCards(kind), (current) => current?.map((item) => item.id === id ? response.data : item));
+      queryClient.setQueriesData<QuarterCardReadModel[]>({ queryKey: ["quarter-cards", kind] }, (current) => current?.map((item) => item.id === id ? response.data : item));
       queryClient.setQueryData(queryKeys.initiativeCard(id), response.data);
+      await queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" });
     };
     const updatedRecord = { ...record, ...patch };
     const body = cardBody(updatedRecord, record.revision);
@@ -236,37 +320,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
   const removeInitiative = (kind: InitiativeKind, id: string): Promise<MutationResult> => {
     const record = recordsFor(kind).find((item) => item.id === id);
-    return hasRevision(record) ? executeRemote(() => record.is_backlog ? serverCommands.deleteYear(id, record.revision) : serverCommands.deleteCard(id, record.revision)) : Promise.resolve(fail("Запис не знайдено або відсутня revision"));
+    return hasRevision(record) ? executeRemote(() => record.record_type === "YEAR" ? serverCommands.deleteYear(id, record.revision) : serverCommands.deleteCard(id, record.revision), () => refreshKind(kind)) : Promise.resolve(fail("Запис не знайдено або відсутня revision"));
   };
-  const moveCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const card = recordsFor(isProject ? "project" : "task").find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.moveCard(cardId, card.revision!, toYear, toQuarter)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
-  const continueCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const card = recordsFor(isProject ? "project" : "task").find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.continueCard(cardId, card.revision!, toYear, toQuarter)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
-  const moveScopeItem = (cardId: string, itemId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const records = recordsFor(isProject ? "project" : "task"); const card = records.find((item) => item.id === cardId); const target = card && records.find((item) => !item.is_backlog && getChainId(item) === getChainId(card) && item.year === toYear && item.quarter === toQuarter); return card?.revision ? executeRemote(() => serverCommands.moveScope(cardId, itemId, card.revision!, toYear, toQuarter, target?.revision)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
-  const copyScopeItem = (cardId: string, itemId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const records = recordsFor(isProject ? "project" : "task"); const card = records.find((item) => item.id === cardId); const target = card && records.find((item) => !item.is_backlog && getChainId(item) === getChainId(card) && item.year === toYear && item.quarter === toQuarter); return card?.revision ? executeRemote(() => serverCommands.copyScope(cardId, itemId, card.revision!, toYear, toQuarter, target?.revision)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
+  const moveCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const kind = isProject ? "project" : "task"; const card = recordsFor(kind).find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.moveCard(cardId, card.revision!, toYear, toQuarter), () => refreshKind(kind)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
+  const continueCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const kind = isProject ? "project" : "task"; const card = recordsFor(kind).find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.continueCard(cardId, card.revision!, toYear, toQuarter), () => refreshKind(kind)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
+  const scopeTransfer = async (mode: "MOVE" | "COPY", cardId: string, itemId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => {
+    const kind = isProject ? "project" : "task";
+    const records = recordsFor(kind);
+    const card = records.find((item) => item.id === cardId);
+    if (!card?.revision) return fail("Картку не знайдено або відсутня revision");
+    let target = records.find((item) => item.record_type === "CARD" && getChainId(item) === getChainId(card) && item.year === toYear && item.quarter === toQuarter);
+    if (!target) {
+      try {
+        const targetCards = await loadQuarterCards(kind, undefined, toYear, toQuarter);
+        const targetModel = targetCards.find((item) => item.initiative_id === getChainId(card));
+        if (targetModel) target = toQuarterCardViewModel(targetModel);
+      } catch (error) {
+        return fail(error instanceof ApiError ? error.message : "Не вдалося перевірити цільовий квартал");
+      }
+    }
+    return executeRemote(
+      () => mode === "MOVE"
+        ? serverCommands.moveScope(cardId, itemId, card.revision!, toYear, toQuarter, target?.revision)
+        : serverCommands.copyScope(cardId, itemId, card.revision!, toYear, toQuarter, target?.revision),
+      () => refreshKind(kind),
+    );
+  };
+  const moveScopeItem = (cardId: string, itemId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => scopeTransfer("MOVE", cardId, itemId, toYear, toQuarter, isProject);
+  const copyScopeItem = (cardId: string, itemId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => scopeTransfer("COPY", cardId, itemId, toYear, toQuarter, isProject);
   const createBacklogSnapshots = (kind: InitiativeKind, masterIds: string[], _sourceYear: number, targetYear: number) => {
-    const sources = [...new Set(masterIds)].map((id) => recordsFor(kind).find((item) => item.id === id && item.is_backlog)).filter(hasRevision).map(({ id, revision }) => ({ id, revision }));
-    return executeRemote<{ years: unknown[] }>(() => serverCommands.extendYears(sources, targetYear)).then((result) => result.success ? ok(result.message, { created: result.data?.years.length ?? 0 }) : fail<{ created: number }>(result.message));
+    const sources = [...new Set(masterIds)].map((id) => recordsFor(kind).find((item) => item.id === id && item.record_type === "YEAR")).filter(hasRevision).map(({ id, revision }) => ({ id, revision }));
+    return executeRemote<{ years: unknown[] }>(() => serverCommands.extendYears(sources, targetYear), () => refreshKind(kind)).then((result) => result.success ? ok(result.message, { created: result.data?.years.length ?? 0 }) : fail<{ created: number }>(result.message));
   };
   const createBacklogSnapshot = async (kind: InitiativeKind, masterId: string, sourceYear: number, targetYear: number): Promise<MutationResult> => {
     const result = await createBacklogSnapshots(kind, [masterId], sourceYear, targetYear); return result.success ? ok("Snapshot створено") : fail(result.message);
   };
   const createBacklogWithCards = async (kind: InitiativeKind, raw: Initiative, quarters: Quarter[], _initialScope: Initiative["checklist"] = []) => {
-    const created = await executeRemote<{ year_id: string }>(
-      () => serverCommands.createInitiative(createBody(kind, raw)) as Promise<CommandResponse<{ year_id: string }>>,
-      async () => {},
+    if (quarters.length > 1) return fail("За одну операцію можна створити лише одну початкову квартальну картку");
+    const initialCard = quarters.length ? initialCardBody({ ...raw, quarter: quarters[0], checklist: _initialScope }) : undefined;
+    if (quarters.length && !initialCard) return fail("Для картки потрібні валідний статус і вага кожного завдання");
+    return executeRemote(
+      () => serverCommands.createInitiative({ ...createBody(kind, raw), ...(initialCard ? { initial_card: initialCard } : {}) }),
+      () => refreshKind(kind),
     );
-    if (!created.success || !created.data?.year_id) return fail(created.message);
-    for (const quarter of quarters) {
-      const card = await executeRemote(() => serverCommands.createCard(created.data!.year_id, { quarter }), async () => {});
-      if (!card.success) {
-        await reload();
-        return fail(card.message);
-      }
-    }
-    await reload();
-    return ok("Запис у беклозі створено");
   };
   const updatePreparationStage = (kind: InitiativeKind, masterId: string, patch: Partial<InitiativeMetadata>) => {
-    const master = recordsFor(kind).find((item) => item.is_backlog && item.id === masterId); if (!hasRevision(master)) return Promise.resolve(fail("Річний запис не знайдено або відсутня revision"));
+    const master = recordsFor(kind).find((item) => item.record_type === "YEAR" && item.id === masterId); if (!hasRevision(master)) return Promise.resolve(fail("Річний запис не знайдено або відсутня revision"));
     const stage = getYearSnapshot(master, master.year)?.preparationStage ?? preparationMetadataFrom(master);
     const updatedStage = { ...stage, ...patch };
     return executeRemote(() => serverCommands.updatePreparation(masterId, {
@@ -274,21 +373,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       manager_id: updatedStage.manager_id,
       priority_id: updatedStage.priority,
       department_ids: updatedStage.cross_functional_dept_ids ?? [],
-    }));
+    }), () => refreshKind(kind));
   };
 
   const dictionaryOps = <T extends DictionaryItem>(key: DictionaryStateKey) => ({
-    add: (item: T) => executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "POST", undefined, dictionaryPayload(item))),
-    update: (id: string, patch: Partial<T>) => { const current = (state[key] as unknown as T[]).find((item) => item.id === id); return current ? executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "PATCH", id, dictionaryPayload({ ...current, ...patch } as T))) : Promise.resolve(fail("Запис не знайдено")); },
-    remove: (id: string) => executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "DELETE", id)),
+    add: (item: T) => executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "POST", undefined, dictionaryPayload(item)), refreshBootstrap),
+    update: (id: string, patch: Partial<T>) => { const current = (state[key] as unknown as T[]).find((item) => item.id === id); return current ? executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "PATCH", id, dictionaryPayload({ ...current, ...patch } as T)), refreshBootstrap) : Promise.resolve(fail("Запис не знайдено")); },
+    remove: (id: string) => executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "DELETE", id), refreshBootstrap),
   });
   const departments = dictionaryOps<Department>("departments"), managers = dictionaryOps<Manager>("managers"), priorities = dictionaryOps<PriorityDef>("priorities"), statuses = dictionaryOps<InitiativeStatusDef>("initiativeStatuses"), weights = dictionaryOps<TaskWeightDef>("taskWeights"), sizes = dictionaryOps<InitiativeSizeDef>("initiativeSizes");
   const checkDictionary = (key: DictionaryStateKey, id: string): MutationResult => !adminAllowed() ? fail("Недостатньо прав адміністратора") : (state[key] as unknown as Array<{ id: string }>).some((item) => item.id === id) ? ok("Видалення дозволено") : fail("Запис не знайдено");
-  const addCustomField = (item: CustomFieldDef) => { const { id: _id, ...body } = item; return executeRemote(() => serverCommands.customField("POST", undefined, body)); };
-  const updateCustomField = (id: string, patch: Partial<CustomFieldDef>) => { const current = state.customFields.find((item) => item.id === id); if (!current) return Promise.resolve(fail("Поле не знайдено")); const { id: _id, ...body } = { ...current, ...patch }; return executeRemote(() => serverCommands.customField("PATCH", id, body)); };
-  const deleteCustomField = (id: string) => executeRemote(() => serverCommands.customField("DELETE", id));
+  const addCustomField = (item: CustomFieldDef) => { const { id: _id, ...body } = item; return executeRemote(() => serverCommands.customField("POST", undefined, body), refreshBootstrap); };
+  const updateCustomField = (id: string, patch: Partial<CustomFieldDef>) => { const current = state.customFields.find((item) => item.id === id); if (!current) return Promise.resolve(fail("Поле не знайдено")); const { id: _id, ...body } = { ...current, ...patch }; return executeRemote(() => serverCommands.customField("PATCH", id, body), refreshBootstrap); };
+  const deleteCustomField = (id: string) => executeRemote(() => serverCommands.customField("DELETE", id), refreshBootstrap);
   const value: AppContextType = {
-    ...state, isHydrating: !sessionReady || (authenticated && (bootstrapQuery.isPending || projectYearsQuery.isPending || taskYearsQuery.isPending || projectCardsQuery.isPending || taskCardsQuery.isPending)), backendEnabled: true,
+    ...state, isHydrating: !sessionReady || (authenticated && bootstrapQuery.isPending), backendEnabled: true,
+    enableAdminData,
+    disableAdminData,
+    setInitiativeDataScope,
     authenticate, changePassword, login: () => fail("Локальний вхід вимкнено"), logout,
     addUser, updateUser, deleteUser, resetUserPassword,
     addProject: (item) => addInitiative("project", item), updateProject: (id, patch) => updateInitiative("project", id, patch), deleteProject: (id) => removeInitiative("project", id),
@@ -301,9 +403,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     addDepartment: departments.add, updateDepartment: departments.update, deleteDepartment: departments.remove,
     addManager: managers.add, updateManager: managers.update, deleteManager: managers.remove,
     checkDepartmentDeletion: (id) => checkDictionary("departments", id), checkManagerDeletion: (id) => checkDictionary("managers", id), checkPriorityDeletion: (id) => checkDictionary("priorities", id), checkInitiativeStatusDeletion: (id) => checkDictionary("initiativeStatuses", id),
-    updateRolePermission: (role, patch) => executeRemote(() => serverCommands.updatePermission(role, patch)),
-    applyTaskWeightToOpenCards: (id) => executeRemote<{ cards: number; tasks: number }>(() => serverCommands.applyWeight(id)),
-    refreshOpenInitiativeSizes: () => executeRemote<{ cards: number }>(() => serverCommands.recalculateSizes()),
+    updateRolePermission: (role, patch) => executeRemote(() => serverCommands.updatePermission(role, patch), refreshPermissions),
+    applyTaskWeightToOpenCards: (id) => executeRemote<{ cards: number; tasks: number }>(() => serverCommands.applyWeight(id), refreshAllInitiatives),
+    refreshOpenInitiativeSizes: () => executeRemote<{ cards: number }>(() => serverCommands.recalculateSizes(), refreshAllInitiatives),
     addCustomField, updateCustomField, deleteCustomField,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

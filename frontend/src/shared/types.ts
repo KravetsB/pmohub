@@ -53,7 +53,7 @@ export interface ScopeItemReadModel {
   copied_from_item_id: string | null;
   text: string;
   status_code: ScopeStatusCode;
-  weight_definition_id: string | null;
+  weight_definition_id: string;
   weight_snapshot: { name: string; value: number };
   executor_department_ids: string[];
   executors: Array<{ id: string; name: string }>;
@@ -170,6 +170,7 @@ export interface MutationResult<T = undefined> {
   data?: T;
   status?: 'COMMIT_FAILED' | 'COMMITTED_REFRESH_FAILED' | 'SUCCESS';
   committed?: boolean;
+  errorCode?: string;
 }
 
 export type Priority = string;
@@ -184,7 +185,7 @@ export interface InitiativeMetadata {
   custom_fields?: Record<string, unknown>;
 }
 
-export interface InitiativeYearSnapshot extends InitiativeMetadata {
+export interface InitiativeYearContext extends InitiativeMetadata {
   year: number;
   history: HistoryEvent[];
   preparationStage?: PreparationStage;
@@ -201,42 +202,21 @@ export interface PreparationStage {
   history: HistoryEvent[];
 }
 
-export interface Project extends InitiativeMetadata {
+export interface InitiativeViewModel extends InitiativeMetadata {
   id: string;
   /** Server optimistic-concurrency version. */
   revision?: number;
   initiative_revision?: number;
-  /** Незмінний ідентифікатор ланцюжка річних backlog-записів. */
-  initiative_chain_id?: string;
+  initiative_id: string;
+  initiative_year_id?: string;
   year: number;
-  yearSnapshots?: Record<string, InitiativeYearSnapshot>;
+  preparation_stage?: PreparationStage;
   quarter: Quarter;
   health_status: HealthStatus;
   health_status_id?: string;
   health_status_code?: string;
   checklist: ChecklistItem[];
-  is_backlog: boolean;
-  backlog_id?: string;
-  moved_from?: string;
-  history?: HistoryEvent[];
-  sizeSnapshot?: InitiativeSizeSnapshot;
-}
-export interface OperationalTask extends InitiativeMetadata {
-  id: string;
-  /** Server optimistic-concurrency version. */
-  revision?: number;
-  initiative_revision?: number;
-  /** Незмінний ідентифікатор ланцюжка річних backlog-записів. */
-  initiative_chain_id?: string;
-  year: number;
-  yearSnapshots?: Record<string, InitiativeYearSnapshot>;
-  quarter: Quarter;
-  health_status: HealthStatus;
-  health_status_id?: string;
-  health_status_code?: string;
-  checklist: ChecklistItem[];
-  is_backlog: boolean;
-  backlog_id?: string;
+  record_type: "YEAR" | "CARD";
   moved_from?: string;
   history?: HistoryEvent[];
   sizeSnapshot?: InitiativeSizeSnapshot;
@@ -262,6 +242,8 @@ export interface TaskWeightDef {
   name: string;
   weight: number;
   is_active: boolean;
+  is_default?: boolean;
+  is_system?: boolean;
 }
 
 export interface InitiativeSizeDef {
@@ -279,8 +261,8 @@ export interface ReferenceDataState {
   taskWeights: TaskWeightDef[];
   initiativeSizes: InitiativeSizeDef[];
   managers: Manager[];
-  projects: Project[];
-  tasks: OperationalTask[];
+  projects: InitiativeViewModel[];
+  tasks: InitiativeViewModel[];
   users: User[];
   rolePermissions: RolePermissions[];
   customFields: CustomFieldDef[];

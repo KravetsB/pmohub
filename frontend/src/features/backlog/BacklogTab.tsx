@@ -1,12 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../../app/store";
-import { OperationalTask, Project, Quarter } from "../../shared/types";
+import { InitiativeViewModel, Quarter } from "../../shared/types";
 import { canViewInitiative, getPermissions } from "../../domain/permissions";
 import {
   getChainId,
   getYearSnapshot,
   materializeBacklogYear,
-  metadataFrom,
 } from "../../domain/initiatives";
 import { getCurrentPeriod, isBacklogLocked } from "../../shared/utils";
 import { BacklogModal } from "./components/BacklogModal";
@@ -40,9 +39,13 @@ export const BacklogTab = () => {
     deleteProject,
     deleteTask,
     createBacklogSnapshots,
+    setInitiativeDataScope,
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<Tab>("PROJECTS");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  useEffect(() => {
+    setInitiativeDataScope({ mode: "backlog", kind: activeTab === "PROJECTS" ? "project" : "task", year: selectedYear });
+  }, [activeTab, selectedYear, setInitiativeDataScope]);
   const [quarterFilter, setQuarterFilter] = useState<QuarterFilter>("ALL");
   const [nameSearch, setNameSearch] = useState("");
   const [goalSearch, setGoalSearch] = useState("");
@@ -62,6 +65,7 @@ export const BacklogTab = () => {
   );
   const [editingCard, setEditingCard] = useState<Initiative | null>(null);
   const [masterToDelete, setMasterToDelete] = useState<Initiative | null>(null);
+  const pendingCommands = useRef(new Set<string>());
 
   const records: Initiative[] = activeTab === "PROJECTS" ? projects : tasks;
   const permission = getPermissions(currentUser, rolePermissions);
@@ -82,9 +86,8 @@ export const BacklogTab = () => {
     source
       .filter(
         (record) =>
-          record.is_backlog &&
-          record.year === selectedYear &&
-          record.yearSnapshots?.[String(selectedYear)],
+          record.record_type === "YEAR" &&
+          record.year === selectedYear,
       )
       .map((record) => materializeBacklogYear(record, selectedYear)!)
       .filter((record) => canViewInitiative(record, currentUser));
@@ -126,7 +129,7 @@ export const BacklogTab = () => {
             (master) =>
               !records.some(
                 (record) =>
-                  record.is_backlog &&
+                  record.record_type === "YEAR" &&
                   record.year === targetYear &&
                   getChainId(record) === getChainId(master),
               ),
@@ -144,8 +147,8 @@ export const BacklogTab = () => {
   const cardsFor = (masterId: string) =>
     records.filter(
       (record) =>
-        !record.is_backlog &&
-        record.backlog_id === masterId &&
+        record.record_type === "CARD" &&
+        record.initiative_year_id === masterId &&
         record.year === selectedYear,
     );
   const cancelExtensionSelection = () => {
@@ -177,53 +180,61 @@ export const BacklogTab = () => {
         : Array.from(new Set([...current, ...selectableMasterIds])),
     );
   const confirmExtension = async () => {
-    const result = await createBacklogSnapshots(
-      activeTab === "PROJECTS" ? "project" : "task",
-      selectedIds,
-      selectedYear,
-      targetYear,
-    );
-    if (!result.success) {
-      setNotice({ type: "error", message: result.message });
-      return;
+    const commandKey = `extend-${activeTab}-${selectedYear}`;
+    if (pendingCommands.current.has(commandKey)) return;
+    pendingCommands.current.add(commandKey);
+    try {
+      const result = await createBacklogSnapshots(
+        activeTab === "PROJECTS" ? "project" : "task",
+        selectedIds,
+        selectedYear,
+        targetYear,
+      );
+      if (!result.success) {
+        setNotice({ type: "error", message: result.message });
+        return;
+      }
+      setNotice({
+        type: "success",
+        message: `${result.data?.created ?? selectedIds.length} ініціатив продовжено на ${targetYear} рік.`,
+      });
+      cancelExtensionSelection();
+    } finally {
+      pendingCommands.current.delete(commandKey);
     }
-    setNotice({
-      type: "success",
-      message: `${result.data?.created ?? selectedIds.length} ініціатив продовжено на ${targetYear} рік.`,
-    });
-    cancelExtensionSelection();
   };
   const toggleQuarter = async (master: Initiative, quarter: Quarter) => {
+    const commandKey = `quarter-${master.id}-${selectedYear}-${quarter}`;
+    if (pendingCommands.current.has(commandKey)) return;
     if (isPastQuarter(quarter)) {
       setNotice({ type: "error", message: "Картки можна створювати лише для поточного або майбутніх кварталів" });
       return;
     }
-    const existing = cardsFor(master.id).find((card) => card.year === selectedYear && card.quarter === quarter);
-    if (existing) {
-      const result = await (activeTab === "PROJECTS" ? deleteProject(existing.id) : deleteTask(existing.id));
+    pendingCommands.current.add(commandKey);
+    try {
+      const existing = cardsFor(master.id).find((card) => card.year === selectedYear && card.quarter === quarter);
+      if (existing) {
+        const result = await (activeTab === "PROJECTS" ? deleteProject(existing.id) : deleteTask(existing.id));
+        if (!result.success) setNotice({ type: "error", message: result.message });
+        return;
+      }
+      const card = {
+        ...master,
+        id: `${master.id}-${selectedYear}-${quarter}`,
+        record_type: "CARD" as const,
+        initiative_year_id: master.id,
+        initiative_id: getChainId(master),
+        year: selectedYear,
+        quarter,
+        health_status: "DEFAULT" as const,
+        checklist: [],
+        history: [],
+      };
+      const result = await (activeTab === "PROJECTS" ? addProject(card as InitiativeViewModel) : addTask(card as InitiativeViewModel));
       if (!result.success) setNotice({ type: "error", message: result.message });
-      return;
+    } finally {
+      pendingCommands.current.delete(commandKey);
     }
-    const previousCard = cardsFor(master.id).sort((a, b) => b.quarter.localeCompare(a.quarter))[0];
-    const preparation = getYearSnapshot(master, selectedYear)?.preparationStage;
-    const card = {
-      ...master,
-      ...metadataFrom(master),
-      ...(previousCard ? metadataFrom(previousCard) : (preparation ?? {})),
-      implementer_dept_ids: [],
-      id: `${master.id}-${selectedYear}-${quarter}`,
-      is_backlog: false,
-      backlog_id: master.id,
-      initiative_chain_id: getChainId(master),
-      yearSnapshots: undefined,
-      year: selectedYear,
-      quarter,
-      health_status: "DEFAULT" as const,
-      checklist: [],
-      history: [],
-    };
-    const result = await (activeTab === "PROJECTS" ? addProject(card as Project) : addTask(card as OperationalTask));
-    if (!result.success) setNotice({ type: "error", message: result.message });
   };
   const removeMaster = async () => {
     if (!masterToDelete) return;
@@ -339,14 +350,15 @@ export const BacklogTab = () => {
           onSave={async (item) => {
             const result = await (
               activeTab === "PROJECTS"
-                ? updateProject(item.id, item as Project)
-                : updateTask(item.id, item as OperationalTask)
+                ? updateProject(item.id, item)
+                : updateTask(item.id, item)
             );
             if (!result.success) {
               setNotice({ type: "error", message: result.message });
-              return;
+              return result;
             }
             setEditingCard(null);
+            return result;
           }}
           onDelete={async (id) => {
             const result = await (

@@ -239,7 +239,7 @@ CREATE TABLE [dbo].[scope_items] (
     [copied_from_item_id] UNIQUEIDENTIFIER,
     [text] NVARCHAR(2000) NOT NULL,
     [status_code] VARCHAR(16) NOT NULL CONSTRAINT [scope_items_status_code_df] DEFAULT 'DEFAULT',
-    [weight_definition_id] UNIQUEIDENTIFIER,
+    [weight_definition_id] UNIQUEIDENTIFIER NOT NULL,
     [weight_snapshot_name] NVARCHAR(100) NOT NULL,
     [weight_snapshot_value] DECIMAL(12,2) NOT NULL,
     [moved_from_card_id] UNIQUEIDENTIFIER,
@@ -401,6 +401,7 @@ ALTER TABLE [dbo].[task_weight_definitions] ADD CONSTRAINT [CK_task_weight_defin
 ALTER TABLE [dbo].[departments] ADD CONSTRAINT [CK_departments_capacity] CHECK ([capacity_limit_points] >= 0);
 ALTER TABLE [dbo].[initiative_size_definitions] ADD CONSTRAINT [CK_initiative_size_definitions_range] CHECK ([min_score] >= 0 AND [max_score] >= [min_score]);
 ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_field_definitions_type] CHECK ([field_type] IN ('TEXT','NUMBER','SELECT','CHECKBOX','RICHTEXT','BOOLEAN','DATE'));
+ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_field_definitions_entity_type] CHECK ([entity_type] IN ('project','task'));
 ALTER TABLE [dbo].[quarter_card_custom_field_values] ADD CONSTRAINT [CK_quarter_card_custom_field_one_value] CHECK (
     (CASE WHEN [text_value] IS NULL THEN 0 ELSE 1 END) +
     (CASE WHEN [number_value] IS NULL THEN 0 ELSE 1 END) +

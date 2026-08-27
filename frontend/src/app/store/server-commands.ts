@@ -59,11 +59,14 @@ export const serverCommands = {
     year: body.year,
     strategic_goal: body.strategic_goal,
     preparation: body.preparation,
+    initial_card: body.initial_card,
   }),
   updateInitiative: (id: string, revision: number, name: string) =>
     command<CommandResult>(`/initiatives/${id}`, "PATCH", { revision, name }),
   updateYear: (id: string, revision: number, strategicGoal?: string) =>
     command<CommandResult>(`/initiative-years/${id}`, "PATCH", { revision, strategic_goal: strategicGoal }),
+  updateBacklog: (id: string, body: Schemas["UpdateBacklogDto"]) =>
+    command<CommandResult>(`/initiative-years/${id}/backlog`, "PATCH", body),
   createCard: (yearId: string, body: Schemas["CreateQuarterCardDto"]) => command<CommandResult>(`/initiative-years/${yearId}/cards`, "POST", {
     quarter: body.quarter,
   }),

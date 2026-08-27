@@ -4,9 +4,9 @@ import { useAppContext } from "../../../app/store";
 import {
   ChecklistItem,
   CustomFieldDef,
-  OperationalTask,
+  MutationResult,
   Priority,
-  Project,
+  InitiativeViewModel,
   Quarter,
 } from "../../../shared/types";
 import {
@@ -26,14 +26,14 @@ import styles from "./InitiativeCardModal.module.css";
 import { InitiativeHistory } from "./InitiativeHistory";
 import { useAuditQuery } from "../../../api/hooks";
 
-type Initiative = Project | OperationalTask;
+type Initiative = InitiativeViewModel;
 type Kind = "project" | "task";
 interface Props {
   kind: Kind;
   item: Initiative | null;
   onClose: () => void;
-  onSave: (item: Initiative) => void | Promise<void>;
-  onDelete?: (id: string) => void;
+  onSave: (item: Initiative) => void | MutationResult | Promise<void | MutationResult>;
+  onDelete?: (id: string) => void | Promise<void>;
   isReadOnly?: boolean;
   openInViewMode?: boolean;
   defaultYear?: number;
@@ -97,7 +97,6 @@ export const InitiativeCardModal = ({
     rolePermissions,
   } = useAppContext();
   const records = kind === "project" ? projects : tasks;
-  const auditQuery = useAuditQuery(item ? "QuarterCard" : undefined, item?.id);
   const year = item?.year ?? defaultYear ?? new Date().getFullYear();
   const quarter = item?.quarter ?? defaultQuarter ?? getCurrentQuarter();
   const noun = kind === "project" ? "проєкту" : "операційної задачі";
@@ -122,9 +121,11 @@ export const InitiativeCardModal = ({
     item?.custom_fields ?? {},
   );
   const [activeTab, setActiveTab] = useState<"SCOPE" | "HISTORY">("SCOPE");
+  const auditQuery = useAuditQuery(activeTab === "HISTORY" && item ? "QuarterCard" : undefined, activeTab === "HISTORY" ? item?.id : undefined);
   const [newText, setNewText] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(locked || openInViewMode);
   const nextPeriod =
     quarter === "Q4"
@@ -194,7 +195,7 @@ export const InitiativeCardModal = ({
             kind === "project",
           );
   const requestMove = async () => {
-    if (isPending) return;
+    if (isPending || hasRevisionConflict) return;
     if (!item) {
       setError("Спочатку збережіть нову картку");
       return;
@@ -246,7 +247,7 @@ export const InitiativeCardModal = ({
     setIsPending(true);
     setError("");
     try {
-      await onSave({
+      const result = await onSave({
       ...(item ?? {}),
       id:
         item?.id ??
@@ -263,10 +264,25 @@ export const InitiativeCardModal = ({
       quarter,
       health_status: item?.health_status ?? "DEFAULT",
       checklist,
-      is_backlog: false,
-      backlog_id: item?.backlog_id,
+      record_type: "CARD",
+      initiative_id: item?.initiative_id ?? item?.id ?? "",
+      initiative_year_id: item?.initiative_year_id,
       history: item?.history ?? [],
       } as Initiative);
+      if (result && !result.success) {
+        setError(result.message);
+        if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
+      }
+    } finally {
+      setIsPending(false);
+    }
+  };
+  const requestDelete = async () => {
+    if (!item || !onDelete || isPending) return;
+    setIsPending(true);
+    setError("");
+    try {
+      await onDelete(item.id);
     } finally {
       setIsPending(false);
     }
@@ -424,7 +440,7 @@ export const InitiativeCardModal = ({
             <button
               type="button"
               onClick={requestContinuation}
-              disabled={isPending}
+              disabled={isPending || hasRevisionConflict}
               className="modal-secondary h-10 px-3 text-sm text-emerald-900"
             >
               Продовжити
@@ -477,7 +493,8 @@ export const InitiativeCardModal = ({
               {onDelete && (
                 <button
                   type="button"
-                  onClick={() => onDelete(item.id)}
+                  onClick={requestDelete}
+                  disabled={isPending}
                   className={`modal-secondary ${styles.headerAction} ${styles.deleteAction}`}
                 >
                   <Trash2 size={16} className="text-rose-500" />
@@ -521,7 +538,8 @@ export const InitiativeCardModal = ({
               {onDelete && (
                 <button
                   type="button"
-                  onClick={() => onDelete(item.id)}
+                  onClick={requestDelete}
+                  disabled={isPending}
                   className={`modal-secondary ${styles.mobileAction}`}
                 >
                   <Trash2 size={15} className="text-rose-500" />
@@ -951,7 +969,7 @@ export const InitiativeCardModal = ({
               disabled={isPending}
               className={`modal-primary ${styles.footerPrimary}`}
             >
-              {isPending ? "Збереження…" : "Зберегти"}
+              {isPending ? "Збереження…" : hasRevisionConflict ? "Оновіть картку" : "Зберегти"}
             </button>
           )}
         </footer>

@@ -5,6 +5,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import { DictionaryDto } from './dictionary.dto';
 import { isPeriodLocked } from '../initiatives/domain/period.policy';
+import { AuthUser } from '../../common/auth/auth-user';
 
 export type DictionaryType = 'departments' | 'managers' | 'priorities' | 'statuses' | 'weights' | 'sizes';
 const normalize = (value: string) => value.trim().toLocaleLowerCase('uk-UA');
@@ -27,7 +28,8 @@ export class DictionariesService {
     }
   }
 
-  async create(type: DictionaryType, dto: DictionaryDto) {
+  async create(type: DictionaryType, dto: DictionaryDto, actor: AuthUser) {
+    await this.assertMayAdmin(actor);
     this.requireName(dto);
     try {
       const data = await this.prisma.$transaction(async (tx) => {
@@ -44,7 +46,8 @@ export class DictionariesService {
     } catch (error) { this.rethrow(error); }
   }
 
-  async update(type: DictionaryType, id: string, dto: DictionaryDto) {
+  async update(type: DictionaryType, id: string, dto: DictionaryDto, actor: AuthUser) {
+    await this.assertMayAdmin(actor);
     try {
       await this.prisma.$transaction(async (tx) => {
         if (type === 'statuses') {
@@ -53,9 +56,18 @@ export class DictionariesService {
         }
         if (type === 'weights') {
           const weight = await tx.taskWeight.findUnique({ where: { id } });
-          if (weight?.isSystem && (dto.weight !== undefined && dto.weight !== 0 || dto.is_active === false)) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системну вагу не можна деактивувати або змінити', HttpStatus.CONFLICT);
+          if (weight?.isSystem && ((dto.name !== undefined && dto.name.trim() !== weight.name) || (dto.weight !== undefined && dto.weight !== 0) || dto.is_active === false)) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системну вагу не можна деактивувати або змінити', HttpStatus.CONFLICT);
         }
-        if (type === 'sizes') await this.assertSizeRange(tx, dto, id);
+        if (type === 'sizes') {
+          const current = await tx.initiativeSize.findUnique({ where: { id } });
+          if (!current) throw new AppError('NOT_FOUND', 'Розмір не знайдено', HttpStatus.NOT_FOUND);
+          await this.assertSizeRange(tx, {
+            ...dto,
+            min_score: dto.min_score ?? current.minScore.toNumber(),
+            max_score: dto.max_score ?? current.maxScore.toNumber(),
+            is_active: dto.is_active ?? current.isActive,
+          }, id);
+        }
         const common = dto.name ? { name: dto.name.trim(), normalizedName: normalize(dto.name) } : {};
         switch (type) {
           case 'departments': await tx.department.update({ where: { id }, data: { ...common, capacityLimitPoints: dto.capacity_limit_points, isActive: dto.is_active } }); break;
@@ -70,11 +82,15 @@ export class DictionariesService {
     } catch (error) { this.rethrow(error); }
   }
 
-  async remove(type: DictionaryType, id: string) {
+  async remove(type: DictionaryType, id: string, actor: AuthUser) {
+    await this.assertMayAdmin(actor);
     if (type === 'statuses' && (await this.prisma.initiativeStatus.findUnique({ where: { id } }))?.isSystem) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системний статус не можна видалити', HttpStatus.CONFLICT);
     if (type === 'weights' && (await this.prisma.taskWeight.findUnique({ where: { id } }))?.isSystem) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системну вагу не можна видалити', HttpStatus.CONFLICT);
     const usage = await this.usage(type, id);
-    if (usage.length) throw new AppError('DICTIONARY_IN_USE', `Неможливо видалити запис: значення використовується у ${usage.join(', ')}`, HttpStatus.CONFLICT);
+    if (usage.length) {
+      await this.deactivate(type, id);
+      return { success: true, message: `Запис використовується у ${usage.join(', ')}, тому його деактивовано` };
+    }
     switch (type) {
       case 'departments': await this.prisma.department.delete({ where: { id } }); break;
       case 'managers': await this.prisma.manager.delete({ where: { id } }); break;
@@ -86,7 +102,8 @@ export class DictionariesService {
     return { success: true, message: type === 'weights' ? 'Вагу видалено. Знімки у картках збережено' : 'Запис видалено' };
   }
 
-  async applyWeightToOpenCards(id: string) {
+  async applyWeightToOpenCards(id: string, actor: AuthUser) {
+    await this.assertMayAdmin(actor);
     const result = await this.prisma.$transaction(async (tx) => {
       const definition = await tx.taskWeight.findUnique({ where: { id } });
       if (!definition) throw new AppError('NOT_FOUND', 'Вагу не знайдено', HttpStatus.NOT_FOUND);
@@ -122,7 +139,8 @@ export class DictionariesService {
     return { success: true, message: `Оновлено задач: ${result.tasks}`, data: result };
   }
 
-  async recalculateOpenCardSizes() {
+  async recalculateOpenCardSizes(actor: AuthUser) {
+    await this.assertMayAdmin(actor);
     const result = await this.prisma.$transaction(async (tx) => {
       const cards = await tx.quarterCard.findMany({ include: { initiativeYear: true, scopeItems: true } });
       const sizes = await this.sizeDefinitions(tx);
@@ -153,6 +171,10 @@ export class DictionariesService {
   }
 
   private requireName(dto: DictionaryDto) { if (!dto.name?.trim()) throw new AppError('VALIDATION_ERROR', 'Вкажіть назву'); }
+  private async assertMayAdmin(actor: AuthUser) {
+    const permission = await this.prisma.rolePermission.findUnique({ where: { role: actor.role } });
+    if (!permission?.canAccessAdmin || permission.isReadOnly) throw new AppError('FORBIDDEN', 'Недостатньо прав адміністратора', HttpStatus.FORBIDDEN);
+  }
   private async assertSizeRange(tx: Prisma.TransactionClient, dto: DictionaryDto, ignoredId?: string) {
     const min = dto.min_score ?? 0, max = dto.max_score ?? 0;
     if (max < min) throw new AppError('INVALID_SIZE_RANGE', 'Некоректний діапазон розміру');
@@ -172,6 +194,16 @@ export class DictionariesService {
     if (type === 'statuses' && await this.prisma.quarterCard.count({ where: { statusId: id } })) result.push('картках');
     if (type === 'sizes' && await this.prisma.quarterCard.count({ where: { sizeDefinitionId: id } })) result.push('картках');
     return result;
+  }
+  private async deactivate(type: DictionaryType, id: string) {
+    switch (type) {
+      case 'departments': await this.prisma.department.update({ where: { id }, data: { isActive: false } }); break;
+      case 'managers': await this.prisma.manager.update({ where: { id }, data: { isActive: false } }); break;
+      case 'priorities': await this.prisma.priority.update({ where: { id }, data: { isActive: false } }); break;
+      case 'statuses': await this.prisma.initiativeStatus.update({ where: { id }, data: { isActive: false } }); break;
+      case 'weights': await this.prisma.taskWeight.update({ where: { id }, data: { isActive: false } }); break;
+      case 'sizes': await this.prisma.initiativeSize.update({ where: { id }, data: { isActive: false } }); break;
+    }
   }
   private rethrow(error: unknown): never {
     if (error instanceof AppError) throw error;

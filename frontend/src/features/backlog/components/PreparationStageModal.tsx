@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppContext } from "../../../app/store";
-import { OperationalTask, Project } from "../../../shared/types";
+import { InitiativeViewModel } from "../../../shared/types";
 import { getYearSnapshot } from "../../../domain/initiatives";
 import styles from "./BacklogModals.module.css";
 
@@ -10,7 +10,7 @@ export const PreparationStageModal = ({
   type,
   onClose,
 }: {
-  item: Project | OperationalTask;
+  item: InitiativeViewModel;
   type: "project" | "task";
   onClose: () => void;
 }) => {
@@ -24,6 +24,7 @@ export const PreparationStageModal = ({
   );
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
   const toggle = (id: string) =>
     setDepartmentIds((current) =>
       current.includes(id)
@@ -31,7 +32,7 @@ export const PreparationStageModal = ({
         : [...current, id],
     );
   const save = async () => {
-    if (isSaving) return;
+    if (isSaving || hasRevisionConflict) return;
     setIsSaving(true);
     setError("");
     try {
@@ -42,6 +43,7 @@ export const PreparationStageModal = ({
       });
       if (!result.success) {
         setError(result.message);
+        if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
         return;
       }
       onClose();
@@ -150,10 +152,10 @@ export const PreparationStageModal = ({
           </button>
           <button
             onClick={save}
-            disabled={isSaving}
+            disabled={isSaving || hasRevisionConflict}
             className={styles.preparationSave}
           >
-            {isSaving ? "Збереження…" : "Зберегти"}
+            {isSaving ? "Збереження…" : hasRevisionConflict ? "Оновіть запис" : "Зберегти"}
           </button>
         </div>
       </div>

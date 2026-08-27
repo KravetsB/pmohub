@@ -352,6 +352,44 @@
         ]
       }
     },
+    "/api/v1/initiative-years/{id}/backlog": {
+      "patch": {
+        "operationId": "InitiativeYearsController_updateBacklog",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBacklogDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiative-years"
+        ]
+      }
+    },
     "/api/v1/initiative-years/{id}/preparation": {
       "patch": {
         "operationId": "InitiativeYearsController_updatePreparation",
@@ -499,6 +537,14 @@
           },
           {
             "name": "quarter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
             "required": false,
             "in": "query",
             "schema": {
@@ -1631,6 +1677,98 @@
           "department_ids"
         ]
       },
+      "CreateScopeItemDto": {
+        "type": "object",
+        "properties": {
+          "lineage_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "status_code": {
+            "enum": [
+              "DEFAULT",
+              "GREEN",
+              "YELLOW",
+              "RED"
+            ],
+            "type": "string"
+          },
+          "weight_definition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "executor_department_ids": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "text",
+          "status_code",
+          "weight_definition_id",
+          "executor_department_ids"
+        ]
+      },
+      "InitialQuarterCardDto": {
+        "type": "object",
+        "properties": {
+          "manager_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "priority_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "department_ids": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "quarter": {
+            "enum": [
+              "Q1",
+              "Q2",
+              "Q3",
+              "Q4"
+            ],
+            "type": "string"
+          },
+          "status_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "scope": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateScopeItemDto"
+            }
+          }
+        },
+        "required": [
+          "department_ids",
+          "quarter",
+          "scope"
+        ]
+      },
       "CreateInitiativeDto": {
         "type": "object",
         "properties": {
@@ -1654,6 +1792,9 @@
           },
           "preparation": {
             "$ref": "#/components/schemas/PreparationInputDto"
+          },
+          "initial_card": {
+            "$ref": "#/components/schemas/InitialQuarterCardDto"
           }
         },
         "required": [
@@ -1888,6 +2029,30 @@
           "revision"
         ]
       },
+      "UpdateBacklogDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "strategic_goal": {
+            "type": "string"
+          },
+          "initiative_revision": {
+            "type": "number",
+            "minimum": 1
+          },
+          "year_revision": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name",
+          "initiative_revision",
+          "year_revision"
+        ]
+      },
       "UpdatePreparationDto": {
         "type": "object",
         "properties": {
@@ -1997,8 +2162,7 @@
             ]
           },
           "weight_definition_id": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "weight_snapshot": {
             "type": "object"
@@ -2218,17 +2382,9 @@
       "ScopeItemDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "lineage_id": {
             "type": "string",
             "format": "uuid"
-          },
-          "revision": {
-            "type": "number",
-            "minimum": 1
           },
           "text": {
             "type": "string"
@@ -2253,6 +2409,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [

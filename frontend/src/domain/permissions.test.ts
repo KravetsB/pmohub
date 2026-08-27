@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { canDeleteInitiative, canEditInitiative, canViewInitiative } from './permissions';
-import { Project, RolePermissions, User } from '../shared/types';
+import { InitiativeViewModel, RolePermissions, User } from '../shared/types';
 
-const card: Project = { id: 'C', name: 'Card', strategic_goal: 'Goal', implementer_dept_ids: ['D1'], cross_functional_dept_ids: ['D2'], year: 2026, quarter: 'Q3', health_status: 'DEFAULT', checklist: [], is_backlog: false };
+const card: InitiativeViewModel = { id: 'C', initiative_id: 'I', initiative_year_id: 'Y', record_type: 'CARD', name: 'Card', strategic_goal: 'Goal', implementer_dept_ids: ['D1'], cross_functional_dept_ids: ['D2'], year: 2026, quarter: 'Q3', health_status: 'DEFAULT', checklist: [] };
 const user = (departmentId: string): User => ({ id: departmentId, name: departmentId, email: `${departmentId}@test`, role: 'USER', departmentId });
 const permissions: RolePermissions[] = [{ role: 'USER', canCreateEditProjects: false, canDeleteProjects: false, canAccessAdmin: false, isReadOnly: true, canEditArchive: false }];
 

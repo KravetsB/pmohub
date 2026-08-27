@@ -6,17 +6,29 @@ import { AuthUser } from '../../common/auth/auth-user';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { DictionariesService } from '../dictionaries/dictionaries.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
-import { UsersService } from '../users/users.service';
 
 @ApiTags('bootstrap') @ApiBearerAuth() @ApiOkResponse({ type: ApiSuccessDto }) @Controller('bootstrap')
 export class BootstrapController {
-  constructor(private readonly prisma: PrismaService, private readonly dictionaries: DictionariesService, private readonly fields: CustomFieldsService, private readonly users: UsersService) {}
+  constructor(private readonly prisma: PrismaService, private readonly dictionaries: DictionariesService, private readonly fields: CustomFieldsService) {}
 
   @Get()
   async get(@CurrentUser() currentUser: AuthUser) {
-    const [departments, managers, priorities, initiativeStatuses, taskWeights, initiativeSizes, customFields, rolePermissions, users] = await Promise.all([
-      this.dictionaries.list('departments'), this.dictionaries.list('managers'), this.dictionaries.list('priorities'), this.dictionaries.list('statuses'), this.dictionaries.list('weights'), this.dictionaries.list('sizes'), this.fields.list(), this.prisma.rolePermission.findMany(), this.users.list(),
+    const [departments, managers, priorities, initiativeStatuses, taskWeights, initiativeSizes, customFields, currentRolePermission] = await Promise.all([
+      this.dictionaries.list('departments'), this.dictionaries.list('managers'), this.dictionaries.list('priorities'), this.dictionaries.list('statuses'), this.dictionaries.list('weights'), this.dictionaries.list('sizes'), this.fields.list(), this.prisma.rolePermission.findUnique({ where: { role: currentUser.role } }),
     ]);
-    return { success: true, data: { currentUser, departments, managers, priorities, initiativeStatuses, taskWeights, initiativeSizes, customFields, rolePermissions, users } };
+    return {
+      success: true,
+      data: {
+        currentUser,
+        departments,
+        managers,
+        priorities,
+        initiativeStatuses,
+        taskWeights,
+        initiativeSizes,
+        customFields,
+        rolePermissions: currentRolePermission ? [currentRolePermission] : [],
+      },
+    };
   }
 }

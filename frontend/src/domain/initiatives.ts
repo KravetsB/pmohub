@@ -1,13 +1,12 @@
 import {
   ChecklistItem,
   InitiativeMetadata,
-  InitiativeYearSnapshot,
-  OperationalTask,
+  InitiativeYearContext,
   PreparationStage,
-  Project,
+  InitiativeViewModel,
 } from "../shared/types";
 
-export type InitiativeRecord = Project | OperationalTask;
+export type InitiativeRecord = InitiativeViewModel;
 
 export const isCompletedItem = (item: ChecklistItem) =>
   item.is_completed || item.color === "GREEN";
@@ -32,11 +31,13 @@ export const preparationMetadataFrom = (record: InitiativeMetadata): Preparation
   history: [],
 });
 
-export const getYearSnapshot = (master: InitiativeRecord, year: number): InitiativeYearSnapshot | undefined =>
-  master.yearSnapshots?.[String(year)];
+export const getYearSnapshot = (master: InitiativeRecord, year: number): InitiativeYearContext | undefined =>
+  master.record_type === "YEAR" && master.year === year
+    ? { ...metadataFrom(master), year, history: [], preparationStage: master.preparation_stage }
+    : undefined;
 
 export const getChainId = (record: InitiativeRecord): string =>
-  record.initiative_chain_id ?? record.backlog_id ?? record.id;
+  record.initiative_id;
 
 export const materializeBacklogYear = <T extends InitiativeRecord>(master: T, year: number): T | undefined => {
   const snapshot = getYearSnapshot(master, year);

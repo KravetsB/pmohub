@@ -1,8 +1,8 @@
 import { calculateDepartmentLoads, getInitiativeSize, getInitiativeWeight } from './capacity';
 import { calculateProgress } from '../shared/utils';
-import { Department, HealthStatus, InitiativeSizeDef, OperationalTask, Project, TaskWeightDef } from '../shared/types';
+import { Department, HealthStatus, InitiativeSizeDef, InitiativeViewModel, TaskWeightDef } from '../shared/types';
 
-export type AnalyticsCard = (Project | OperationalTask) & { type: 'PROJECT' | 'TASK' };
+export type AnalyticsCard = InitiativeViewModel & { type: 'PROJECT' | 'TASK' };
 export type CanonicalHealthStatus = Exclude<HealthStatus, 'GRAY'>;
 
 export const normalizeHealthStatus = (status: HealthStatus): CanonicalHealthStatus => status === 'GRAY' ? 'DEFAULT' : status;
@@ -32,7 +32,7 @@ export const averageScopeProgress = (cards: AnalyticsCard[]): number => {
 export const averageInitiativeDuration = (cards: AnalyticsCard[]): number => {
   const quarterCountByInitiative = new Map<string, number>();
   cards.forEach(card => {
-    const initiativeId = card.backlog_id ?? card.id;
+    const initiativeId = card.initiative_id;
     const key = `${card.type}:${initiativeId}`;
     quarterCountByInitiative.set(key, (quarterCountByInitiative.get(key) ?? 0) + 1);
   });

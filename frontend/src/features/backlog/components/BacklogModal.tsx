@@ -2,9 +2,7 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppContext } from "../../../app/store";
 import {
-  InitiativeYearSnapshot,
-  OperationalTask,
-  Project,
+  InitiativeViewModel,
   Quarter,
 } from "../../../shared/types";
 import styles from "./BacklogModals.module.css";
@@ -12,7 +10,7 @@ import styles from "./BacklogModals.module.css";
 interface BacklogModalProps {
   onClose: () => void;
   type: "PROJECTS" | "TASKS";
-  editItem: Project | OperationalTask | null;
+  editItem: InitiativeViewModel | null;
   selectedYear: number;
   isReadOnly?: boolean;
 }
@@ -33,7 +31,7 @@ export const BacklogModal = ({
   } = useAppContext();
   const sourceRecords = type === "PROJECTS" ? projects : tasks;
   const master = editItem
-    ? sourceRecords.find((item) => item.is_backlog && item.id === editItem.id)
+    ? sourceRecords.find((item) => item.record_type === "YEAR" && item.id === editItem.id)
     : undefined;
   const [name, setName] = useState(editItem?.name ?? "");
   const [strategicGoal, setStrategicGoal] = useState(
@@ -41,6 +39,7 @@ export const BacklogModal = ({
   );
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
 
   const metadata = () => ({
     name: name.trim(),
@@ -49,7 +48,7 @@ export const BacklogModal = ({
     cross_functional_dept_ids: [],
   });
   const handleSave = async () => {
-    if (isSaving) return;
+    if (isSaving || hasRevisionConflict) return;
     if (!name.trim()) {
       setError(`Вкажіть назву ${type === "PROJECTS" ? "проєкту" : "операційної задачі"}`);
       return;
@@ -63,15 +62,11 @@ export const BacklogModal = ({
           : updateTask(master.id, metadata()));
         if (!result.success) {
           setError(result.message);
+          if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
           return;
         }
       } else {
         const id = `${type === "PROJECTS" ? "PRJ" : "TSK"}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-        const yearSnapshot: InitiativeYearSnapshot = {
-          ...metadata(),
-          year: selectedYear,
-          history: [],
-        };
         const base = {
           id,
           ...metadata(),
@@ -79,13 +74,13 @@ export const BacklogModal = ({
           quarter: "Q1" as Quarter,
           health_status: "DEFAULT" as const,
           checklist: [],
-          is_backlog: true,
-          yearSnapshots: { [String(selectedYear)]: yearSnapshot },
+          record_type: "YEAR" as const,
+          initiative_id: id,
           history: [],
         };
         const result = await createBacklogWithCards(
           type === "PROJECTS" ? "project" : "task",
-          base as Project | OperationalTask,
+          base as InitiativeViewModel,
           [],
         );
         if (!result.success) {
@@ -164,10 +159,10 @@ export const BacklogModal = ({
           {!isReadOnly && (
             <button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || hasRevisionConflict}
               className={styles.footerSave}
             >
-              {isSaving ? "Збереження…" : "Зберегти"}
+              {isSaving ? "Збереження…" : hasRevisionConflict ? "Оновіть запис" : "Зберегти"}
             </button>
           )}
         </div>

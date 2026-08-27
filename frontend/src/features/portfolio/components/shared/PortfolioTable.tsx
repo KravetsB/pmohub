@@ -3,8 +3,7 @@ import { Edit2, Eye } from "lucide-react";
 import { useAppContext } from "../../../../app/store";
 import {
   CustomFieldDef,
-  OperationalTask,
-  Project,
+  InitiativeViewModel,
 } from "../../../../shared/types";
 import { stripHtml } from "../../../../shared/utils";
 import {
@@ -18,7 +17,7 @@ import {
 import { RichTextPreview } from "../../../../components/ui/RichTextEditor";
 import styles from "./PortfolioTable.module.css";
 
-type Initiative = Project | OperationalTask;
+type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
 
 type PortfolioTableProps = {

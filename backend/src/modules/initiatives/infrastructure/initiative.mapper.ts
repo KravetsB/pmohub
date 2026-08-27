@@ -23,10 +23,40 @@ export const cardInclude = {
   },
 } as const;
 
+export const analyticsCardInclude = {
+  initiativeYear: { include: { initiative: true } },
+  status: true,
+  departments: { select: { departmentId: true } },
+  scopeItems: {
+    select: {
+      id: true,
+      lineageId: true,
+      text: true,
+      statusCode: true,
+      weightDefinitionId: true,
+      weightSnapshotName: true,
+      weightSnapshotValue: true,
+      revision: true,
+      executors: { select: { departmentId: true } },
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
+} as const;
+
 export const yearInclude = {
   initiative: true,
   preparationStage: { include: preparationInclude },
-  quarterCards: { include: cardInclude, orderBy: { quarter: 'asc' as const } },
+  quarterCards: {
+    select: {
+      id: true,
+      quarter: true,
+      statusId: true,
+      revision: true,
+      totalWeight: true,
+      status: { select: { code: true } },
+    },
+    orderBy: { quarter: 'asc' as const },
+  },
 } as const;
 
 export const mapPreparation = (stage: any) => stage ? ({
@@ -46,7 +76,7 @@ export const mapScopeItem = (item: any) => ({
   copied_from_item_id: item.copiedFromItemId ?? null,
   text: item.text,
   status_code: item.statusCode,
-  weight_definition_id: item.weightDefinitionId ?? null,
+  weight_definition_id: item.weightDefinitionId,
   weight_snapshot: {
     name: item.weightSnapshotName,
     value: numberValue(item.weightSnapshotValue) ?? 0,
@@ -91,6 +121,54 @@ export const mapCard = (card: any) => {
       value.numberValue?.toNumber() ?? value.booleanValue ?? value.dateValue?.toISOString().slice(0, 10) ?? value.optionValue ?? value.textValue,
     ])),
     scope: card.scopeItems.map(mapScopeItem),
+    moved_from: card.movedFromYear ? { year: card.movedFromYear, quarter: `Q${card.movedFromQuarter}` } : null,
+    revision: card.revision,
+  };
+};
+
+export const mapAnalyticsCard = (card: any) => {
+  const executorIds = new Set<string>(card.scopeItems.flatMap((item: any) => item.executors.map((link: any) => link.departmentId)));
+  const departmentIds = card.departments.map((link: any) => link.departmentId);
+  return {
+    id: card.id,
+    initiative_year_id: card.initiativeYearId,
+    initiative_id: card.initiativeYear.initiativeId,
+    kind: card.initiativeYear.initiative.kind,
+    name: card.initiativeYear.initiative.name,
+    strategic_goal: card.initiativeYear.strategicGoal ?? null,
+    year: card.initiativeYear.year,
+    quarter: `Q${card.quarter}`,
+    manager_id: card.managerId ?? null,
+    manager: null,
+    priority_id: card.priorityId ?? null,
+    priority: null,
+    department_ids: departmentIds,
+    effective_involved_department_ids: departmentIds.filter((id: string) => !executorIds.has(id)),
+    status_id: card.statusId,
+    status_code: card.status.code,
+    status: { id: card.status.id, code: card.status.code, name: card.status.name, color: card.status.color },
+    notes: null,
+    total_weight: numberValue(card.totalWeight) ?? 0,
+    size_snapshot: {
+      definition_id: card.sizeDefinitionId ?? null,
+      name: card.sizeSnapshotName ?? 'Не визначено',
+      min: numberValue(card.sizeSnapshotMin),
+      max: numberValue(card.sizeSnapshotMax),
+    },
+    custom_fields: {},
+    scope: card.scopeItems.map((item: any) => ({
+      id: item.id,
+      lineage_id: item.lineageId,
+      copied_from_item_id: null,
+      text: item.text,
+      status_code: item.statusCode,
+      weight_definition_id: item.weightDefinitionId,
+      weight_snapshot: { name: item.weightSnapshotName, value: numberValue(item.weightSnapshotValue) ?? 0 },
+      executor_department_ids: item.executors.map((link: any) => link.departmentId),
+      executors: [],
+      moved_from_card_id: null,
+      revision: item.revision,
+    })),
     moved_from: card.movedFromYear ? { year: card.movedFromYear, quarter: `Q${card.movedFromQuarter}` } : null,
     revision: card.revision,
   };

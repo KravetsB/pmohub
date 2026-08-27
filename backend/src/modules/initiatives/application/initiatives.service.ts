@@ -8,9 +8,11 @@ import {
   CreateInitiativeDto,
   CreateQuarterCardDto,
   ExtendYearsDto,
+  InitialQuarterCardDto,
   PeriodCommandDto,
   QuarterDto,
   UpdateCardDto,
+  UpdateBacklogDto,
   UpdateInitiativeDto,
   UpdateInitiativeYearDto,
   UpdatePreparationDto,
@@ -31,7 +33,21 @@ export class InitiativesService {
   async create(dto: CreateInitiativeDto, actor: AuthUser) {
     await this.assertCanEdit(actor);
     const result = await this.prisma.$transaction(async (tx) => {
+      const initial = dto.initial_card;
       await this.assertReferences(tx, dto.preparation.manager_id, dto.preparation.priority_id, dto.preparation.department_ids);
+      if (initial) {
+        await this.assertReferences(
+          tx,
+          initial.manager_id,
+          initial.priority_id,
+          [...initial.department_ids, ...initial.scope.flatMap((item) => item.executor_department_ids)],
+        );
+      }
+      if (initial) {
+        this.assertOpen(dto.year, initial.quarter);
+        if (initial.status_id) await this.assertCardStatus(tx, initial.status_id);
+        this.assertNewScopePayload(initial.scope);
+      }
       const initiative = await tx.initiative.create({
         data: {
           kind: dto.kind,
@@ -55,8 +71,40 @@ export class InitiativesService {
         include: { years: true },
       });
       const yearId = initiative.years[0].id;
+      let cardId: string | undefined;
+      if (initial) {
+        const weights = await this.loadWeights(tx, initial.scope.map((item) => item.weight_definition_id));
+        const card = await this.createEmptyCard(tx, yearId, qn(initial.quarter), {
+          managerId: initial.manager_id ?? null,
+          priorityId: initial.priority_id ?? null,
+          departmentIds: initial.department_ids,
+        }, initial.notes?.trim() || null);
+        if (initial.status_id) await tx.quarterCard.update({ where: { id: card.id }, data: { statusId: initial.status_id } });
+        for (const item of initial.scope) {
+          const weight = weights.get(item.weight_definition_id)!;
+          await tx.scopeItem.create({
+            data: {
+              quarterCardId: card.id,
+              lineageId: item.lineage_id ?? randomUUID(),
+              text: item.text.trim(),
+              statusCode: item.status_code,
+              weightDefinitionId: weight.id,
+              weightSnapshotName: weight.name,
+              weightSnapshotValue: weight.weight,
+              executors: { createMany: { data: unique(item.executor_department_ids).map((departmentId) => ({ departmentId })) } },
+            },
+          });
+        }
+        const executorIds = initial.scope.flatMap((item) => item.executor_department_ids);
+        await this.replaceCardDepartments(tx, card.id, unique([...initial.department_ids, ...executorIds]));
+        await this.replaceCustomFields(tx, card.id, dto.kind, initial.custom_fields ?? {});
+        await this.recalculateCard(tx, card.id);
+        await this.assertPeriodCapacity(tx, dto.year, qn(initial.quarter));
+        await this.audit(tx, 'QuarterCard', card.id, 'CARD_CREATED', 'Створено початкову квартальну картку', actor, dto.year, initial.quarter);
+        cardId = card.id;
+      }
       await this.audit(tx, 'InitiativeYear', yearId, 'INITIATIVE_CREATED', 'Створено запис у беклозі', actor);
-      return { initiative_id: initiative.id, initiative_revision: initiative.revision, year_id: yearId, year_revision: 1 };
+      return { initiative_id: initiative.id, initiative_revision: initiative.revision, year_id: yearId, year_revision: 1, card_id: cardId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return ok('Ініціативу створено', result);
   }
@@ -90,6 +138,33 @@ export class InitiativesService {
       return { id, revision: dto.revision + 1 };
     });
     return ok('Стратегічну задачу оновлено', result);
+  }
+
+  async updateBacklog(id: string, dto: UpdateBacklogDto, actor: AuthUser) {
+    await this.assertCanEdit(actor);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const year = await tx.initiativeYear.findUnique({ where: { id } });
+      if (!year) throw this.notFound('Рік ініціативи');
+      if (this.yearLocked(year.year)) throw this.archived();
+      const rootChanged = await tx.initiative.updateMany({
+        where: { id: year.initiativeId, revision: dto.initiative_revision },
+        data: { name: dto.name.trim(), revision: { increment: 1 } },
+      });
+      if (!rootChanged.count) await this.throwConflict(tx, 'Initiative', year.initiativeId);
+      const yearChanged = await tx.initiativeYear.updateMany({
+        where: { id, revision: dto.year_revision },
+        data: { strategicGoal: dto.strategic_goal?.trim() || null, revision: { increment: 1 } },
+      });
+      if (!yearChanged.count) await this.throwConflict(tx, 'InitiativeYear', id);
+      await this.audit(tx, 'InitiativeYear', id, 'BACKLOG_UPDATED', 'Оновлено назву та стратегічну задачу', actor);
+      return {
+        initiative_id: year.initiativeId,
+        initiative_revision: dto.initiative_revision + 1,
+        year_id: id,
+        year_revision: dto.year_revision + 1,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return ok('Дані беклогу оновлено', result);
   }
 
   async updatePreparation(id: string, dto: UpdatePreparationDto, actor: AuthUser) {
@@ -145,7 +220,7 @@ export class InitiativesService {
     const result = await this.prisma.$transaction(async (tx) => {
       const current = await tx.quarterCard.findUnique({
         where: { id },
-        include: { initiativeYear: true, scopeItems: { include: { executors: true } } },
+        include: { initiativeYear: { include: { initiative: true } }, scopeItems: { include: { executors: true } } },
       });
       if (!current) throw this.notFound('Картку');
       if (isPeriodLocked(current.initiativeYear.year, qs(current.quarter))) throw this.archived();
@@ -187,8 +262,11 @@ export class InitiativesService {
             },
           });
           if (!updated.count) await this.throwConflict(tx, 'ScopeItem', item.id);
-          await tx.scopeItemExecutor.deleteMany({ where: { scopeItemId: item.id, departmentId: { notIn: unique(item.executor_department_ids) } } });
-          await tx.scopeItemExecutor.createMany({ data: unique(item.executor_department_ids).map((departmentId) => ({ scopeItemId: item.id!, departmentId })) });
+          const nextExecutorIds = unique(item.executor_department_ids);
+          const currentExecutorIds = new Set(
+            current.scopeItems.find((existing) => existing.id === item.id)?.executors.map((link) => link.departmentId) ?? [],
+          );
+          await this.syncScopeExecutors(tx, item.id, nextExecutorIds, currentExecutorIds);
         } else {
           await tx.scopeItem.create({
             data: {
@@ -206,7 +284,7 @@ export class InitiativesService {
       }
       const executorIds = dto.scope.flatMap((item) => item.executor_department_ids);
       await this.replaceCardDepartments(tx, id, unique([...dto.department_ids, ...executorIds]));
-      await this.replaceCustomFields(tx, id, dto.custom_fields ?? {});
+      await this.replaceCustomFields(tx, id, current.initiativeYear.initiative.kind, dto.custom_fields ?? {});
       await this.recalculateCard(tx, id);
       await this.assertPeriodCapacity(tx, current.initiativeYear.year, current.quarter);
       await this.audit(tx, 'QuarterCard', id, 'CARD_UPDATED', 'Оновлено квартальну картку', actor);
@@ -228,7 +306,10 @@ export class InitiativesService {
           },
         });
         if (!source) throw this.notFound('Вихідний рік');
-        if (source.revision !== sourceDto.revision) throw this.conflict(source.revision, 'InitiativeYear', source.id);
+        await this.assertAggregateRevision(tx, 'InitiativeYear', source.id, sourceDto.revision);
+        if (dto.target_year !== source.year + 1) {
+          throw new AppError('INVALID_EXTENSION_YEAR', 'Ініціативу можна продовжити лише на наступний рік.', HttpStatus.BAD_REQUEST, { source_year: source.year, target_year: dto.target_year });
+        }
         const existing = await tx.initiativeYear.findUnique({ where: { initiativeId_year: { initiativeId: source.initiativeId, year: dto.target_year } } });
         if (existing) throw new AppError('YEAR_ALREADY_EXISTS', 'Ініціативу вже продовжено на обраний рік.', HttpStatus.CONFLICT, { initiative_year_id: existing.id });
         const latest = source.quarterCards[0];
@@ -258,6 +339,9 @@ export class InitiativesService {
       if (!source) throw this.notFound('Картку');
       if (isPeriodLocked(source.initiativeYear.year, qs(source.quarter))) throw this.archived();
       this.assertOpen(dto.to_year, dto.to_quarter);
+      if (source.initiativeYear.year === dto.to_year && source.quarter === qn(dto.to_quarter)) {
+        throw new AppError('SAME_TARGET_PERIOD', 'Оберіть інший квартал.', HttpStatus.BAD_REQUEST);
+      }
       const targetYear = await this.ensureYearFromCard(tx, source, dto.to_year);
       const occupied = await tx.quarterCard.findUnique({ where: { initiativeYearId_quarter: { initiativeYearId: targetYear.id, quarter: qn(dto.to_quarter) } } });
       if (occupied && occupied.id !== id) throw this.targetOccupied();
@@ -294,8 +378,11 @@ export class InitiativesService {
         },
       });
       if (!source) throw this.notFound('Картку');
-      if (source.revision !== dto.revision) throw this.conflict(source.revision, 'QuarterCard', id);
+      await this.assertAggregateRevision(tx, 'QuarterCard', id, dto.revision);
       this.assertOpen(dto.to_year, dto.to_quarter);
+      if (dto.to_year * 10 + qn(dto.to_quarter) <= source.initiativeYear.year * 10 + source.quarter) {
+        throw new AppError('INVALID_CONTINUATION_PERIOD', 'Продовження можливе лише у пізніший квартал.', HttpStatus.BAD_REQUEST);
+      }
       const targetYear = await this.ensureYearFromCard(tx, source, dto.to_year);
       const occupied = await tx.quarterCard.findUnique({ where: { initiativeYearId_quarter: { initiativeYearId: targetYear.id, quarter: qn(dto.to_quarter) } } });
       if (occupied) throw this.targetOccupied();
@@ -377,7 +464,7 @@ export class InitiativesService {
         },
       });
       if (!source) throw this.notFound('Картку');
-      if (source.revision !== dto.revision) throw this.conflict(source.revision, 'QuarterCard', cardId);
+      await this.assertAggregateRevision(tx, 'QuarterCard', cardId, dto.revision);
       if (mode === 'MOVE' && isPeriodLocked(source.initiativeYear.year, qs(source.quarter))) throw this.archived();
       this.assertOpen(dto.to_year, dto.to_quarter);
       const item = source.scopeItems.find((candidate) => candidate.id === itemId);
@@ -416,6 +503,7 @@ export class InitiativesService {
       const duplicate = await tx.scopeItem.findUnique({ where: { quarterCardId_lineageId: { quarterCardId: target.id, lineageId: item.lineageId } } });
       if (duplicate) throw new AppError('SCOPE_LINEAGE_CONFLICT', 'Це завдання вже існує у цільовій картці.', HttpStatus.CONFLICT, { scope_item_id: duplicate.id, target_card_id: target.id });
 
+      let createdScopeItemId: string | undefined;
       if (mode === 'MOVE') {
         const sourceChanged = await tx.quarterCard.updateMany({ where: { id: source.id, revision: dto.revision }, data: { revision: { increment: 1 } } });
         if (!sourceChanged.count) await this.throwConflict(tx, 'QuarterCard', source.id);
@@ -426,7 +514,7 @@ export class InitiativesService {
         if (!moved.count) await this.throwConflict(tx, 'ScopeItem', item.id);
       } else {
         const defaultWeight = await this.defaultWeight(tx);
-        await tx.scopeItem.create({
+        const copied = await tx.scopeItem.create({
           data: {
             quarterCardId: target.id,
             lineageId: item.lineageId,
@@ -439,6 +527,7 @@ export class InitiativesService {
             executors: { createMany: { data: item.executors.map((link) => ({ departmentId: link.departmentId })) } },
           },
         });
+        createdScopeItemId = copied.id;
       }
       if (targetExisted) {
         if (dto.target_revision === undefined) {
@@ -456,12 +545,26 @@ export class InitiativesService {
       return {
         source_card_id: source.id,
         target_card_id: target.id,
-        scope_item_id: item.id,
+        scope_item_id: createdScopeItemId ?? item.id,
         source_card_revision: source.revision + (mode === 'MOVE' ? 1 : 0),
         target_card_revision: target.revision + (targetExisted ? 1 : 0),
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return ok(mode === 'MOVE' ? 'Завдання перенесено' : 'Завдання скопійовано', result);
+  }
+
+  private async assertAggregateRevision(
+    tx: Tx,
+    aggregateType: 'InitiativeYear' | 'QuarterCard',
+    id: string,
+    revision: number,
+  ) {
+    const delegate = aggregateType === 'InitiativeYear' ? tx.initiativeYear : tx.quarterCard;
+    const changed = await (delegate as any).updateMany({
+      where: { id, revision },
+      data: { revision: { increment: 0 } },
+    });
+    if (!changed.count) await this.throwConflict(tx, aggregateType, id);
   }
 
   private async createYear(tx: Tx, initiativeId: string, year: number, defaults: Defaults) {
@@ -573,6 +676,14 @@ export class InitiativesService {
     await tx.preparationStageDepartment.createMany({ data: ids.filter((id) => !existingIds.has(id)).map((departmentId) => ({ initiativeYearId: yearId, departmentId })) });
   }
 
+  private async syncScopeExecutors(tx: Tx, scopeItemId: string, nextExecutorIds: string[], currentExecutorIds: Set<string>) {
+    await tx.scopeItemExecutor.deleteMany({ where: { scopeItemId, departmentId: { notIn: nextExecutorIds } } });
+    const addedExecutorIds = nextExecutorIds.filter((departmentId) => !currentExecutorIds.has(departmentId));
+    if (addedExecutorIds.length) {
+      await tx.scopeItemExecutor.createMany({ data: addedExecutorIds.map((departmentId) => ({ scopeItemId, departmentId })) });
+    }
+  }
+
   private async replaceCardDepartments(tx: Tx, cardId: string, departmentIds: string[]) {
     const ids = unique(departmentIds);
     await tx.quarterCardDepartment.deleteMany({ where: { quarterCardId: cardId, departmentId: { notIn: ids } } });
@@ -581,15 +692,29 @@ export class InitiativesService {
     await tx.quarterCardDepartment.createMany({ data: ids.filter((id) => !existingIds.has(id)).map((departmentId) => ({ quarterCardId: cardId, departmentId })) });
   }
 
-  private async replaceCustomFields(tx: Tx, cardId: string, values: Record<string, unknown>) {
-    const definitionIds = Object.keys(values);
+  private async replaceCustomFields(tx: Tx, cardId: string, kind: string, values: Record<string, unknown>) {
+    const presentValues = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== '' && value !== null && value !== undefined));
+    const definitionIds = Object.keys(presentValues);
+    const entityType = kind === 'PROJECT' ? 'project' : 'task';
     const definitions = definitionIds.length
-      ? await tx.customFieldDefinition.findMany({ where: { id: { in: definitionIds }, isActive: true } })
+      ? await tx.customFieldDefinition.findMany({
+          where: { id: { in: definitionIds }, entityType, isActive: true },
+          include: { options: true },
+        })
       : [];
-    if (definitions.length !== definitionIds.length) throw new AppError('INVALID_CUSTOM_FIELD', 'Одне або кілька custom fields недоступні.');
+    if (definitions.length !== definitionIds.length) throw new AppError('INVALID_CUSTOM_FIELD', 'Одне або кілька custom fields недоступні для цього типу ініціативи.');
+    const required = await tx.customFieldDefinition.findMany({
+      where: { entityType, isActive: true, isRequired: true },
+      select: { id: true },
+    });
+    const missingRequired = required.some(({ id }) => !Object.prototype.hasOwnProperty.call(presentValues, id));
+    if (missingRequired) throw new AppError('REQUIRED_CUSTOM_FIELD', 'Заповніть усі обов’язкові custom fields.');
     await tx.customFieldValue.deleteMany({ where: { quarterCardId: cardId, definitionId: { notIn: definitionIds } } });
     for (const definition of definitions) {
-      const raw = values[definition.id];
+      const raw = presentValues[definition.id];
+      if (definition.fieldType === 'SELECT' && !definition.options.some((option) => option.value === String(raw))) {
+        throw new AppError('INVALID_CUSTOM_FIELD_OPTION', `Недопустиме значення поля «${definition.name}».`);
+      }
       const data = this.customFieldValue(definition.fieldType, raw);
       await tx.customFieldValue.upsert({
         where: { quarterCardId_definitionId: { quarterCardId: cardId, definitionId: definition.id } },
@@ -608,6 +733,7 @@ export class InitiativesService {
         return { ...empty, numberValue: parsed };
       }
       case 'BOOLEAN':
+      case 'CHECKBOX':
         if (typeof value !== 'boolean') throw new AppError('INVALID_CUSTOM_FIELD', 'Custom field має містити true або false.');
         return { ...empty, booleanValue: value };
       case 'DATE': {
@@ -636,6 +762,15 @@ export class InitiativesService {
     for (const item of incoming) {
       if (item.id && !current.has(item.id)) throw new AppError('INVALID_SCOPE_ITEM', 'Завдання не належить цій картці.');
       if (item.id && !item.revision) throw new AppError('REVISION_REQUIRED', 'Для існуючого завдання потрібна revision.');
+      if (!item.text.trim()) throw new AppError('VALIDATION_ERROR', 'Текст завдання не може бути порожнім.');
+      if (!item.executor_department_ids.length) throw new AppError('VALIDATION_ERROR', 'Оберіть хоча б один підрозділ-виконавець.');
+    }
+  }
+
+  private assertNewScopePayload(incoming: InitialQuarterCardDto['scope']) {
+    const lineages = incoming.flatMap((item) => item.lineage_id ? [item.lineage_id] : []);
+    if (new Set(lineages).size !== lineages.length) throw new AppError('DUPLICATE_SCOPE_ITEM', 'Завдання скоупу дублюється у запиті.');
+    for (const item of incoming) {
       if (!item.text.trim()) throw new AppError('VALIDATION_ERROR', 'Текст завдання не може бути порожнім.');
       if (!item.executor_department_ids.length) throw new AppError('VALIDATION_ERROR', 'Оберіть хоча б один підрозділ-виконавець.');
     }

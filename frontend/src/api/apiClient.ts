@@ -2,7 +2,7 @@ import { notify } from "../components/ui/ToastNotifications";
 import {
   ReferenceDataState,
   InitiativeYearReadModel,
-  Project,
+  InitiativeViewModel,
   QuarterCardReadModel,
   User,
 } from "../shared/types";
@@ -84,7 +84,6 @@ type WireUser = Omit<User, "departmentId"> & {
   is_active?: boolean;
 };
 type BootstrapResponse = Omit<ReferenceDataState, "projects" | "tasks" | "users" | "currentUser"> & {
-  users: WireUser[];
   currentUser: WireUser;
 };
 export async function loginSession(email: string, password: string) {
@@ -138,18 +137,24 @@ export async function loadBootstrap(signal?: AbortSignal) {
   return {
     ...bootstrap.data!,
     currentUser: normalizeUser(bootstrap.data!.currentUser),
-    users: bootstrap.data!.users.filter((user) => user.is_active !== false).map(normalizeUser),
+    users: [],
   };
 }
+export const loadUsers = (signal?: AbortSignal) =>
+  apiRequest<ApiResponse<WireUser[]>>("/users", { signal }).then((response) =>
+    response.data.filter((user) => user.is_active !== false).map((user) => ({ ...user, departmentId: user.department_id })),
+  );
+export const loadPermissions = (signal?: AbortSignal) =>
+  apiRequest<ApiResponse<ReferenceDataState["rolePermissions"]>>("/role-permissions", { signal }).then((response) => response.data);
 const wireKind = (kind: "project" | "task") => kind === "project" ? "PROJECT" : "OPERATIONAL_TASK";
-export const loadInitiativeYears = (kind: "project" | "task", signal?: AbortSignal) =>
-  apiRequest<ApiResponse<InitiativeYearReadModel[]>>(`/initiative-years?kind=${wireKind(kind)}`, { signal }).then((response) => response.data);
-export const loadQuarterCards = (kind: "project" | "task", signal?: AbortSignal) =>
-  apiRequest<ApiResponse<QuarterCardReadModel[]>>(`/quarter-cards?kind=${wireKind(kind)}`, { signal }).then((response) => response.data);
+export const loadInitiativeYears = (kind: "project" | "task", signal?: AbortSignal, year?: number) =>
+  apiRequest<ApiResponse<InitiativeYearReadModel[]>>(`/initiative-years?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}`, { signal }).then((response) => response.data);
+export const loadQuarterCards = (kind: "project" | "task", signal?: AbortSignal, year?: number, quarter?: string, view?: "analytics") =>
+  apiRequest<ApiResponse<QuarterCardReadModel[]>>(`/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}${view ? `&view=${view}` : ""}`, { signal }).then((response) => response.data);
 
-export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): Project => ({
+export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): InitiativeViewModel => ({
   id: year.id,
-  initiative_chain_id: year.initiative_id,
+  initiative_id: year.initiative_id,
   revision: year.revision,
   initiative_revision: year.initiative_revision,
   name: year.name,
@@ -163,33 +168,21 @@ export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): Projec
   health_status: "DEFAULT",
   health_status_code: "DEFAULT",
   checklist: [],
-  is_backlog: true,
+  record_type: "YEAR",
   history: [],
-  yearSnapshots: {
-    [String(year.year)]: {
-      name: year.name,
-      strategic_goal: year.strategic_goal ?? undefined,
-      manager_id: year.preparation?.manager_id ?? undefined,
-      priority: year.preparation?.priority_id ?? undefined,
-      implementer_dept_ids: [],
-      cross_functional_dept_ids: year.preparation?.department_ids ?? [],
-      year: year.year,
-      history: [],
-      preparationStage: {
-        revision: year.preparation?.revision,
-        manager_id: year.preparation?.manager_id ?? undefined,
-        priority: year.preparation?.priority_id ?? undefined,
-        cross_functional_dept_ids: year.preparation?.department_ids ?? [],
-        history: [],
-      },
-    },
+  preparation_stage: {
+    revision: year.preparation?.revision,
+    manager_id: year.preparation?.manager_id ?? undefined,
+    priority: year.preparation?.priority_id ?? undefined,
+    cross_functional_dept_ids: year.preparation?.department_ids ?? [],
+    history: [],
   },
 });
 
-export const toQuarterCardViewModel = (card: QuarterCardReadModel): Project => ({
+export const toQuarterCardViewModel = (card: QuarterCardReadModel): InitiativeViewModel => ({
   id: card.id,
-  initiative_chain_id: card.initiative_id,
-  backlog_id: card.initiative_year_id,
+  initiative_id: card.initiative_id,
+  initiative_year_id: card.initiative_year_id,
   revision: card.revision,
   name: card.name,
   strategic_goal: card.strategic_goal ?? undefined,
@@ -215,7 +208,7 @@ export const toQuarterCardViewModel = (card: QuarterCardReadModel): Project => (
     weightSnapshot: { definitionId: item.weight_definition_id ?? undefined, name: item.weight_snapshot.name, value: item.weight_snapshot.value },
     implementer_dept_ids: item.executor_department_ids,
   })),
-  is_backlog: false,
+  record_type: "CARD",
   moved_from: card.moved_from ? `${card.moved_from.quarter} ${card.moved_from.year}` : undefined,
   history: [],
   sizeSnapshot: { definitionId: card.size_snapshot.definition_id ?? undefined, name: card.size_snapshot.name, totalWeight: card.total_weight },

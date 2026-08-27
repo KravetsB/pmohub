@@ -1,8 +1,7 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { 
-  Project, 
-  OperationalTask, 
+  InitiativeViewModel,
   Department, 
   Manager, 
   PriorityDef, 
@@ -16,8 +15,8 @@ import { stripHtml, calculateProgress, getComputedTotalWeight } from './utils';
 import { materializeBacklogYear } from '../domain/initiatives';
 
 interface ExcelExportParams {
-  projects: Project[];
-  tasks: OperationalTask[];
+  projects: InitiativeViewModel[];
+  tasks: InitiativeViewModel[];
   departments: Department[];
   managers: Manager[];
   priorities: PriorityDef[];
@@ -434,8 +433,8 @@ export const exportPortfolioToExcel = async ({
   const allYearsSet = new Set<number>();
   projects.forEach(p => p.year && allYearsSet.add(p.year));
   tasks.forEach(t => t.year && allYearsSet.add(t.year));
-  projects.filter(item => item.is_backlog).forEach(item => Object.keys(item.yearSnapshots ?? {}).forEach(year => allYearsSet.add(Number(year))));
-  tasks.filter(item => item.is_backlog).forEach(item => Object.keys(item.yearSnapshots ?? {}).forEach(year => allYearsSet.add(Number(year))));
+  projects.filter(item => item.record_type === 'YEAR').forEach(item => allYearsSet.add(item.year));
+  tasks.filter(item => item.record_type === 'YEAR').forEach(item => allYearsSet.add(item.year));
   
   if (allYearsSet.size === 0) {
     allYearsSet.add(new Date().getFullYear());
@@ -455,8 +454,8 @@ export const exportPortfolioToExcel = async ({
 
   years.forEach(year => {
     quarters.forEach(q => {
-      const qProjects = ((projects || [])).filter(p => !p.is_backlog && p.year === year && p.quarter === q);
-      const qTasks = ((tasks || [])).filter(t => !t.is_backlog && t.year === year && t.quarter === q);
+      const qProjects = ((projects || [])).filter(p => p.record_type === 'CARD' && p.year === year && p.quarter === q);
+      const qTasks = ((tasks || [])).filter(t => t.record_type === 'CARD' && t.year === year && t.quarter === q);
       const totalCount = qProjects.length + qTasks.length;
 
       let totalCapacity = 0;
@@ -501,14 +500,14 @@ export const exportPortfolioToExcel = async ({
 
   years.forEach(year => {
     // --- 2.1 SHEET: Беклог_{year}_Проєкти ---
-    const backlogProjects = ((projects || [])).filter(p => p.is_backlog && p.yearSnapshots?.[String(year)]).map(p => materializeBacklogYear(p, year)!);
+    const backlogProjects = ((projects || [])).filter(p => p.record_type === 'YEAR' && p.year === year).map(p => materializeBacklogYear(p, year)!);
     const backlogProjMetadata: ItemMetadata[] = backlogProjects.map(p => ({
       health_status: p.health_status,
       checklist: p.checklist
     }));
 
     const backlogProjRows = backlogProjects.map(item => {
-      const activeQuarterItems = ((projects || [])).filter(p => !p.is_backlog && p.backlog_id === item.id && p.year === year);
+      const activeQuarterItems = ((projects || [])).filter(p => p.record_type === 'CARD' && p.initiative_year_id === item.id && p.year === year);
       const activeQuarters = activeQuarterItems.map(c => c.quarter).sort().join(', ') || 'Не призначено';
 
       const getQuarterDetails = (q: Quarter) => {
@@ -555,14 +554,14 @@ export const exportPortfolioToExcel = async ({
     );
 
     // --- 2.2 SHEET: Беклог_{year}_Задачі ---
-    const backlogTasks = ((tasks || [])).filter(t => t.is_backlog && t.yearSnapshots?.[String(year)]).map(t => materializeBacklogYear(t, year)!);
+    const backlogTasks = ((tasks || [])).filter(t => t.record_type === 'YEAR' && t.year === year).map(t => materializeBacklogYear(t, year)!);
     const backlogTaskMetadata: ItemMetadata[] = backlogTasks.map(t => ({
       health_status: t.health_status,
       checklist: t.checklist
     }));
 
     const backlogTaskRows = backlogTasks.map(item => {
-      const activeQuarterItems = ((tasks || [])).filter(t => !t.is_backlog && t.backlog_id === item.id && t.year === year);
+      const activeQuarterItems = ((tasks || [])).filter(t => t.record_type === 'CARD' && t.initiative_year_id === item.id && t.year === year);
       const activeQuarters = activeQuarterItems.map(c => c.quarter).sort().join(', ') || 'Не призначено';
 
       const getQuarterDetails = (q: Quarter) => {
@@ -611,7 +610,7 @@ export const exportPortfolioToExcel = async ({
     // --- 2.3 SHEETS: Q1..Q4_{year}_Проєкти та Q1..Q4_{year}_Задачі ---
     quarters.forEach(q => {
       // Projects Sheet
-      const qProjects = ((projects || [])).filter(p => !p.is_backlog && p.year === year && p.quarter === q);
+      const qProjects = ((projects || [])).filter(p => p.record_type === 'CARD' && p.year === year && p.quarter === q);
       const qProjMetadata: ItemMetadata[] = qProjects.map(p => ({
         health_status: p.health_status,
         checklist: p.checklist
@@ -632,7 +631,7 @@ export const exportPortfolioToExcel = async ({
           'Прогрес виконання (%)': prog !== null ? `${prog}%` : '—',
           'Чекліст (виконано/всього)': formatChecklistSummary(p.checklist),
           'Деталі скоупу (чекліст)': p.checklist && p.checklist.length > 0 ? '' : '—',
-          'ID у беклозі': p.backlog_id || '—',
+          'ID року ініціативи': p.initiative_year_id || '—',
           'Примітки / Опис': stripHtml(p.notes || '') || '—'
         };
 
@@ -654,7 +653,7 @@ export const exportPortfolioToExcel = async ({
       );
 
       // Tasks Sheet
-      const qTasks = ((tasks || [])).filter(t => !t.is_backlog && t.year === year && t.quarter === q);
+      const qTasks = ((tasks || [])).filter(t => t.record_type === 'CARD' && t.year === year && t.quarter === q);
       const qTaskMetadata: ItemMetadata[] = qTasks.map(t => ({
         health_status: t.health_status,
         checklist: t.checklist
@@ -675,7 +674,7 @@ export const exportPortfolioToExcel = async ({
           'Прогрес виконання (%)': prog !== null ? `${prog}%` : '—',
           'Чекліст (виконано/всього)': formatChecklistSummary(t.checklist),
           'Деталі скоупу (чекліст)': t.checklist && t.checklist.length > 0 ? '' : '—',
-          'ID у беклозі': t.backlog_id || '—',
+          'ID року ініціативи': t.initiative_year_id || '—',
           'Примітки / Опис': stripHtml(t.notes || '') || '—'
         };
 

@@ -4,6 +4,82 @@ import { InitiativesService } from './initiatives.service';
 const actor = { id: '00000000-0000-4000-8000-000000000099', name: 'Admin', email: 'admin@example.com', role: 'SUPER_ADMIN' as const, must_change_password: false };
 
 describe('InitiativesService transactional rules', () => {
+  it('creates the root, year, preparation and initial card inside one transaction', async () => {
+    const tx: any = {
+      initiative: { create: vi.fn(async () => ({ id: 'initiative-1', revision: 1, years: [{ id: 'year-1' }] })) },
+      initiativeStatus: { findUnique: vi.fn(async () => ({ id: 'default-status', isActive: true })) },
+      taskWeight: { findMany: vi.fn(async () => []) },
+      quarterCard: { create: vi.fn(async () => { throw new Error('card insert failed'); }) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    await expect(new InitiativesService(prisma).create({
+      kind: 'PROJECT',
+      name: 'Atomic create',
+      year: 2027,
+      preparation: { department_ids: [] },
+      initial_card: { quarter: 'Q1', department_ids: [], scope: [] },
+    }, actor)).rejects.toThrow('card insert failed');
+
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    expect(tx.initiative.create).toHaveBeenCalledOnce();
+    expect(tx.quarterCard.create).toHaveBeenCalledOnce();
+  });
+
+  it('updates global name and yearly goal atomically in one transaction', async () => {
+    const tx: any = {
+      initiativeYear: {
+        findUnique: vi.fn(async () => ({ id: 'year-1', initiativeId: 'initiative-1', year: 2027 })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      initiative: { updateMany: vi.fn(async () => ({ count: 1 })) },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    const result = await new InitiativesService(prisma).updateBacklog('year-1', {
+      name: 'Updated name',
+      strategic_goal: 'Updated goal',
+      initiative_revision: 2,
+      year_revision: 4,
+    }, actor);
+
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    expect(tx.initiative.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'initiative-1', revision: 2 } }));
+    expect(tx.initiativeYear.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'year-1', revision: 4 } }));
+    expect(result.data).toMatchObject({ initiative_revision: 3, year_revision: 5 });
+  });
+
+  it('creates only newly added executor links when a scope item is saved', async () => {
+    const tx: any = {
+      scopeItemExecutor: {
+        deleteMany: vi.fn(async () => ({ count: 1 })),
+        createMany: vi.fn(async () => ({ count: 1 })),
+      },
+    };
+    const service = new InitiativesService({} as any);
+
+    await (service as any).syncScopeExecutors(
+      tx,
+      'scope-1',
+      ['department-existing', 'department-added'],
+      new Set(['department-existing', 'department-removed']),
+    );
+
+    expect(tx.scopeItemExecutor.deleteMany).toHaveBeenCalledWith({
+      where: { scopeItemId: 'scope-1', departmentId: { notIn: ['department-existing', 'department-added'] } },
+    });
+    expect(tx.scopeItemExecutor.createMany).toHaveBeenCalledWith({
+      data: [{ scopeItemId: 'scope-1', departmentId: 'department-added' }],
+    });
+  });
+
   it('creates a card from the nearest previous card and copies only effective involved departments', async () => {
     const create = vi.fn(async ({ data }) => ({ id: 'card-new', revision: 1, ...data, departments: [] }));
     const tx: any = {
@@ -90,7 +166,7 @@ describe('InitiativesService transactional rules', () => {
       $transaction: (callback: (client: any) => unknown) => callback(tx),
     };
 
-    await new InitiativesService(prisma).copyScope('source-card', 'scope-source', {
+    const result = await new InitiativesService(prisma).copyScope('source-card', 'scope-source', {
       revision: 3,
       target_revision: 5,
       to_year: 2027,
@@ -106,5 +182,6 @@ describe('InitiativesService transactional rules', () => {
         weightSnapshotValue: 0,
       }),
     });
+    expect(result.data.scope_item_id).toBe('copy');
   });
 });

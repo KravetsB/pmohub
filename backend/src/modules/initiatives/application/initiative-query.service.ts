@@ -3,7 +3,7 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { AppError } from '../../../common/errors/app-error';
 import { HttpStatus } from '@nestjs/common';
 import { QuarterDto } from '../api/initiative.dto';
-import { cardInclude, mapCard, mapYear, yearInclude } from '../infrastructure/initiative.mapper';
+import { analyticsCardInclude, cardInclude, mapAnalyticsCard, mapCard, mapYear, yearInclude } from '../infrastructure/initiative.mapper';
 
 const ok = <T>(message: string, data: T) => ({ success: true as const, message, data });
 
@@ -12,6 +12,7 @@ export class InitiativeQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listYears(query: { kind?: string; year?: number }) {
+    this.validateYear(query.year);
     const years = await this.prisma.initiativeYear.findMany({
       where: {
         year: query.year,
@@ -23,7 +24,12 @@ export class InitiativeQueryService {
     return ok('Роки ініціатив завантажено', years.map(mapYear));
   }
 
-  async listCards(query: { kind?: string; year?: number; quarter?: QuarterDto }) {
+  async listCards(query: { kind?: string; year?: number; quarter?: QuarterDto; view?: string }) {
+    this.validateYear(query.year);
+    if (query.quarter && !['Q1', 'Q2', 'Q3', 'Q4'].includes(query.quarter)) {
+      throw new AppError('INVALID_QUARTER', 'Невідомий квартал.', HttpStatus.BAD_REQUEST);
+    }
+    if (query.view && query.view !== 'analytics') throw new AppError('INVALID_VIEW', 'Невідомий формат колекції.', HttpStatus.BAD_REQUEST);
     const cards = await this.prisma.quarterCard.findMany({
       where: {
         quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
@@ -32,10 +38,10 @@ export class InitiativeQueryService {
           initiative: query.kind ? { kind: this.kind(query.kind) } : undefined,
         },
       },
-      include: cardInclude,
+      include: query.view === 'analytics' ? analyticsCardInclude : cardInclude,
       orderBy: [{ initiativeYear: { year: 'desc' } }, { quarter: 'asc' }, { createdAt: 'desc' }],
     });
-    return ok('Квартальні картки завантажено', cards.map(mapCard));
+    return ok('Квартальні картки завантажено', cards.map((card) => query.view === 'analytics' ? mapAnalyticsCard(card) : mapCard(card)));
   }
 
   async getYear(id: string) {
@@ -55,4 +61,11 @@ export class InitiativeQueryService {
     if (!['PROJECT', 'OPERATIONAL_TASK'].includes(normalized)) throw new AppError('INVALID_KIND', 'Невідомий тип ініціативи.');
     return normalized;
   }
+
+  private validateYear(year?: number) {
+    if (year !== undefined && (!Number.isInteger(year) || year < 2000 || year > 2200)) {
+      throw new AppError('INVALID_YEAR', 'Некоректний рік.', HttpStatus.BAD_REQUEST);
+    }
+  }
+
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Check, Copy, KeyRound, Power, PowerOff, Trash2, X } from "lucide-react";
 import { useAppContext } from "../../../../app/store";
 import { UserRole } from "../../../../shared/types";
@@ -16,7 +16,13 @@ export const RbacSection = () => {
     addUser,
     resetUserPassword,
     currentUser,
+    enableAdminData,
+    disableAdminData,
   } = useAppContext();
+  useEffect(() => {
+    enableAdminData();
+    return disableAdminData;
+  }, [disableAdminData, enableAdminData]);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     title: string;
     name: string;

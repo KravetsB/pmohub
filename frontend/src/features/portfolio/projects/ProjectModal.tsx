@@ -1,13 +1,13 @@
 import React from "react";
-import { Project, Quarter } from "../../../shared/types";
+import { InitiativeViewModel, MutationResult, Quarter } from "../../../shared/types";
 import { InitiativeCardModal } from "../../initiatives/components/InitiativeCardModal";
 
 interface Props {
-  project: Project | null;
+  project: InitiativeViewModel | null;
   onClose: () => void;
-  onSave: (project: Project) => void;
+  onSave: (project: InitiativeViewModel) => void | MutationResult | Promise<void | MutationResult>;
   isReadOnly?: boolean;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => void | Promise<void>;
   defaultYear?: number;
   defaultQuarter?: Quarter;
   defaultIsBacklog?: boolean;
@@ -18,7 +18,7 @@ export const ProjectModal = (props: Props) => (
     kind="project"
     item={props.project}
     onClose={props.onClose}
-    onSave={(item) => props.onSave(item as Project)}
+    onSave={props.onSave}
     onDelete={props.onDelete}
     isReadOnly={props.isReadOnly}
     defaultYear={props.defaultYear}

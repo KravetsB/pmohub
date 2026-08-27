@@ -1,5 +1,5 @@
 import { TaskModal } from "./TaskModal";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   getAvailableYears,
   truncateText,
@@ -7,8 +7,7 @@ import {
 } from "../../../shared/utils";
 import { useAppContext } from "../../../app/store";
 import { TaskCard } from "./TaskCard";
-import { OperationalTask } from "../../../shared/types";
-import { metadataFrom } from "../../../domain/initiatives";
+import { InitiativeViewModel } from "../../../shared/types";
 import styles from "../components/shared/PortfolioTab.module.css";
 import { PortfolioTable } from "../components/shared/PortfolioTable";
 
@@ -24,10 +23,11 @@ export const TasksTab = () => {
     deleteTask,
     rolePermissions,
     createBacklogWithCards,
+    setInitiativeDataScope,
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<OperationalTask | null>(null);
+  const [editingTask, setEditingTask] = useState<InitiativeViewModel | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -43,6 +43,9 @@ export const TasksTab = () => {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] =
     useState<import("../../../shared/types").Quarter>(currentQuarter);
+  useEffect(() => {
+    setInitiativeDataScope({ mode: "tasks", year: selectedYear, quarter: selectedQuarter });
+  }, [selectedQuarter, selectedYear, setInitiativeDataScope]);
   const isArchive = isPeriodLocked(selectedYear, selectedQuarter);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 
@@ -53,7 +56,7 @@ export const TasksTab = () => {
 
   let portfolioTasks = tasks.filter(
     (t) =>
-      !t.is_backlog && t.year === selectedYear && t.quarter === selectedQuarter,
+      t.record_type === "CARD" && t.year === selectedYear && t.quarter === selectedQuarter,
   );
   if (filterManager) {
     portfolioTasks = portfolioTasks.filter(
@@ -92,7 +95,7 @@ export const TasksTab = () => {
     (cf) => cf.entityType === "task" && cf.showInTable,
   );
 
-  const openEditModal = (task: OperationalTask) => {
+  const openEditModal = (task: InitiativeViewModel) => {
     setEditingTask(task);
     setIsReadOnlyModal(!canEdit);
     setIsModalOpen(true);
@@ -289,22 +292,18 @@ export const TasksTab = () => {
               const result = await updateTask(editingTask.id, t);
               if (!result.success) {
                 alert(result.message);
-                return;
+                return result;
               }
+              setIsModalOpen(false);
+              return result;
             } else {
               const master = {
                 ...t,
-                is_backlog: true,
-                backlog_id: undefined,
+                record_type: "YEAR" as const,
+                initiative_id: t.initiative_id ?? t.id,
+                initiative_year_id: undefined,
                 checklist: [],
                 quarter: "Q1" as const,
-                yearSnapshots: {
-                  [String(t.year)]: {
-                    ...metadataFrom(t),
-                    year: t.year,
-                    history: [],
-                  },
-                },
               };
               const result = await createBacklogWithCards(
                 "task",
@@ -314,10 +313,11 @@ export const TasksTab = () => {
               );
               if (!result.success) {
                 alert(result.message);
-                return;
+                return result;
               }
+              setIsModalOpen(false);
+              return result;
             }
-            setIsModalOpen(false);
           }}
           onDelete={async (id) => {
             const result = await deleteTask(id);

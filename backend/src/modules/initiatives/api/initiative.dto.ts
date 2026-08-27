@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'] as const;
@@ -11,22 +11,21 @@ export class PreparationInputDto {
   @IsArray() @IsUUID('4', { each: true }) department_ids: string[] = [];
 }
 
-export class CreateInitiativeDto {
-  @IsIn(['PROJECT', 'OPERATIONAL_TASK']) kind!: 'PROJECT' | 'OPERATIONAL_TASK';
-  @IsString() name!: string;
-  @IsInt() @Min(2000) @Max(2200) year!: number;
-  @IsOptional() @IsString() strategic_goal?: string;
-  @ValidateNested() @Type(() => PreparationInputDto) preparation!: PreparationInputDto;
-}
-
 export class UpdateInitiativeDto {
-  @IsString() name!: string;
+  @IsString() @IsNotEmpty() name!: string;
   @IsInt() @Min(1) revision!: number;
 }
 
 export class UpdateInitiativeYearDto {
   @IsOptional() @IsString() strategic_goal?: string;
   @IsInt() @Min(1) revision!: number;
+}
+
+export class UpdateBacklogDto {
+  @IsString() name!: string;
+  @IsOptional() @IsString() strategic_goal?: string;
+  @IsInt() @Min(1) initiative_revision!: number;
+  @IsInt() @Min(1) year_revision!: number;
 }
 
 export class UpdatePreparationDto extends PreparationInputDto {
@@ -37,14 +36,34 @@ export class CreateQuarterCardDto {
   @IsIn(QUARTERS) quarter!: QuarterDto;
 }
 
-export class ScopeItemDto {
-  @IsOptional() @IsUUID() id?: string;
+export class CreateScopeItemDto {
   @IsOptional() @IsUUID() lineage_id?: string;
-  @IsOptional() @IsInt() @Min(1) revision?: number;
-  @IsString() text!: string;
+  @IsString() @IsNotEmpty() text!: string;
   @IsIn(['DEFAULT', 'GREEN', 'YELLOW', 'RED']) status_code!: 'DEFAULT' | 'GREEN' | 'YELLOW' | 'RED';
   @IsUUID() weight_definition_id!: string;
   @IsArray() @IsUUID('4', { each: true }) executor_department_ids: string[] = [];
+}
+
+export class ScopeItemDto extends CreateScopeItemDto {
+  @IsOptional() @IsUUID() id?: string;
+  @IsOptional() @IsInt() @Min(1) revision?: number;
+}
+
+export class InitialQuarterCardDto extends PreparationInputDto {
+  @IsIn(QUARTERS) quarter!: QuarterDto;
+  @IsOptional() @IsUUID() status_id?: string;
+  @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsObject() custom_fields?: Record<string, unknown>;
+  @IsArray() @ValidateNested({ each: true }) @Type(() => CreateScopeItemDto) scope: CreateScopeItemDto[] = [];
+}
+
+export class CreateInitiativeDto {
+  @IsIn(['PROJECT', 'OPERATIONAL_TASK']) kind!: 'PROJECT' | 'OPERATIONAL_TASK';
+  @IsString() @IsNotEmpty() name!: string;
+  @IsInt() @Min(2000) @Max(2200) year!: number;
+  @IsOptional() @IsString() strategic_goal?: string;
+  @ValidateNested() @Type(() => PreparationInputDto) preparation!: PreparationInputDto;
+  @IsOptional() @ValidateNested() @Type(() => InitialQuarterCardDto) initial_card?: InitialQuarterCardDto;
 }
 
 export class UpdateCardDto {
@@ -119,7 +138,7 @@ export class ScopeItemReadModelDto {
   @ApiProperty({ nullable: true }) copied_from_item_id!: string | null;
   @ApiProperty() text!: string;
   @ApiProperty({ enum: ['DEFAULT', 'GREEN', 'YELLOW', 'RED'] }) status_code!: string;
-  @ApiProperty({ nullable: true }) weight_definition_id!: string | null;
+  @ApiProperty() weight_definition_id!: string;
   @ApiProperty({ type: Object }) weight_snapshot!: { name: string; value: number };
   @ApiProperty({ type: [String] }) executor_department_ids!: string[];
   @ApiProperty({ type: [Object] }) executors!: Array<{ id: string; name: string }>;

@@ -42,6 +42,6 @@ export const executeBackendMutation = async <T>(
       error instanceof ApiError
         ? error.message
         : "Не вдалося зберегти зміни на сервері",
-    ), committed: false, status: "COMMIT_FAILED" };
+    ), committed: false, status: "COMMIT_FAILED", errorCode: error instanceof ApiError ? error.code : undefined };
   }
 };

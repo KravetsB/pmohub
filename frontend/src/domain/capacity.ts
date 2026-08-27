@@ -3,13 +3,12 @@ import {
   Department,
   InitiativeSizeDef,
   InitiativeSizeSnapshot,
-  OperationalTask,
-  Project,
+  InitiativeViewModel,
   TaskWeightDef,
   TaskWeightSnapshot,
 } from '../shared/types';
 
-export type QuarterCard = Project | OperationalTask;
+export type QuarterCard = InitiativeViewModel;
 
 export interface InitiativeMetrics {
   totalWeight: number;
@@ -124,7 +123,7 @@ export const calculateDepartmentLoads = (
   taskWeights: TaskWeightDef[],
 ): DepartmentLoad[] => {
   const totals = new Map<string, number>();
-  cards.filter(card => !card.is_backlog).forEach(card => {
+  cards.filter(card => card.record_type === "CARD").forEach(card => {
     calculateCardDepartmentLoads(card, taskWeights).forEach((load, departmentId) => {
       totals.set(departmentId, (totals.get(departmentId) ?? 0) + load);
     });

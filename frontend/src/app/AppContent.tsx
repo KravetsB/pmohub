@@ -34,7 +34,10 @@ const getRoleLabel = (role: string) =>
 
 export const AppContent = () => {
   const { currentUser, logout, departments, rolePermissions, isHydrating } = useAppContext();
-  const [activeTab, setActiveTab] = useState<AppTabId>("dashboard");
+  const [activeTab, setActiveTab] = useState<AppTabId>(() => {
+    const saved = window.sessionStorage.getItem("pmohub-active-tab");
+    return (["dashboard", "projects", "tasks", "backlog", "admin"] as AppTabId[]).includes(saved as AppTabId) ? saved as AppTabId : "dashboard";
+  });
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -78,6 +81,7 @@ export const AppContent = () => {
     : "";
   const selectTab = (tab: AppTabId) => {
     setActiveTab(tab);
+    window.sessionStorage.setItem("pmohub-active-tab", tab);
     setIsMobileMenuOpen(false);
   };
   const handleChangePassword = () => {

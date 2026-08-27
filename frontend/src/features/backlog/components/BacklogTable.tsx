@@ -370,7 +370,7 @@ const PreparationCard = ({
   departments: Department[];
   onOpen: (item: BacklogInitiative) => void;
 }) => {
-  const stage = item.yearSnapshots?.[String(item.year)]?.preparationStage;
+  const stage = item.preparation_stage;
   return (
     <button
       type="button"

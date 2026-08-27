@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BookOpen, ShieldCheck, Sliders } from "lucide-react";
 import { DictionariesSection } from "./components/dictionaries/DictionariesSection";
 import { RbacSection } from "./components/rbac/RbacSection";
 import { CustomFieldsSection } from "./components/custom-fields/CustomFieldsSection";
 import styles from "./AdminTab.module.css";
+import { useAppContext } from "../../app/store";
 
 type AdminSection = "dicts" | "rbac" | "fields";
 
@@ -19,6 +20,8 @@ const navigation: Array<{
 
 /** Coordinates administration sections while each section owns its own state and UI. */
 export const AdminTab = () => {
+  const { setInitiativeDataScope } = useAppContext();
+  useEffect(() => { setInitiativeDataScope({ mode: "none" }); }, [setInitiativeDataScope]);
   const [activeSection, setActiveSection] = useState<AdminSection>("dicts");
 
   return (
