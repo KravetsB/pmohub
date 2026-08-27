@@ -6,7 +6,6 @@ type ApiCommandResponse<T> = {
   success?: boolean;
   message?: string;
   data?: T;
-  requiresConfirmation?: MutationResult["requiresConfirmation"];
 };
 
 /**
@@ -21,11 +20,7 @@ export const executeBackendMutation = async <T>(
   try {
     const response = await request();
     if (response.success === false) {
-      return {
-        success: false,
-        message: response.message ?? "Команда потребує додаткової дії",
-        requiresConfirmation: response.requiresConfirmation,
-      };
+      return { success: false, message: response.message ?? "Команду відхилено" };
     }
     let hydrationError: unknown;
     for (let attempt = 0; attempt < 3; attempt += 1) {

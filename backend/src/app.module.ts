@@ -16,7 +16,6 @@ import { DictionariesModule } from './modules/dictionaries/dictionaries.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
-import { DataManagementModule } from './modules/data-management/data-management.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AdminMutationAuditInterceptor } from './common/audit/admin-mutation-audit.interceptor';
 
@@ -34,7 +33,6 @@ import { AdminMutationAuditInterceptor } from './common/audit/admin-mutation-aud
     CustomFieldsModule,
     BootstrapModule,
     AnalyticsModule,
-    DataManagementModule,
     AuditModule,
   ],
   providers: [

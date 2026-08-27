@@ -1,8 +1,8 @@
 import { command } from "../../api/apiClient";
-import { Quarter, ScopeMergePreview } from "../../shared/types";
+import { Quarter } from "../../shared/types";
 import { DictionaryApiType } from "./dictionary-api";
 import type { components } from "../../api/generated/schema";
-import { toChecklistDto, toPassportDto, uuidOrUndefined } from "./api-contract-mappers";
+import { uuidOrUndefined } from "./api-contract-mappers";
 
 type Schemas = components["schemas"];
 
@@ -10,7 +10,6 @@ type CommandResult<T = undefined> = {
   success: boolean;
   message: string;
   data?: T;
-  requiresConfirmation?: ScopeMergePreview;
 };
 
 const dictionaryBody = (body: Schemas["DictionaryDto"] | undefined) => body && ({
@@ -56,53 +55,31 @@ const userBody = (body: Schemas["CreateUserDto"] | Schemas["UpdateUserDto"] | un
 export const serverCommands = {
   createInitiative: (body: Schemas["CreateInitiativeDto"]) => command<CommandResult>("/initiatives", "POST", {
     kind: body.kind,
+    name: body.name,
     year: body.year,
-    passport: toPassportDto(body.passport),
-    quarters: [...body.quarters],
-    ...(body.initial_scope !== undefined ? { initial_scope: toChecklistDto(body.initial_scope) } : {}),
+    strategic_goal: body.strategic_goal,
+    preparation: body.preparation,
   }),
-  createCard: (yearId: string, body: Schemas["CreateQuarterCardDto"]) => command<CommandResult>(`/initiatives/years/${yearId}/cards`, "POST", {
+  updateInitiative: (id: string, revision: number, name: string) =>
+    command<CommandResult>(`/initiatives/${id}`, "PATCH", { revision, name }),
+  updateYear: (id: string, revision: number, strategicGoal?: string) =>
+    command<CommandResult>(`/initiative-years/${id}`, "PATCH", { revision, strategic_goal: strategicGoal }),
+  createCard: (yearId: string, body: Schemas["CreateQuarterCardDto"]) => command<CommandResult>(`/initiative-years/${yearId}/cards`, "POST", {
     quarter: body.quarter,
-    passport: toPassportDto(body.passport),
-    ...(body.initial_scope !== undefined ? { initial_scope: toChecklistDto(body.initial_scope) } : {}),
   }),
-  updateCard: (id: string, body: Schemas["UpdateCardDto"]) => {
-    const healthStatus = uuidOrUndefined(body.health_status);
-    return command<CommandResult>(`/initiatives/cards/${id}`, "PATCH", {
-      revision: body.revision,
-      ...(body.passport ? { passport: toPassportDto(body.passport) } : {}),
-      ...(healthStatus ? { health_status: healthStatus } : {}),
-      ...(body.checklist !== undefined ? { checklist: toChecklistDto(body.checklist) } : {}),
-    });
-  },
-  deleteCard: (id: string, revision: number) => command<CommandResult>(`/initiatives/cards/${id}?revision=${revision}`, "DELETE"),
-  deleteYear: (id: string, revision: number) => command<CommandResult>(`/initiatives/years/${id}?revision=${revision}`, "DELETE"),
-  savePassport: (owner: "cards" | "years", id: string, body: Schemas["SavePassportDto"]) => {
-    const healthStatus = uuidOrUndefined(body.source_card_patch?.health_status);
-    return command<CommandResult<{ snapshots: number; cards: number }>>(`/initiatives/${owner}/${id}/passport`, "POST", {
-      revision: body.revision,
-      passport: toPassportDto(body.passport),
-      target_years: body.target_years.map(({ id: targetId, revision }) => ({ id: targetId, revision })),
-      target_cards: body.target_cards.map(({ id: targetId, revision }) => ({ id: targetId, revision })),
-      ...(body.source_card_patch
-        ? {
-            source_card_patch: {
-              ...(healthStatus ? { health_status: healthStatus } : {}),
-              ...(body.source_card_patch.checklist !== undefined
-                ? { checklist: toChecklistDto(body.source_card_patch.checklist) }
-                : {}),
-            },
-          }
-        : {}),
-    });
-  },
-  moveCard: (id: string, revision: number, toYear: number, toQuarter: Quarter, reason?: string) => command<CommandResult>(`/initiatives/cards/${id}/move`, "POST", { revision, to_year: toYear, to_quarter: toQuarter, reason }),
-  continueCard: (id: string, revision: number, toYear: number, toQuarter: Quarter) => command<CommandResult>(`/initiatives/cards/${id}/continue`, "POST", { revision, to_year: toYear, to_quarter: toQuarter }),
-  moveScope: (cardId: string, itemId: string, revision: number, toYear: number, toQuarter: Quarter, reason?: string, confirmationToken?: string) => command<CommandResult>(`/initiatives/cards/${cardId}/scope/${itemId}/move`, "POST", { revision, to_year: toYear, to_quarter: toQuarter, reason, confirmation_token: confirmationToken }),
-  extendYears: (sourceYearIds: string[], targetYear: number) => command<CommandResult<{ created: number }>>("/initiatives/years/extend", "POST", { source_year_ids: sourceYearIds, target_year: targetYear }),
-  updatePreparation: (yearId: string, body: Schemas["UpdatePreparationDto"]) => command<CommandResult>(`/initiatives/years/${yearId}/preparation`, "PATCH", {
+  updateCard: (id: string, body: Schemas["UpdateCardDto"]) => command<CommandResult>(`/quarter-cards/${id}`, "PATCH", body),
+  deleteCard: (id: string, revision: number) => command<CommandResult>(`/quarter-cards/${id}?revision=${revision}`, "DELETE"),
+  deleteYear: (id: string, revision: number) => command<CommandResult>(`/initiative-years/${id}?revision=${revision}`, "DELETE"),
+  moveCard: (id: string, revision: number, toYear: number, toQuarter: Quarter) => command<CommandResult>(`/quarter-cards/${id}/move`, "POST", { revision, to_year: toYear, to_quarter: toQuarter }),
+  continueCard: (id: string, revision: number, toYear: number, toQuarter: Quarter) => command<CommandResult>(`/quarter-cards/${id}/continue`, "POST", { revision, to_year: toYear, to_quarter: toQuarter }),
+  moveScope: (cardId: string, itemId: string, revision: number, toYear: number, toQuarter: Quarter, targetRevision?: number) => command<CommandResult>(`/quarter-cards/${cardId}/scope/${itemId}/move`, "POST", { revision, to_year: toYear, to_quarter: toQuarter, target_revision: targetRevision }),
+  copyScope: (cardId: string, itemId: string, revision: number, toYear: number, toQuarter: Quarter, targetRevision?: number) => command<CommandResult>(`/quarter-cards/${cardId}/scope/${itemId}/copy`, "POST", { revision, to_year: toYear, to_quarter: toQuarter, target_revision: targetRevision }),
+  extendYears: (sourceYears: Array<{ id: string; revision: number }>, targetYear: number) => command<CommandResult<{ years: unknown[] }>>("/initiative-years/extend", "POST", { source_years: sourceYears, target_year: targetYear }),
+  updatePreparation: (yearId: string, body: Schemas["UpdatePreparationDto"]) => command<CommandResult>(`/initiative-years/${yearId}/preparation`, "PATCH", {
     revision: body.revision,
-    ...toPassportDto(body),
+    manager_id: uuidOrUndefined(body.manager_id),
+    priority_id: uuidOrUndefined(body.priority_id),
+    department_ids: body.department_ids,
   }),
   dictionary: (type: DictionaryApiType, method: "POST" | "PATCH" | "DELETE", id?: string, body?: Schemas["DictionaryDto"]) => command<CommandResult>(`/dictionaries/${type}${id ? `/${id}` : ""}`, method, dictionaryBody(body)),
   updatePermission: (role: string, body: Schemas["UpdatePermissionDto"]) => command<CommandResult>(`/role-permissions/${role}`, "PATCH", permissionBody(body)),

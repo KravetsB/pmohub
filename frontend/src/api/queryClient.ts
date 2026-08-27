@@ -1,11 +1,11 @@
 import { QueryClient } from "@tanstack/react-query";
 
 export const queryKeys = {
-  appData: ["app-data"] as const,
   bootstrap: ["bootstrap"] as const,
-  initiatives: (kind: "project" | "task") => ["initiatives", kind] as const,
-  initiativeCard: (id: string) => ["initiatives", "card", id] as const,
-  initiativeYear: (id: string) => ["initiatives", "year", id] as const,
+  initiativeYears: (kind: "project" | "task", year?: number) => ["initiative-years", kind, year ?? "all"] as const,
+  portfolioCards: (kind: "project" | "task", year?: number, quarter?: string) => ["quarter-cards", kind, year ?? "all", quarter ?? "all"] as const,
+  initiativeCard: (id: string) => ["quarter-cards", "detail", id] as const,
+  initiativeYear: (id: string) => ["initiative-years", "detail", id] as const,
   audit: (aggregateType: string, aggregateId: string) => ["audit", aggregateType, aggregateId] as const,
   users: ["reference-data", "users"] as const,
   permissions: ["reference-data", "permissions"] as const,

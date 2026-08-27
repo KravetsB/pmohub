@@ -5,7 +5,6 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import { DictionaryDto } from './dictionary.dto';
 import { isPeriodLocked } from '../initiatives/domain/period.policy';
-import { makeSizeSnapshot } from '../initiatives/domain/capacity.service';
 
 export type DictionaryType = 'departments' | 'managers' | 'priorities' | 'statuses' | 'weights' | 'sizes';
 const normalize = (value: string) => value.trim().toLocaleLowerCase('uk-UA');
@@ -22,8 +21,8 @@ export class DictionariesService {
       case 'departments': return (await this.prisma.department.findMany({ orderBy: { name: 'asc' } })).map((x) => ({ id: x.id, name: x.name, capacity_limit_points: x.capacityLimitPoints.toNumber(), is_active: x.isActive }));
       case 'managers': return (await this.prisma.manager.findMany({ orderBy: { name: 'asc' } })).map((x) => ({ id: x.id, name: x.name, department_id: x.departmentId ?? undefined, is_active: x.isActive }));
       case 'priorities': return (await this.prisma.priority.findMany({ orderBy: { name: 'asc' } })).map((x) => ({ id: x.id, name: x.name, color: x.color ?? undefined, is_active: x.isActive }));
-      case 'statuses': return (await this.prisma.initiativeStatus.findMany({ orderBy: { name: 'asc' } })).map((x) => ({ id: x.id, code: x.code, name: x.name, color: x.color, is_active: x.isActive }));
-      case 'weights': return (await this.prisma.taskWeight.findMany({ orderBy: { weight: 'asc' } })).map((x) => ({ id: x.id, name: x.name, weight: x.weight.toNumber(), is_active: x.isActive }));
+      case 'statuses': return (await this.prisma.initiativeStatus.findMany({ orderBy: { name: 'asc' } })).map((x) => ({ id: x.id, code: x.code, name: x.name, color: x.color, is_active: x.isActive, is_system: x.isSystem }));
+      case 'weights': return (await this.prisma.taskWeight.findMany({ orderBy: { weight: 'asc' } })).map((x) => ({ id: x.id, name: x.name, weight: x.weight.toNumber(), is_active: x.isActive, is_default: x.isDefault, is_system: x.isSystem }));
       case 'sizes': return (await this.prisma.initiativeSize.findMany({ orderBy: { minScore: 'asc' } })).map((x) => ({ id: x.id, name: x.name, min_score: x.minScore.toNumber(), max_score: x.maxScore.toNumber(), is_active: x.isActive }));
     }
   }
@@ -48,6 +47,14 @@ export class DictionariesService {
   async update(type: DictionaryType, id: string, dto: DictionaryDto) {
     try {
       await this.prisma.$transaction(async (tx) => {
+        if (type === 'statuses') {
+          const status = await tx.initiativeStatus.findUnique({ where: { id } });
+          if (status?.isSystem && (dto.code && dto.code !== status.code || dto.is_active === false)) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системний статус не можна деактивувати або змінити його код', HttpStatus.CONFLICT);
+        }
+        if (type === 'weights') {
+          const weight = await tx.taskWeight.findUnique({ where: { id } });
+          if (weight?.isSystem && (dto.weight !== undefined && dto.weight !== 0 || dto.is_active === false)) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системну вагу не можна деактивувати або змінити', HttpStatus.CONFLICT);
+        }
         if (type === 'sizes') await this.assertSizeRange(tx, dto, id);
         const common = dto.name ? { name: dto.name.trim(), normalizedName: normalize(dto.name) } : {};
         switch (type) {
@@ -64,6 +71,8 @@ export class DictionariesService {
   }
 
   async remove(type: DictionaryType, id: string) {
+    if (type === 'statuses' && (await this.prisma.initiativeStatus.findUnique({ where: { id } }))?.isSystem) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системний статус не можна видалити', HttpStatus.CONFLICT);
+    if (type === 'weights' && (await this.prisma.taskWeight.findUnique({ where: { id } }))?.isSystem) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системну вагу не можна видалити', HttpStatus.CONFLICT);
     const usage = await this.usage(type, id);
     if (usage.length) throw new AppError('DICTIONARY_IN_USE', `Неможливо видалити запис: значення використовується у ${usage.join(', ')}`, HttpStatus.CONFLICT);
     switch (type) {
@@ -82,28 +91,28 @@ export class DictionariesService {
       const definition = await tx.taskWeight.findUnique({ where: { id } });
       if (!definition) throw new AppError('NOT_FOUND', 'Вагу не знайдено', HttpStatus.NOT_FOUND);
       const cards = await tx.quarterCard.findMany({
-        where: { checklistItems: { some: { weightDefinitionId: id } } },
-        include: { initiativeYear: true, checklistItems: true },
+        where: { scopeItems: { some: { weightDefinitionId: id } } },
+        include: { initiativeYear: true, scopeItems: true },
       });
       const sizes = await this.sizeDefinitions(tx);
       let changedCards = 0;
       let changedTasks = 0;
       for (const card of cards) {
-        if (isPeriodLocked(card.initiativeYear.year, card.quarter as any, this.zone)) continue;
-        const affected = card.checklistItems.filter((item) => item.weightDefinitionId === id);
+        if (isPeriodLocked(card.initiativeYear.year, `Q${card.quarter}` as any, this.zone)) continue;
+        const affected = card.scopeItems.filter((item) => item.weightDefinitionId === id);
         if (!affected.length) continue;
-        await tx.checklistItem.updateMany({
+        await tx.scopeItem.updateMany({
           where: { id: { in: affected.map((item) => item.id) } },
           data: { weightSnapshotName: definition.name, weightSnapshotValue: definition.weight, revision: { increment: 1 } },
         });
-        const total = card.checklistItems.reduce(
+        const total = card.scopeItems.reduce(
           (sum, item) => sum + (item.weightDefinitionId === id ? definition.weight.toNumber() : item.weightSnapshotValue.toNumber()),
           0,
         );
-        const size = makeSizeSnapshot(total, sizes);
+        const size = sizes.find((item) => item.isActive && total >= item.minScore && total <= item.maxScore);
         await tx.quarterCard.update({
           where: { id: card.id },
-          data: { sizeDefinitionId: size.definitionId ?? null, sizeSnapshotName: size.name, sizeSnapshotWeight: size.totalWeight, revision: { increment: 1 } },
+          data: { totalWeight: total, sizeDefinitionId: size?.id ?? null, sizeSnapshotName: size?.name ?? 'Не визначено', sizeSnapshotMin: size?.minScore ?? null, sizeSnapshotMax: size?.maxScore ?? null, revision: { increment: 1 } },
         });
         changedCards += 1;
         changedTasks += affected.length;
@@ -115,16 +124,16 @@ export class DictionariesService {
 
   async recalculateOpenCardSizes() {
     const result = await this.prisma.$transaction(async (tx) => {
-      const cards = await tx.quarterCard.findMany({ include: { initiativeYear: true, checklistItems: true } });
+      const cards = await tx.quarterCard.findMany({ include: { initiativeYear: true, scopeItems: true } });
       const sizes = await this.sizeDefinitions(tx);
       let changedCards = 0;
       for (const card of cards) {
-        if (isPeriodLocked(card.initiativeYear.year, card.quarter as any, this.zone)) continue;
-        const total = card.checklistItems.reduce((sum, item) => sum + item.weightSnapshotValue.toNumber(), 0);
-        const size = makeSizeSnapshot(total, sizes);
+        if (isPeriodLocked(card.initiativeYear.year, `Q${card.quarter}` as any, this.zone)) continue;
+        const total = card.scopeItems.reduce((sum, item) => sum + item.weightSnapshotValue.toNumber(), 0);
+        const size = sizes.find((item) => item.isActive && total >= item.minScore && total <= item.maxScore);
         await tx.quarterCard.update({
           where: { id: card.id },
-          data: { sizeDefinitionId: size.definitionId ?? null, sizeSnapshotName: size.name, sizeSnapshotWeight: size.totalWeight, revision: { increment: 1 } },
+          data: { totalWeight: total, sizeDefinitionId: size?.id ?? null, sizeSnapshotName: size?.name ?? 'Не визначено', sizeSnapshotMin: size?.minScore ?? null, sizeSnapshotMax: size?.maxScore ?? null, revision: { increment: 1 } },
         });
         changedCards += 1;
       }
@@ -152,14 +161,15 @@ export class DictionariesService {
   private async usage(type: DictionaryType, id: string) {
     const result: string[] = [];
     if (type === 'departments') {
-      if (await this.prisma.passportDepartment.count({ where: { departmentId: id } })) result.push('паспортах');
-      if (await this.prisma.checklistDepartment.count({ where: { departmentId: id } })) result.push('завданнях');
+      if (await this.prisma.preparationStageDepartment.count({ where: { departmentId: id } })) result.push('підготовчих етапах');
+      if (await this.prisma.quarterCardDepartment.count({ where: { departmentId: id } })) result.push('картках');
+      if (await this.prisma.scopeItemExecutor.count({ where: { departmentId: id } })) result.push('завданнях');
       if (await this.prisma.manager.count({ where: { departmentId: id } })) result.push('менеджерах');
       if (await this.prisma.user.count({ where: { departmentId: id } })) result.push('користувачах');
     }
-    if (type === 'managers' && await this.prisma.passport.count({ where: { managerId: id } })) result.push('паспортах');
-    if (type === 'priorities' && await this.prisma.passport.count({ where: { priorityId: id } })) result.push('паспортах');
-    if (type === 'statuses' && (await this.prisma.quarterCard.count({ where: { statusId: id } }) || await this.prisma.checklistItem.count({ where: { statusId: id } }))) result.push('картках або завданнях');
+    if (type === 'managers' && (await this.prisma.preparationStage.count({ where: { managerId: id } }) || await this.prisma.quarterCard.count({ where: { managerId: id } }))) result.push('ініціативах');
+    if (type === 'priorities' && (await this.prisma.preparationStage.count({ where: { priorityId: id } }) || await this.prisma.quarterCard.count({ where: { priorityId: id } }))) result.push('ініціативах');
+    if (type === 'statuses' && await this.prisma.quarterCard.count({ where: { statusId: id } })) result.push('картках');
     if (type === 'sizes' && await this.prisma.quarterCard.count({ where: { sizeDefinitionId: id } })) result.push('картках');
     return result;
   }

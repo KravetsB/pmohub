@@ -8,7 +8,7 @@ import {
 import { useAppContext } from "../../../app/store";
 import { TaskCard } from "./TaskCard";
 import { OperationalTask } from "../../../shared/types";
-import { passportFrom } from "../../../domain/initiatives";
+import { metadataFrom } from "../../../domain/initiatives";
 import styles from "../components/shared/PortfolioTab.module.css";
 import { PortfolioTable } from "../components/shared/PortfolioTable";
 
@@ -23,7 +23,6 @@ export const TasksTab = () => {
     priorities,
     deleteTask,
     rolePermissions,
-    savePassport,
     createBacklogWithCards,
   } = useAppContext();
 
@@ -285,26 +284,9 @@ export const TasksTab = () => {
           defaultQuarter={selectedQuarter}
           isReadOnly={isReadOnlyModal}
           onClose={() => setIsModalOpen(false)}
-          onSave={async (t, syncTargets) => {
+          onSave={async (t) => {
             if (editingTask) {
-              const backlogYears = (syncTargets ?? [])
-                .filter((id) => id.startsWith("BACKLOG_YEAR:"))
-                .map((id) => Number(id.split(":")[1]));
-              if ((syncTargets ?? []).includes(editingTask.backlog_id ?? ""))
-                backlogYears.push(editingTask.year);
-              const cardIds = (syncTargets ?? []).filter((id) =>
-                tasks.some((card) => !card.is_backlog && card.id === id),
-              );
-              const result = await savePassport({
-                kind: "task",
-                source: { type: "card", cardId: editingTask.id },
-                passportPatch: passportFrom(t),
-                sourceCardPatch: {
-                  checklist: t.checklist,
-                  health_status: t.health_status,
-                },
-                targets: { backlogYears, cardIds },
-              });
+              const result = await updateTask(editingTask.id, t);
               if (!result.success) {
                 alert(result.message);
                 return;
@@ -318,7 +300,7 @@ export const TasksTab = () => {
                 quarter: "Q1" as const,
                 yearSnapshots: {
                   [String(t.year)]: {
-                    ...passportFrom(t),
+                    ...metadataFrom(t),
                     year: t.year,
                     history: [],
                   },

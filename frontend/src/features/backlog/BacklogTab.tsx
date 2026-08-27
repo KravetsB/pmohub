@@ -6,7 +6,7 @@ import {
   getChainId,
   getYearSnapshot,
   materializeBacklogYear,
-  passportFrom,
+  metadataFrom,
 } from "../../domain/initiatives";
 import { getCurrentPeriod, isBacklogLocked } from "../../shared/utils";
 import { BacklogModal } from "./components/BacklogModal";
@@ -208,8 +208,8 @@ export const BacklogTab = () => {
     const preparation = getYearSnapshot(master, selectedYear)?.preparationStage;
     const card = {
       ...master,
-      ...passportFrom(master),
-      ...(previousCard ? passportFrom(previousCard) : (preparation ?? {})),
+      ...metadataFrom(master),
+      ...(previousCard ? metadataFrom(previousCard) : (preparation ?? {})),
       implementer_dept_ids: [],
       id: `${master.id}-${selectedYear}-${quarter}`,
       is_backlog: false,

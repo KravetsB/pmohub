@@ -127,56 +127,6 @@
       }
     },
     "/api/v1/initiatives": {
-      "get": {
-        "operationId": "InitiativesController_list",
-        "parameters": [
-          {
-            "name": "kind",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "year",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "quarter",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "is_backlog",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "initiatives"
-        ]
-      },
       "post": {
         "operationId": "InitiativesController_create",
         "parameters": [],
@@ -215,98 +165,9 @@
         ]
       }
     },
-    "/api/v1/initiatives/years/{id}": {
-      "get": {
-        "operationId": "InitiativesController_getYear",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "initiatives"
-        ]
-      },
-      "delete": {
-        "operationId": "InitiativesController_deleteYear",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "revision",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "initiatives"
-        ]
-      }
-    },
-    "/api/v1/initiatives/cards/{id}": {
-      "get": {
-        "operationId": "InitiativesController_getCard",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "initiatives"
-        ]
-      },
+    "/api/v1/initiatives/{id}": {
       "patch": {
-        "operationId": "InitiativesController_updateCard",
+        "operationId": "InitiativesController_update",
         "parameters": [
           {
             "name": "id",
@@ -322,7 +183,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCardDto"
+                "$ref": "#/components/schemas/UpdateInitiativeDto"
               }
             }
           }
@@ -340,9 +201,123 @@
         "tags": [
           "initiatives"
         ]
+      }
+    },
+    "/api/v1/initiative-years": {
+      "get": {
+        "operationId": "InitiativeYearsController_list",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeYearsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiative-years"
+        ]
+      }
+    },
+    "/api/v1/initiative-years/{id}": {
+      "get": {
+        "operationId": "InitiativeYearsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeYearResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiative-years"
+        ]
+      },
+      "patch": {
+        "operationId": "InitiativeYearsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInitiativeYearDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiative-years"
+        ]
       },
       "delete": {
-        "operationId": "InitiativesController_deleteCard",
+        "operationId": "InitiativeYearsController_remove",
         "parameters": [
           {
             "name": "id",
@@ -373,13 +348,51 @@
           }
         ],
         "tags": [
-          "initiatives"
+          "initiative-years"
         ]
       }
     },
-    "/api/v1/initiatives/years/{id}/cards": {
+    "/api/v1/initiative-years/{id}/preparation": {
+      "patch": {
+        "operationId": "InitiativeYearsController_updatePreparation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreparationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiative-years"
+        ]
+      }
+    },
+    "/api/v1/initiative-years/{id}/cards": {
       "post": {
-        "operationId": "InitiativesController_createCard",
+        "operationId": "InitiativeYearsController_createCard",
         "parameters": [
           {
             "name": "id",
@@ -421,13 +434,209 @@
           }
         ],
         "tags": [
-          "initiatives"
+          "initiative-years"
         ]
       }
     },
-    "/api/v1/initiatives/cards/{id}/move": {
+    "/api/v1/initiative-years/extend": {
       "post": {
-        "operationId": "InitiativesController_moveCard",
+        "operationId": "InitiativeYearsController_extend",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendYearsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccessDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiative-years"
+        ]
+      }
+    },
+    "/api/v1/quarter-cards": {
+      "get": {
+        "operationId": "QuarterCardsController_list",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "quarter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuarterCardsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "quarter-cards"
+        ]
+      }
+    },
+    "/api/v1/quarter-cards/{id}": {
+      "get": {
+        "operationId": "QuarterCardsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuarterCardResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "quarter-cards"
+        ]
+      },
+      "patch": {
+        "operationId": "QuarterCardsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "quarter-cards"
+        ]
+      },
+      "delete": {
+        "operationId": "QuarterCardsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "quarter-cards"
+        ]
+      }
+    },
+    "/api/v1/quarter-cards/{id}/move": {
+      "post": {
+        "operationId": "QuarterCardsController_move",
         "parameters": [
           {
             "name": "id",
@@ -469,13 +678,13 @@
           }
         ],
         "tags": [
-          "initiatives"
+          "quarter-cards"
         ]
       }
     },
-    "/api/v1/initiatives/cards/{id}/continue": {
+    "/api/v1/quarter-cards/{id}/continue": {
       "post": {
-        "operationId": "InitiativesController_continueCard",
+        "operationId": "QuarterCardsController_continueCard",
         "parameters": [
           {
             "name": "id",
@@ -517,13 +726,13 @@
           }
         ],
         "tags": [
-          "initiatives"
+          "quarter-cards"
         ]
       }
     },
-    "/api/v1/initiatives/cards/{cardId}/scope/{itemId}/move": {
+    "/api/v1/quarter-cards/{cardId}/scope/{itemId}/move": {
       "post": {
-        "operationId": "InitiativesController_moveScope",
+        "operationId": "QuarterCardsController_moveScope",
         "parameters": [
           {
             "name": "cardId",
@@ -564,14 +773,7 @@
             }
           },
           "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+            "description": ""
           }
         },
         "security": [
@@ -580,16 +782,24 @@
           }
         ],
         "tags": [
-          "initiatives"
+          "quarter-cards"
         ]
       }
     },
-    "/api/v1/initiatives/years/{id}/passport": {
+    "/api/v1/quarter-cards/{cardId}/scope/{itemId}/copy": {
       "post": {
-        "operationId": "InitiativesController_saveYearPassport",
+        "operationId": "QuarterCardsController_copyScope",
         "parameters": [
           {
-            "name": "id",
+            "name": "cardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
             "required": true,
             "in": "path",
             "schema": {
@@ -602,7 +812,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SavePassportDto"
+                "$ref": "#/components/schemas/PeriodCommandDto"
               }
             }
           }
@@ -628,132 +838,7 @@
           }
         ],
         "tags": [
-          "initiatives"
-        ]
-      }
-    },
-    "/api/v1/initiatives/cards/{id}/passport": {
-      "post": {
-        "operationId": "InitiativesController_saveCardPassport",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SavePassportDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiSuccessDto"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "initiatives"
-        ]
-      }
-    },
-    "/api/v1/initiatives/years/extend": {
-      "post": {
-        "operationId": "InitiativesController_extend",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExtendYearsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiSuccessDto"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "initiatives"
-        ]
-      }
-    },
-    "/api/v1/initiatives/years/{id}/preparation": {
-      "patch": {
-        "operationId": "InitiativesController_updatePreparation",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePreparationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "initiatives"
+          "quarter-cards"
         ]
       }
     },
@@ -983,11 +1068,11 @@
             "schema": {
               "enum": [
                 "departments",
-                "sizes",
                 "managers",
                 "priorities",
                 "statuses",
-                "weights"
+                "weights",
+                "sizes"
               ],
               "type": "string"
             }
@@ -1017,11 +1102,11 @@
             "schema": {
               "enum": [
                 "departments",
-                "sizes",
                 "managers",
                 "priorities",
                 "statuses",
-                "weights"
+                "weights",
+                "sizes"
               ],
               "type": "string"
             }
@@ -1073,11 +1158,11 @@
             "schema": {
               "enum": [
                 "departments",
-                "sizes",
                 "managers",
                 "priorities",
                 "statuses",
-                "weights"
+                "weights",
+                "sizes"
               ],
               "type": "string"
             }
@@ -1125,11 +1210,11 @@
             "schema": {
               "enum": [
                 "departments",
-                "sizes",
                 "managers",
                 "priorities",
                 "statuses",
-                "weights"
+                "weights",
+                "sizes"
               ],
               "type": "string"
             }
@@ -1400,91 +1485,6 @@
         ]
       }
     },
-    "/api/v1/backups/export": {
-      "get": {
-        "operationId": "DataManagementController_export",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "data-management"
-        ]
-      }
-    },
-    "/api/v1/backups/validate": {
-      "post": {
-        "operationId": "DataManagementController_validate",
-        "parameters": [
-          {
-            "name": "mode",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "data-management"
-        ]
-      }
-    },
-    "/api/v1/backups/import": {
-      "post": {
-        "operationId": "DataManagementController_import",
-        "parameters": [
-          {
-            "name": "mode",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BackupImportRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "data-management"
-        ]
-      }
-    },
     "/api/v1/audit/{aggregateType}/{aggregateId}": {
       "get": {
         "operationId": "AuditController_list",
@@ -1607,99 +1607,18 @@
           "success"
         ]
       },
-      "PassportDto": {
+      "PreparationInputDto": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string"
-          },
-          "strategic_goal": {
-            "type": "string"
-          },
           "manager_id": {
             "type": "string",
             "format": "uuid"
           },
-          "priority": {
+          "priority_id": {
             "type": "string",
             "format": "uuid"
           },
-          "notes": {
-            "type": "string"
-          },
-          "implementer_dept_ids": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "cross_functional_dept_ids": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "custom_fields": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "name",
-          "implementer_dept_ids",
-          "cross_functional_dept_ids"
-        ]
-      },
-      "ChecklistItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "text": {
-            "type": "string"
-          },
-          "is_completed": {
-            "type": "boolean"
-          },
-          "color": {
-            "type": "string"
-          },
-          "weightId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "weightSnapshot": {
-            "type": "object",
-            "properties": {
-              "definitionId": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "value": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "name",
-              "value"
-            ]
-          },
-          "assigneeIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "implementer_dept_ids": {
+          "department_ids": {
             "default": [],
             "type": "array",
             "items": {
@@ -1709,54 +1628,293 @@
           }
         },
         "required": [
-          "text",
-          "implementer_dept_ids"
+          "department_ids"
         ]
       },
       "CreateInitiativeDto": {
         "type": "object",
         "properties": {
           "kind": {
-            "type": "string",
             "enum": [
-              "project",
-              "task",
               "PROJECT",
-              "TASK"
-            ]
+              "OPERATIONAL_TASK"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           },
           "year": {
             "type": "number",
             "minimum": 2000,
             "maximum": 2200
           },
-          "passport": {
-            "$ref": "#/components/schemas/PassportDto"
+          "strategic_goal": {
+            "type": "string"
           },
-          "quarters": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4"
-              ]
-            }
-          },
-          "initial_scope": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChecklistItemDto"
-            }
+          "preparation": {
+            "$ref": "#/components/schemas/PreparationInputDto"
           }
         },
         "required": [
           "kind",
+          "name",
           "year",
-          "passport",
-          "quarters"
+          "preparation"
+        ]
+      },
+      "UpdateInitiativeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name",
+          "revision"
+        ]
+      },
+      "PreparationStageReadModelDto": {
+        "type": "object",
+        "properties": {
+          "initiative_year_id": {
+            "type": "string"
+          },
+          "manager_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "manager": {
+            "type": "object",
+            "nullable": true
+          },
+          "priority_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "type": "object",
+            "nullable": true
+          },
+          "department_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "initiative_year_id",
+          "manager_id",
+          "manager",
+          "priority_id",
+          "priority",
+          "department_ids",
+          "departments",
+          "revision"
+        ]
+      },
+      "QuarterCardSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "quarter": {
+            "enum": [
+              "Q1",
+              "Q2",
+              "Q3",
+              "Q4"
+            ],
+            "type": "string"
+          },
+          "status_id": {
+            "type": "string"
+          },
+          "status_code": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "total_weight": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "quarter",
+          "status_id",
+          "status_code",
+          "revision",
+          "total_weight"
+        ]
+      },
+      "InitiativeYearReadModelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "initiative_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PROJECT",
+              "OPERATIONAL_TASK"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "initiative_revision": {
+            "type": "number"
+          },
+          "year": {
+            "type": "number"
+          },
+          "strategic_goal": {
+            "type": "string",
+            "nullable": true
+          },
+          "revision": {
+            "type": "number"
+          },
+          "preparation": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PreparationStageReadModelDto"
+              }
+            ]
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuarterCardSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "initiative_id",
+          "kind",
+          "name",
+          "initiative_revision",
+          "year",
+          "strategic_goal",
+          "revision",
+          "preparation",
+          "cards"
+        ]
+      },
+      "InitiativeYearsResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InitiativeYearReadModelDto"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "InitiativeYearResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/InitiativeYearReadModelDto"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "UpdateInitiativeYearDto": {
+        "type": "object",
+        "properties": {
+          "strategic_goal": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "revision"
+        ]
+      },
+      "UpdatePreparationDto": {
+        "type": "object",
+        "properties": {
+          "manager_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "priority_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "department_ids": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "department_ids",
+          "revision"
         ]
       },
       "CreateQuarterCardDto": {
@@ -1770,20 +1928,338 @@
               "Q4"
             ],
             "type": "string"
+          }
+        },
+        "required": [
+          "quarter"
+        ]
+      },
+      "RevisionTargetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "passport": {
-            "$ref": "#/components/schemas/PassportDto"
-          },
-          "initial_scope": {
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "revision"
+        ]
+      },
+      "ExtendYearsDto": {
+        "type": "object",
+        "properties": {
+          "source_years": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ChecklistItemDto"
+              "$ref": "#/components/schemas/RevisionTargetDto"
+            }
+          },
+          "target_year": {
+            "type": "number",
+            "minimum": 2000,
+            "maximum": 2200
+          }
+        },
+        "required": [
+          "source_years",
+          "target_year"
+        ]
+      },
+      "ScopeItemReadModelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lineage_id": {
+            "type": "string"
+          },
+          "copied_from_item_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "text": {
+            "type": "string"
+          },
+          "status_code": {
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "GREEN",
+              "YELLOW",
+              "RED"
+            ]
+          },
+          "weight_definition_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "weight_snapshot": {
+            "type": "object"
+          },
+          "executor_department_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "executors": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "moved_from_card_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "lineage_id",
+          "copied_from_item_id",
+          "text",
+          "status_code",
+          "weight_definition_id",
+          "weight_snapshot",
+          "executor_department_ids",
+          "executors",
+          "moved_from_card_id",
+          "revision"
+        ]
+      },
+      "QuarterCardReadModelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "initiative_year_id": {
+            "type": "string"
+          },
+          "initiative_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PROJECT",
+              "OPERATIONAL_TASK"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "strategic_goal": {
+            "type": "string",
+            "nullable": true
+          },
+          "year": {
+            "type": "number"
+          },
+          "quarter": {
+            "enum": [
+              "Q1",
+              "Q2",
+              "Q3",
+              "Q4"
+            ],
+            "type": "string"
+          },
+          "manager_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "manager": {
+            "type": "object",
+            "nullable": true
+          },
+          "priority_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "type": "object",
+            "nullable": true
+          },
+          "department_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "effective_involved_department_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status_id": {
+            "type": "string"
+          },
+          "status_code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "object"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_weight": {
+            "type": "number"
+          },
+          "size_snapshot": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "scope": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScopeItemReadModelDto"
+            }
+          },
+          "moved_from": {
+            "type": "object",
+            "nullable": true
+          },
+          "revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "initiative_year_id",
+          "initiative_id",
+          "kind",
+          "name",
+          "strategic_goal",
+          "year",
+          "quarter",
+          "manager_id",
+          "manager",
+          "priority_id",
+          "priority",
+          "department_ids",
+          "effective_involved_department_ids",
+          "status_id",
+          "status_code",
+          "status",
+          "notes",
+          "total_weight",
+          "size_snapshot",
+          "custom_fields",
+          "scope",
+          "moved_from",
+          "revision"
+        ]
+      },
+      "QuarterCardsResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuarterCardReadModelDto"
             }
           }
         },
         "required": [
-          "quarter",
-          "passport"
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "QuarterCardResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/QuarterCardReadModelDto"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "ScopeItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lineage_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          },
+          "text": {
+            "type": "string"
+          },
+          "status_code": {
+            "enum": [
+              "DEFAULT",
+              "GREEN",
+              "YELLOW",
+              "RED"
+            ],
+            "type": "string"
+          },
+          "weight_definition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "executor_department_ids": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "text",
+          "status_code",
+          "weight_definition_id",
+          "executor_department_ids"
         ]
       },
       "UpdateCardDto": {
@@ -1793,22 +2269,46 @@
             "type": "number",
             "minimum": 1
           },
-          "passport": {
-            "$ref": "#/components/schemas/PassportDto"
-          },
-          "health_status": {
+          "manager_id": {
             "type": "string",
             "format": "uuid"
           },
-          "checklist": {
+          "priority_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "department_ids": {
+            "default": [],
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ChecklistItemDto"
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "status_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "scope": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScopeItemDto"
             }
           }
         },
         "required": [
-          "revision"
+          "revision",
+          "department_ids",
+          "status_id",
+          "scope"
         ]
       },
       "PeriodCommandDto": {
@@ -1832,162 +2332,15 @@
             ],
             "type": "string"
           },
-          "reason": {
-            "type": "string"
-          },
-          "confirmation_token": {
-            "type": "string"
+          "target_revision": {
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
           "revision",
           "to_year",
           "to_quarter"
-        ]
-      },
-      "RevisionTargetDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "revision": {
-            "type": "number",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "id",
-          "revision"
-        ]
-      },
-      "SourceCardPatchDto": {
-        "type": "object",
-        "properties": {
-          "health_status": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "checklist": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChecklistItemDto"
-            }
-          }
-        }
-      },
-      "SavePassportDto": {
-        "type": "object",
-        "properties": {
-          "revision": {
-            "type": "number",
-            "minimum": 1
-          },
-          "passport": {
-            "$ref": "#/components/schemas/PassportDto"
-          },
-          "target_years": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RevisionTargetDto"
-            }
-          },
-          "target_cards": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RevisionTargetDto"
-            }
-          },
-          "source_card_patch": {
-            "description": "Changes to the source card that must commit atomically with passport propagation.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SourceCardPatchDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "revision",
-          "passport",
-          "target_years",
-          "target_cards"
-        ]
-      },
-      "ExtendYearsDto": {
-        "type": "object",
-        "properties": {
-          "source_year_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "target_year": {
-            "type": "number",
-            "minimum": 2000,
-            "maximum": 2200
-          }
-        },
-        "required": [
-          "source_year_ids",
-          "target_year"
-        ]
-      },
-      "UpdatePreparationDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "strategic_goal": {
-            "type": "string"
-          },
-          "manager_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "priority": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "notes": {
-            "type": "string"
-          },
-          "implementer_dept_ids": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "cross_functional_dept_ids": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "custom_fields": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "revision": {
-            "type": "number",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "name",
-          "implementer_dept_ids",
-          "cross_functional_dept_ids",
-          "revision"
         ]
       },
       "CreateUserDto": {
@@ -2158,22 +2511,6 @@
           "name",
           "type",
           "isRequired"
-        ]
-      },
-      "BackupImportRequestDto": {
-        "type": "object",
-        "properties": {
-          "backup": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "validation_token": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "backup",
-          "validation_token"
         ]
       }
     }

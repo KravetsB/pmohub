@@ -8,7 +8,7 @@ import {
 import { useAppContext } from "../../../app/store";
 import { ProjectCard } from "./ProjectCard";
 import { Project } from "../../../shared/types";
-import { passportFrom } from "../../../domain/initiatives";
+import { metadataFrom } from "../../../domain/initiatives";
 import styles from "../components/shared/PortfolioTab.module.css";
 import { PortfolioTable } from "../components/shared/PortfolioTable";
 
@@ -23,7 +23,6 @@ export const ProjectsTab = () => {
     priorities,
     deleteProject,
     rolePermissions,
-    savePassport,
     createBacklogWithCards,
   } = useAppContext();
 
@@ -285,26 +284,9 @@ export const ProjectsTab = () => {
           defaultQuarter={selectedQuarter}
           isReadOnly={isReadOnlyModal}
           onClose={() => setIsModalOpen(false)}
-          onSave={async (proj, syncTargets) => {
+          onSave={async (proj) => {
             if (editingProject) {
-              const backlogYears = (syncTargets ?? [])
-                .filter((id) => id.startsWith("BACKLOG_YEAR:"))
-                .map((id) => Number(id.split(":")[1]));
-              if ((syncTargets ?? []).includes(editingProject.backlog_id ?? ""))
-                backlogYears.push(editingProject.year);
-              const cardIds = (syncTargets ?? []).filter((id) =>
-                projects.some((card) => !card.is_backlog && card.id === id),
-              );
-              const result = await savePassport({
-                kind: "project",
-                source: { type: "card", cardId: editingProject.id },
-                passportPatch: passportFrom(proj),
-                sourceCardPatch: {
-                  checklist: proj.checklist,
-                  health_status: proj.health_status,
-                },
-                targets: { backlogYears, cardIds },
-              });
+              const result = await updateProject(editingProject.id, proj);
               if (!result.success) {
                 alert(result.message);
                 return;
@@ -318,7 +300,7 @@ export const ProjectsTab = () => {
                 quarter: "Q1" as const,
                 yearSnapshots: {
                   [String(proj.year)]: {
-                    ...passportFrom(proj),
+                    ...metadataFrom(proj),
                     year: proj.year,
                     history: [],
                   },

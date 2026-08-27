@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, Plus, Trash2, X } from "lucide-react";
+import { ArrowRight, Copy, Plus, Trash2, X } from "lucide-react";
 import { useAppContext } from "../../../app/store";
 import {
   ChecklistItem,
@@ -8,7 +8,6 @@ import {
   Priority,
   Project,
   Quarter,
-  ScopeMergePreview,
 } from "../../../shared/types";
 import {
   getCurrentPeriod,
@@ -21,11 +20,11 @@ import {
   makeWeightSnapshot,
   validateChecklistCapacity,
 } from "../../../domain/capacity";
-import { canEditInitiative } from "../../../domain/permissions";
-import { ScopeMergeConfirmDialog } from "../../../components/ui/ScopeMergeConfirmDialog";
+import { canEditInitiative, getPermissions } from "../../../domain/permissions";
 import { RichTextEditor } from "../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCardModal.module.css";
 import { InitiativeHistory } from "./InitiativeHistory";
+import { useAuditQuery } from "../../../api/hooks";
 
 type Initiative = Project | OperationalTask;
 type Kind = "project" | "task";
@@ -33,16 +32,12 @@ interface Props {
   kind: Kind;
   item: Initiative | null;
   onClose: () => void;
-  onSave: (item: Initiative, syncTargets?: string[]) => void;
+  onSave: (item: Initiative) => void | Promise<void>;
   onDelete?: (id: string) => void;
   isReadOnly?: boolean;
   openInViewMode?: boolean;
   defaultYear?: number;
   defaultQuarter?: Quarter;
-}
-interface PendingMerge {
-  preview: ScopeMergePreview;
-  itemId?: string;
 }
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 const statusDots: Array<{
@@ -97,17 +92,20 @@ export const InitiativeCardModal = ({
     moveCard,
     continueCard,
     moveScopeItem,
+    copyScopeItem,
     currentUser,
     rolePermissions,
-    isMutating,
   } = useAppContext();
   const records = kind === "project" ? projects : tasks;
+  const auditQuery = useAuditQuery(item ? "QuarterCard" : undefined, item?.id);
   const year = item?.year ?? defaultYear ?? new Date().getFullYear();
   const quarter = item?.quarter ?? defaultQuarter ?? getCurrentQuarter();
   const noun = kind === "project" ? "проєкту" : "операційної задачі";
   const canSwitchToEdit = Boolean(
     item && canEditInitiative(item, currentUser, rolePermissions),
   );
+  const permissions = getPermissions(currentUser, rolePermissions);
+  const canCopyScope = Boolean(item && permissions?.canCreateEditProjects && !permissions.isReadOnly);
   const scopeWeightLocked = Boolean(item && isPeriodLocked(year, quarter));
   const [name, setName] = useState(item?.name ?? "");
   const [goal, setGoal] = useState(item?.strategic_goal ?? "");
@@ -126,6 +124,7 @@ export const InitiativeCardModal = ({
   const [activeTab, setActiveTab] = useState<"SCOPE" | "HISTORY">("SCOPE");
   const [newText, setNewText] = useState("");
   const [error, setError] = useState("");
+  const [isPending, setIsPending] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(locked || openInViewMode);
   const nextPeriod =
     quarter === "Q4"
@@ -142,7 +141,7 @@ export const InitiativeCardModal = ({
     initialMovePeriod.quarter,
   );
   const [movingId, setMovingId] = useState<string | null>(null);
-  const [pendingMerge, setPendingMerge] = useState<PendingMerge | null>(null);
+  const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">("MOVE");
   const executors = useMemo(
     () =>
       Array.from(
@@ -175,73 +174,66 @@ export const InitiativeCardModal = ({
     setShowMove(false);
     setMovingId(null);
   };
-  const performMove = async (confirmation?: ScopeMergePreview) =>
+  const performMove = async () =>
     !item
       ? undefined
       : movingId
-        ? moveScopeItem(
+        ? scopeTransferMode === "COPY"
+          ? copyScopeItem(item.id, movingId, moveYear, moveQuarter, kind === "project")
+          : moveScopeItem(
             item.id,
             movingId,
             moveYear,
             moveQuarter,
             kind === "project",
-            undefined,
-            confirmation,
           )
         : moveCard(
             item.id,
             moveYear,
             moveQuarter,
             kind === "project",
-            undefined,
-            confirmation,
           );
   const requestMove = async () => {
+    if (isPending) return;
     if (!item) {
       setError("Спочатку збережіть нову картку");
       return;
     }
-    const result = await performMove();
-    if (!result) return;
-    if (result.requiresConfirmation) {
-      setPendingMerge({
-        preview: result.requiresConfirmation,
-        itemId: movingId ?? undefined,
-      });
-      return;
+    setIsPending(true);
+    setError("");
+    try {
+      const result = await performMove();
+      if (!result) return;
+      if (!result.success) {
+        setError(result.message);
+        return;
+      }
+      onClose();
+    } finally {
+      setIsPending(false);
     }
-    if (!result.success) {
-      setError(result.message);
-      return;
-    }
-    onClose();
   };
   const requestContinuation = async () => {
-    if (!item) return;
-    const result = await continueCard(
-      item.id,
-      moveYear,
-      moveQuarter,
-      kind === "project",
-    );
-    if (!result.success) {
-      window.alert(result.message);
-      return;
+    if (!item || isPending) return;
+    setIsPending(true);
+    try {
+      const result = await continueCard(
+        item.id,
+        moveYear,
+        moveQuarter,
+        kind === "project",
+      );
+      if (!result.success) {
+        setError(result.message);
+        return;
+      }
+      onClose();
+    } finally {
+      setIsPending(false);
     }
-    onClose();
   };
-  const confirmMerge = async () => {
-    const result = await performMove(pendingMerge?.preview);
-    if (!result) return;
-    if (!result.success) {
-      setError(result.message);
-      setPendingMerge(null);
-      return;
-    }
-    setPendingMerge(null);
-    onClose();
-  };
-  const save = () => {
+  const save = async () => {
+    if (isPending) return;
     if (!name.trim()) {
       setError(`Вкажіть назву ${noun}`);
       return;
@@ -251,7 +243,10 @@ export const InitiativeCardModal = ({
       setError(validation.join(" • "));
       return;
     }
-    onSave({
+    setIsPending(true);
+    setError("");
+    try {
+      await onSave({
       ...(item ?? {}),
       id:
         item?.id ??
@@ -271,7 +266,10 @@ export const InitiativeCardModal = ({
       is_backlog: false,
       backlog_id: item?.backlog_id,
       history: item?.history ?? [],
-    } as Initiative);
+      } as Initiative);
+    } finally {
+      setIsPending(false);
+    }
   };
   const resize = (event: React.FormEvent<HTMLTextAreaElement>) => {
     event.currentTarget.style.height = "auto";
@@ -377,9 +375,9 @@ export const InitiativeCardModal = ({
     return (
       <section className={`move-panel ${scopeMove ? "mt-3" : "mb-4"}`}>
         <h3>
-          <ArrowRight size={16} />
+          {scopeMove && scopeTransferMode === "COPY" ? <Copy size={16} /> : <ArrowRight size={16} />}
           {scopeMove
-            ? "Перенесення завдання в інший період"
+            ? scopeTransferMode === "COPY" ? "Копіювання завдання в інший період" : "Перенесення завдання в інший період"
             : "Продовжити / перенести картку"}
         </h3>
         <div className={styles.moveControls}>
@@ -426,6 +424,7 @@ export const InitiativeCardModal = ({
             <button
               type="button"
               onClick={requestContinuation}
+              disabled={isPending}
               className="modal-secondary h-10 px-3 text-sm text-emerald-900"
             >
               Продовжити
@@ -434,9 +433,10 @@ export const InitiativeCardModal = ({
           <button
             type="button"
             onClick={requestMove}
+            disabled={isPending}
             className="modal-secondary h-10 px-3 text-sm text-indigo-900"
           >
-            Перенести
+            {scopeMove && scopeTransferMode === "COPY" ? "Копіювати" : "Перенести"}
           </button>
           <button
             type="button"
@@ -535,7 +535,7 @@ export const InitiativeCardModal = ({
               Назва <span className="text-rose-500">*</span>
             </label>
             <input
-              disabled={isReadOnly}
+              disabled
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="modal-field text-lg leading-6 font-semibold"
@@ -641,7 +641,7 @@ export const InitiativeCardModal = ({
           <div>
             <label className="modal-label">Стратегічна задача</label>
             <textarea
-              disabled={isReadOnly}
+              disabled
               value={goal}
               onChange={(event) => setGoal(event.target.value)}
               onInput={resize}
@@ -791,19 +791,36 @@ export const InitiativeCardModal = ({
                             />
                           ))}
                         </div>
-                        {item && !isReadOnly && (
-                          <button
+                          {item && !isReadOnly && (
+                            <button
+                             type="button"
+                             title="Перенести завдання"
+                             disabled={scope.color === "GREEN"}
+                             onClick={() => {
+                               setMovingId(scope.id);
+                               setScopeTransferMode("MOVE");
+                               setShowMove(true);
+                            }}
+                            className="icon-action shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                           <ArrowRight size={17} />
+                           </button>
+                          )}
+                          {canCopyScope && (
+                           <button
                             type="button"
-                            title="Перенести завдання"
+                            title="Копіювати завдання"
+                            disabled={scope.color === "GREEN"}
                             onClick={() => {
                               setMovingId(scope.id);
+                              setScopeTransferMode("COPY");
                               setShowMove(true);
                             }}
-                            className="icon-action shrink-0"
+                            className="icon-action shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            <ArrowRight size={17} />
-                          </button>
-                        )}
+                            <Copy size={16} />
+                            </button>
+                          )}
                         {!isReadOnly && !scopeWeightLocked && (
                           <button
                             type="button"
@@ -881,7 +898,7 @@ export const InitiativeCardModal = ({
                 )}
               </div>
             ) : (
-              <InitiativeHistory events={item?.history} />
+              <InitiativeHistory events={auditQuery.data ?? []} />
             )}
           </section>
           <div>
@@ -931,21 +948,14 @@ export const InitiativeCardModal = ({
             <button
               type="button"
               onClick={save}
-              disabled={isMutating}
+              disabled={isPending}
               className={`modal-primary ${styles.footerPrimary}`}
             >
-              {isMutating ? "Збереження…" : "Зберегти"}
+              {isPending ? "Збереження…" : "Зберегти"}
             </button>
           )}
         </footer>
       </div>
-      {pendingMerge && (
-        <ScopeMergeConfirmDialog
-          preview={pendingMerge.preview}
-          onCancel={() => setPendingMerge(null)}
-          onConfirm={confirmMerge}
-        />
-      )}
     </div>
   );
 };

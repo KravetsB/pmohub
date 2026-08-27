@@ -1,17 +1,11 @@
 import React, { useState } from "react";
-import { BookOpen, FileSpreadsheet, ShieldCheck, Sliders } from "lucide-react";
+import { BookOpen, ShieldCheck, Sliders } from "lucide-react";
 import { DictionariesSection } from "./components/dictionaries/DictionariesSection";
 import { RbacSection } from "./components/rbac/RbacSection";
 import { CustomFieldsSection } from "./components/custom-fields/CustomFieldsSection";
 import styles from "./AdminTab.module.css";
 
-const DataManagementSection = React.lazy(() =>
-  import("./components/DataManagementSection").then((module) => ({
-    default: module.DataManagementSection,
-  })),
-);
-
-type AdminSection = "dicts" | "rbac" | "fields" | "data";
+type AdminSection = "dicts" | "rbac" | "fields";
 
 const navigation: Array<{
   id: AdminSection;
@@ -21,11 +15,6 @@ const navigation: Array<{
   { id: "dicts", label: "Довідники", icon: <BookOpen size={16} /> },
   { id: "rbac", label: "Права та Ролі", icon: <ShieldCheck size={16} /> },
   { id: "fields", label: "Конструктор полів", icon: <Sliders size={16} /> },
-  {
-    id: "data",
-    label: "Експорт / Імпорт",
-    icon: <FileSpreadsheet size={16} />,
-  },
 ];
 
 /** Coordinates administration sections while each section owns its own state and UI. */
@@ -57,17 +46,6 @@ export const AdminTab = () => {
         {activeSection === "dicts" && <DictionariesSection />}
         {activeSection === "rbac" && <RbacSection />}
         {activeSection === "fields" && <CustomFieldsSection />}
-        {activeSection === "data" && (
-          <React.Suspense
-            fallback={
-              <div className="p-8 text-center text-slate-500">
-                Завантаження модуля даних…
-              </div>
-            }
-          >
-            <DataManagementSection />
-          </React.Suspense>
-        )}
       </div>
     </div>
   );

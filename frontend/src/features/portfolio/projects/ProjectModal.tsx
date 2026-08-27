@@ -5,11 +5,7 @@ import { InitiativeCardModal } from "../../initiatives/components/InitiativeCard
 interface Props {
   project: Project | null;
   onClose: () => void;
-  onSave: (
-    project: Project,
-    syncTargets?: string[],
-    initialQuarters?: Quarter[],
-  ) => void;
+  onSave: (project: Project) => void;
   isReadOnly?: boolean;
   onDelete?: (id: string) => void;
   defaultYear?: number;
@@ -22,7 +18,7 @@ export const ProjectModal = (props: Props) => (
     kind="project"
     item={props.project}
     onClose={props.onClose}
-    onSave={(item, targets) => props.onSave(item as Project, targets)}
+    onSave={(item) => props.onSave(item as Project)}
     onDelete={props.onDelete}
     isReadOnly={props.isReadOnly}
     defaultYear={props.defaultYear}

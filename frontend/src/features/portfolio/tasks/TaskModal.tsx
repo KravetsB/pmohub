@@ -5,11 +5,7 @@ import { InitiativeCardModal } from "../../initiatives/components/InitiativeCard
 interface Props {
   task: OperationalTask | null;
   onClose: () => void;
-  onSave: (
-    task: OperationalTask,
-    syncTargets?: string[],
-    initialQuarters?: Quarter[],
-  ) => void;
+  onSave: (task: OperationalTask) => void;
   isReadOnly?: boolean;
   onDelete?: (id: string) => void;
   defaultYear?: number;
@@ -22,7 +18,7 @@ export const TaskModal = (props: Props) => (
     kind="task"
     item={props.task}
     onClose={props.onClose}
-    onSave={(item, targets) => props.onSave(item as OperationalTask, targets)}
+    onSave={(item) => props.onSave(item as OperationalTask)}
     onDelete={props.onDelete}
     isReadOnly={props.isReadOnly}
     defaultYear={props.defaultYear}

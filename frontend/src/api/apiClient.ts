@@ -1,5 +1,11 @@
 import { notify } from "../components/ui/ToastNotifications";
-import { AppDataState, FullExportData, OperationalTask, Project, User } from "../shared/types";
+import {
+  ReferenceDataState,
+  InitiativeYearReadModel,
+  Project,
+  QuarterCardReadModel,
+  User,
+} from "../shared/types";
 
 const configuredBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
 export const backendEnabled = true;
@@ -77,7 +83,7 @@ type WireUser = Omit<User, "departmentId"> & {
   department_id?: string;
   is_active?: boolean;
 };
-type BootstrapResponse = Omit<AppDataState, "projects" | "tasks" | "users" | "currentUser"> & {
+type BootstrapResponse = Omit<ReferenceDataState, "projects" | "tasks" | "users" | "currentUser"> & {
   users: WireUser[];
   currentUser: WireUser;
 };
@@ -135,12 +141,86 @@ export async function loadBootstrap(signal?: AbortSignal) {
     users: bootstrap.data!.users.filter((user) => user.is_active !== false).map(normalizeUser),
   };
 }
-export const loadInitiatives = <T extends Project | OperationalTask>(kind: "project" | "task", signal?: AbortSignal) =>
-  apiRequest<{ data: T[] }>(`/initiatives?kind=${kind}`, { signal }).then((response) => response.data);
-export async function loadAppData(signal?: AbortSignal) {
-  const [bootstrap, projects, tasks] = await Promise.all([loadBootstrap(signal), loadInitiatives<Project>("project", signal), loadInitiatives<OperationalTask>("task", signal)]);
-  return { ...bootstrap, projects, tasks };
-}
+const wireKind = (kind: "project" | "task") => kind === "project" ? "PROJECT" : "OPERATIONAL_TASK";
+export const loadInitiativeYears = (kind: "project" | "task", signal?: AbortSignal) =>
+  apiRequest<ApiResponse<InitiativeYearReadModel[]>>(`/initiative-years?kind=${wireKind(kind)}`, { signal }).then((response) => response.data);
+export const loadQuarterCards = (kind: "project" | "task", signal?: AbortSignal) =>
+  apiRequest<ApiResponse<QuarterCardReadModel[]>>(`/quarter-cards?kind=${wireKind(kind)}`, { signal }).then((response) => response.data);
+
+export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): Project => ({
+  id: year.id,
+  initiative_chain_id: year.initiative_id,
+  revision: year.revision,
+  initiative_revision: year.initiative_revision,
+  name: year.name,
+  strategic_goal: year.strategic_goal ?? undefined,
+  manager_id: year.preparation?.manager_id ?? undefined,
+  priority: year.preparation?.priority_id ?? undefined,
+  implementer_dept_ids: [],
+  cross_functional_dept_ids: year.preparation?.department_ids ?? [],
+  year: year.year,
+  quarter: "Q1",
+  health_status: "DEFAULT",
+  health_status_code: "DEFAULT",
+  checklist: [],
+  is_backlog: true,
+  history: [],
+  yearSnapshots: {
+    [String(year.year)]: {
+      name: year.name,
+      strategic_goal: year.strategic_goal ?? undefined,
+      manager_id: year.preparation?.manager_id ?? undefined,
+      priority: year.preparation?.priority_id ?? undefined,
+      implementer_dept_ids: [],
+      cross_functional_dept_ids: year.preparation?.department_ids ?? [],
+      year: year.year,
+      history: [],
+      preparationStage: {
+        revision: year.preparation?.revision,
+        manager_id: year.preparation?.manager_id ?? undefined,
+        priority: year.preparation?.priority_id ?? undefined,
+        cross_functional_dept_ids: year.preparation?.department_ids ?? [],
+        history: [],
+      },
+    },
+  },
+});
+
+export const toQuarterCardViewModel = (card: QuarterCardReadModel): Project => ({
+  id: card.id,
+  initiative_chain_id: card.initiative_id,
+  backlog_id: card.initiative_year_id,
+  revision: card.revision,
+  name: card.name,
+  strategic_goal: card.strategic_goal ?? undefined,
+  manager_id: card.manager_id ?? undefined,
+  priority: card.priority_id ?? undefined,
+  notes: card.notes ?? undefined,
+  implementer_dept_ids: [],
+  cross_functional_dept_ids: card.department_ids,
+  custom_fields: card.custom_fields,
+  year: card.year,
+  quarter: card.quarter,
+  health_status: card.status_id,
+  health_status_id: card.status_id,
+  health_status_code: card.status_code,
+  checklist: card.scope.map((item) => ({
+    id: item.id,
+    revision: item.revision,
+    text: item.text,
+    is_completed: item.status_code === "GREEN",
+    color: item.status_code,
+    status_code: item.status_code,
+    weightId: item.weight_definition_id ?? undefined,
+    weightSnapshot: { definitionId: item.weight_definition_id ?? undefined, name: item.weight_snapshot.name, value: item.weight_snapshot.value },
+    implementer_dept_ids: item.executor_department_ids,
+  })),
+  is_backlog: false,
+  moved_from: card.moved_from ? `${card.moved_from.quarter} ${card.moved_from.year}` : undefined,
+  history: [],
+  sizeSnapshot: { definitionId: card.size_snapshot.definition_id ?? undefined, name: card.size_snapshot.name, totalWeight: card.total_weight },
+});
+
 
 export const command = <T = ApiResponse<unknown>>(
   path: string,
@@ -154,23 +234,12 @@ export const command = <T = ApiResponse<unknown>>(
   });
 
 export type ApiResponse<T = undefined> = {
-  success: boolean;
+  success: true;
   message?: string;
-  data?: T;
+  data: T;
 };
 
-export type InitiativeRecord = Project | OperationalTask;
-export const loadInitiativeCard = (id: string, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<InitiativeRecord>>(`/initiatives/cards/${id}`, { signal });
-export const loadInitiativeYear = (id: string, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<InitiativeRecord>>(`/initiatives/years/${id}`, { signal });
-
-export const exportBackup = () => apiRequest<FullExportData>("/backups/export");
-export const validateBackup = (body: unknown, mode: "merge" | "replace" = "merge") =>
-  command<ApiResponse<{ validation_token: string }>>(`/backups/validate?mode=${mode}`, "POST", body);
-export const importBackup = (body: unknown, mode: "merge" | "replace", validationToken: string) =>
-  command<ApiResponse<{ projects: number; tasks: number }>>(
-    `/backups/import?mode=${mode}`,
-    "POST",
-    { backup: body, validation_token: validationToken },
-  );
+export const loadInitiativeCardModel = (id: string, signal?: AbortSignal) =>
+  apiRequest<ApiResponse<QuarterCardReadModel>>(`/quarter-cards/${id}`, { signal });
+export const loadInitiativeYearModel = (id: string, signal?: AbortSignal) =>
+  apiRequest<ApiResponse<InitiativeYearReadModel>>(`/initiative-years/${id}`, { signal });

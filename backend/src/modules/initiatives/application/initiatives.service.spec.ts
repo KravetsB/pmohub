@@ -1,65 +1,110 @@
-import { describe, expect, it, vi } from "vitest";
-import { InitiativesService } from "./initiatives.service";
+import { describe, expect, it, vi } from 'vitest';
+import { InitiativesService } from './initiatives.service';
 
-const passport = {
-  name: "Portfolio item",
-  strategicGoal: null,
-  managerId: null,
-  priorityId: null,
-  notes: null,
-  departments: [],
-  customValues: [],
-};
+const actor = { id: '00000000-0000-4000-8000-000000000099', name: 'Admin', email: 'admin@example.com', role: 'SUPER_ADMIN' as const, must_change_password: false };
 
-describe("InitiativesService canonical reads and concurrency", () => {
-  it("returns the canonical annual read model", async () => {
-    const prisma = {
-      auditEvent: { findMany: vi.fn(async () => []) },
+describe('InitiativesService transactional rules', () => {
+  it('creates a card from the nearest previous card and copies only effective involved departments', async () => {
+    const create = vi.fn(async ({ data }) => ({ id: 'card-new', revision: 1, ...data, departments: [] }));
+    const tx: any = {
       initiativeYear: {
         findUnique: vi.fn(async () => ({
-          id: "year-id",
-          initiativeId: "chain-id",
-          year: 2026,
-          revision: 4,
-          initiative: { kind: "PROJECT" },
-          annualPassport: passport,
-          preparationPassport: passport,
+          id: 'year',
+          year: 2027,
+          preparationStage: { managerId: 'prep-manager', priorityId: 'prep-priority', departments: [{ departmentId: 'prep-dept' }] },
+          quarterCards: [{
+            managerId: 'previous-manager',
+            priorityId: 'previous-priority',
+            departments: [{ departmentId: 'involved' }, { departmentId: 'executor' }],
+            scopeItems: [{ executors: [{ departmentId: 'executor' }] }],
+          }],
         })),
       },
+      quarterCard: { findUnique: vi.fn(async () => null), create },
+      initiativeStatus: { findUnique: vi.fn(async () => ({ id: 'default-status', isActive: true })) },
+      auditEvent: { create: vi.fn(async () => ({})) },
     };
-    const service = new InitiativesService(prisma as any, { get: () => "Europe/Kyiv" } as any);
-    const result = await service.getYear("year-id");
-    expect(result.data).toMatchObject({ id: "year-id", revision: 4, is_backlog: true });
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      $transaction: (callback: (client: any) => unknown) => callback(tx),
+    };
+
+    await new InitiativesService(prisma).createQuarterCard('year', { quarter: 'Q2' }, actor);
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        managerId: 'previous-manager',
+        priorityId: 'previous-priority',
+        departments: { createMany: { data: [{ departmentId: 'involved' }] } },
+      }),
+    }));
   });
 
-  it("returns HTTP 409 details with the current revision", async () => {
-    const tx = {
-      rolePermission: { findUnique: vi.fn(async () => ({ canCreateEditProjects: true, isReadOnly: false, canEditArchive: true })) },
+  it('copies a non-green scope item with the same lineage and resets status and weight', async () => {
+    const scopeCreate = vi.fn(async () => ({ id: 'copy' }));
+    const source = {
+      id: 'source-card',
+      revision: 3,
+      managerId: null,
+      priorityId: null,
+      initiativeYearId: 'source-year',
+      initiativeYear: { year: 2027, initiativeId: 'initiative', initiative: { id: 'initiative' } },
+      departments: [{ departmentId: 'dept-a' }],
+      customFieldValues: [],
+      scopeItems: [{
+        id: 'scope-source',
+        lineageId: '00000000-0000-4000-8000-000000000010',
+        text: 'Scope',
+        statusCode: 'YELLOW',
+        revision: 2,
+        executors: [{ departmentId: 'dept-b' }],
+      }],
+    };
+    const target = { id: 'target-card', revision: 5, createdAt: new Date(), updatedAt: new Date(), departments: [{ departmentId: 'dept-a' }] };
+    const tx: any = {
       quarterCard: {
-        findUnique: vi.fn(async () => ({
-          id: "card-id",
-          revision: 3,
-          quarter: "Q4",
-          initiativeYear: { year: 2026 },
-        })),
+        findUnique: vi.fn(async (args: any) => args.where.id ? source : target),
+        findMany: vi.fn(async () => []),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        update: vi.fn(async () => ({})),
       },
+      initiativeYear: { findUnique: vi.fn(async () => ({ id: 'target-year' })) },
+      scopeItem: {
+        findUnique: vi.fn(async () => null),
+        create: scopeCreate,
+        findMany: vi.fn(async () => []),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      taskWeight: { findFirst: vi.fn(async () => ({ id: 'default-weight', name: 'Не визначено', weight: 0 })) },
+      quarterCardDepartment: {
+        deleteMany: vi.fn(async () => ({})),
+        findMany: vi.fn(async () => [{ departmentId: 'dept-a' }]),
+        createMany: vi.fn(async () => ({})),
+      },
+      initiativeSize: { findMany: vi.fn(async () => []) },
+      department: { findMany: vi.fn(async () => []) },
+      auditEvent: { create: vi.fn(async () => ({})) },
     };
-    const prisma = { $transaction: vi.fn(async (callback: (client: unknown) => unknown) => callback(tx)) };
-    const service = new InitiativesService(prisma as any, { get: () => "Europe/Kyiv" } as any);
-
-    await expect(service.updateCard("card-id", { revision: 2 } as any, { id: "actor", name: "Actor", role: "ADMIN" } as any))
-      .rejects.toMatchObject({ code: "REVISION_CONFLICT", status: 409, details: { actual_revision: 3 } });
-  });
-
-  it("recalculates the persisted size after scope composition changes", async () => {
-    const update = vi.fn(async () => undefined);
-    const tx = {
-      checklistItem: { findMany: vi.fn(async () => [{ weightSnapshotValue: { toNumber: () => 5 } }]) },
-      initiativeSize: { findMany: vi.fn(async () => [{ id: "size", name: "M", minScore: { toNumber: () => 4 }, maxScore: { toNumber: () => 6 }, isActive: true }]) },
-      quarterCard: { update },
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      $transaction: (callback: (client: any) => unknown) => callback(tx),
     };
-    const service = new InitiativesService({} as any, { get: () => "Europe/Kyiv" } as any);
-    await (service as any).refreshCardSize(tx, "card");
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ sizeDefinitionId: "size", sizeSnapshotWeight: 5 }) }));
+
+    await new InitiativesService(prisma).copyScope('source-card', 'scope-source', {
+      revision: 3,
+      target_revision: 5,
+      to_year: 2027,
+      to_quarter: 'Q4',
+    }, actor);
+
+    expect(scopeCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        lineageId: source.scopeItems[0].lineageId,
+        copiedFromItemId: 'scope-source',
+        statusCode: 'DEFAULT',
+        weightDefinitionId: 'default-weight',
+        weightSnapshotValue: 0,
+      }),
+    });
   });
 });

@@ -5,7 +5,23 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../../common/decorators/permissions.decorator';
 import { AuthUser } from '../../../common/auth/auth-user';
 import { InitiativesService } from '../application/initiatives.service';
-import { CreateInitiativeDto, CreateQuarterCardDto, DeleteInitiativeDto, ExtendYearsDto, PeriodCommandDto, SavePassportDto, UpdateCardDto, UpdatePreparationDto } from './initiative.dto';
+import { InitiativeQueryService } from '../application/initiative-query.service';
+import {
+  CreateInitiativeDto,
+  CreateQuarterCardDto,
+  DeleteInitiativeDto,
+  ExtendYearsDto,
+  PeriodCommandDto,
+  QuarterDto,
+  InitiativeYearResponseDto,
+  InitiativeYearsResponseDto,
+  QuarterCardResponseDto,
+  QuarterCardsResponseDto,
+  UpdateCardDto,
+  UpdateInitiativeDto,
+  UpdateInitiativeYearDto,
+  UpdatePreparationDto,
+} from './initiative.dto';
 
 @ApiTags('initiatives')
 @ApiBearerAuth()
@@ -14,51 +30,121 @@ import { CreateInitiativeDto, CreateQuarterCardDto, DeleteInitiativeDto, ExtendY
 export class InitiativesController {
   constructor(private readonly initiatives: InitiativesService) {}
 
-  @Get()
-  async list(@Query('kind') kind?: string, @Query('year') year?: string, @Query('quarter') quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4', @Query('is_backlog') backlog?: string) {
-    const result = await this.initiatives.list({ kind, year: year ? Number(year) : undefined, quarter, is_backlog: backlog === undefined ? undefined : backlog === 'true' });
-    return { success: true, ...result };
+  @RequirePermissions('canCreateEditProjects')
+  @Post()
+  create(@Body() dto: CreateInitiativeDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.create(dto, user);
   }
 
-  @Get('years/:id')
-  getYear(@Param('id') id: string) { return this.initiatives.getYear(id); }
+  @RequirePermissions('canCreateEditProjects')
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateInitiativeDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.updateInitiative(id, dto, user);
+  }
+}
 
-  @Get('cards/:id')
-  getCard(@Param('id') id: string) { return this.initiatives.getCard(id); }
+@ApiTags('initiative-years')
+@ApiBearerAuth()
+@ApiOkResponse({ type: ApiSuccessDto })
+@Controller('initiative-years')
+export class InitiativeYearsController {
+  constructor(private readonly initiatives: InitiativesService, private readonly queries: InitiativeQueryService) {}
 
-  @RequirePermissions('canCreateEditProjects') @Post()
-  create(@Body() dto: CreateInitiativeDto, @CurrentUser() user: AuthUser) { return this.initiatives.create(dto, user); }
+  @Get()
+  @ApiOkResponse({ type: InitiativeYearsResponseDto })
+  list(@Query('kind') kind?: string, @Query('year') year?: string) {
+    return this.queries.listYears({ kind, year: year ? Number(year) : undefined });
+  }
 
-  @RequirePermissions('canCreateEditProjects') @Post('years/:id/cards')
-  createCard(@Param('id') id: string, @Body() dto: CreateQuarterCardDto, @CurrentUser() user: AuthUser) { return this.initiatives.createQuarterCard(id, dto, user); }
+  @Get(':id')
+  @ApiOkResponse({ type: InitiativeYearResponseDto })
+  get(@Param('id') id: string) {
+    return this.queries.getYear(id);
+  }
 
-  @RequirePermissions('canCreateEditProjects') @Patch('cards/:id')
-  updateCard(@Param('id') id: string, @Body() dto: UpdateCardDto, @CurrentUser() user: AuthUser) { return this.initiatives.updateCard(id, dto, user); }
+  @RequirePermissions('canCreateEditProjects')
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateInitiativeYearDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.updateYear(id, dto, user);
+  }
 
-  @RequirePermissions('canCreateEditProjects') @Post('cards/:id/move')
-  moveCard(@Param('id') id: string, @Body() dto: PeriodCommandDto, @CurrentUser() user: AuthUser) { return this.initiatives.moveCard(id, dto, user); }
+  @RequirePermissions('canCreateEditProjects')
+  @Patch(':id/preparation')
+  updatePreparation(@Param('id') id: string, @Body() dto: UpdatePreparationDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.updatePreparation(id, dto, user);
+  }
 
-  @RequirePermissions('canCreateEditProjects') @Post('cards/:id/continue')
-  continueCard(@Param('id') id: string, @Body() dto: PeriodCommandDto, @CurrentUser() user: AuthUser) { return this.initiatives.continueCard(id, dto, user); }
+  @RequirePermissions('canCreateEditProjects')
+  @Post(':id/cards')
+  createCard(@Param('id') id: string, @Body() dto: CreateQuarterCardDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.createQuarterCard(id, dto, user);
+  }
 
-  @RequirePermissions('canCreateEditProjects') @Post('cards/:cardId/scope/:itemId/move')
-  moveScope(@Param('cardId') cardId: string, @Param('itemId') itemId: string, @Body() dto: PeriodCommandDto, @CurrentUser() user: AuthUser) { return this.initiatives.moveChecklistItem(cardId, itemId, dto, user); }
+  @RequirePermissions('canCreateEditProjects')
+  @Post('extend')
+  extend(@Body() dto: ExtendYearsDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.extendYears(dto, user);
+  }
 
-  @RequirePermissions('canCreateEditProjects') @Post('years/:id/passport')
-  saveYearPassport(@Param('id') id: string, @Body() dto: SavePassportDto, @CurrentUser() user: AuthUser) { return this.initiatives.savePassport('year', id, dto, user); }
+  @RequirePermissions('canDeleteProjects')
+  @Delete(':id')
+  remove(@Param('id') id: string, @Query() dto: DeleteInitiativeDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.removeYear(id, dto.revision, user);
+  }
+}
 
-  @RequirePermissions('canCreateEditProjects') @Post('cards/:id/passport')
-  saveCardPassport(@Param('id') id: string, @Body() dto: SavePassportDto, @CurrentUser() user: AuthUser) { return this.initiatives.savePassport('card', id, dto, user); }
+@ApiTags('quarter-cards')
+@ApiBearerAuth()
+@ApiOkResponse({ type: ApiSuccessDto })
+@Controller('quarter-cards')
+export class QuarterCardsController {
+  constructor(private readonly initiatives: InitiativesService, private readonly queries: InitiativeQueryService) {}
 
-  @RequirePermissions('canCreateEditProjects') @Post('years/extend')
-  extend(@Body() dto: ExtendYearsDto, @CurrentUser() user: AuthUser) { return this.initiatives.extendYears(dto, user); }
+  @Get()
+  @ApiOkResponse({ type: QuarterCardsResponseDto })
+  list(@Query('kind') kind?: string, @Query('year') year?: string, @Query('quarter') quarter?: QuarterDto) {
+    return this.queries.listCards({ kind, year: year ? Number(year) : undefined, quarter });
+  }
 
-  @RequirePermissions('canCreateEditProjects') @Patch('years/:id/preparation')
-  updatePreparation(@Param('id') id: string, @Body() dto: UpdatePreparationDto, @CurrentUser() user: AuthUser) { return this.initiatives.updatePreparation(id, dto, user); }
+  @Get(':id')
+  @ApiOkResponse({ type: QuarterCardResponseDto })
+  get(@Param('id') id: string) {
+    return this.queries.getCard(id);
+  }
 
-  @RequirePermissions('canDeleteProjects') @Delete('cards/:id')
-  deleteCard(@Param('id') id: string, @Query() query: DeleteInitiativeDto, @CurrentUser() user: AuthUser) { return this.initiatives.remove('card', id, query.revision, user); }
+  @RequirePermissions('canCreateEditProjects')
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateCardDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.updateCard(id, dto, user);
+  }
 
-  @RequirePermissions('canDeleteProjects') @Delete('years/:id')
-  deleteYear(@Param('id') id: string, @Query() query: DeleteInitiativeDto, @CurrentUser() user: AuthUser) { return this.initiatives.remove('year', id, query.revision, user); }
+  @RequirePermissions('canCreateEditProjects')
+  @Post(':id/move')
+  move(@Param('id') id: string, @Body() dto: PeriodCommandDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.moveCard(id, dto, user);
+  }
+
+  @RequirePermissions('canCreateEditProjects')
+  @Post(':id/continue')
+  continueCard(@Param('id') id: string, @Body() dto: PeriodCommandDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.continueCard(id, dto, user);
+  }
+
+  @RequirePermissions('canCreateEditProjects')
+  @Post(':cardId/scope/:itemId/move')
+  moveScope(@Param('cardId') cardId: string, @Param('itemId') itemId: string, @Body() dto: PeriodCommandDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.moveScope(cardId, itemId, dto, user);
+  }
+
+  @RequirePermissions('canCreateEditProjects')
+  @Post(':cardId/scope/:itemId/copy')
+  copyScope(@Param('cardId') cardId: string, @Param('itemId') itemId: string, @Body() dto: PeriodCommandDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.copyScope(cardId, itemId, dto, user);
+  }
+
+  @RequirePermissions('canDeleteProjects')
+  @Delete(':id')
+  remove(@Param('id') id: string, @Query() dto: DeleteInitiativeDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.removeCard(id, dto.revision, user);
+  }
 }

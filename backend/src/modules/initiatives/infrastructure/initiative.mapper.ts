@@ -1,39 +1,117 @@
-const customValue = (item: { textValue: string | null; numberValue: { toNumber(): number } | null; booleanValue: boolean | null }) =>
-  item.numberValue?.toNumber() ?? item.booleanValue ?? item.textValue;
+const numberValue = (value: { toNumber(): number } | null | undefined) => value?.toNumber() ?? null;
 
-export const mapPassport = (passport: any) => ({
-  name: passport.name,
-  strategic_goal: passport.strategicGoal ?? undefined,
-  manager_id: passport.managerId ?? undefined,
-  priority: passport.priorityId ?? undefined,
-  notes: passport.notes ?? undefined,
-  implementer_dept_ids: passport.departments.filter((item: any) => item.involvement === 'IMPLEMENTER').map((item: any) => item.departmentId),
-  cross_functional_dept_ids: passport.departments.filter((item: any) => item.involvement === 'CROSS_FUNCTIONAL').map((item: any) => item.departmentId),
-  custom_fields: Object.fromEntries(passport.customValues.map((item: any) => [item.definitionId, customValue(item)])),
-});
-
-export const mapChecklist = (item: any) => ({
-  id: item.id,
-  text: item.text,
-  is_completed: item.isCompleted,
-  color: item.status?.code ?? 'DEFAULT',
-  status_id: item.status?.id ?? undefined,
-  status_code: item.status?.code ?? 'DEFAULT',
-  weightId: item.weightDefinitionId ?? undefined,
-  weightSnapshot: { definitionId: item.weightDefinitionId ?? undefined, name: item.weightSnapshotName, value: item.weightSnapshotValue.toNumber() },
-  assigneeIds: item.assignees.map((link: any) => link.userId),
-  implementer_dept_ids: item.departments.map((link: any) => link.departmentId),
-  moved_from: item.movedFromYear ? `${item.movedFromQuarter} ${item.movedFromYear}` : undefined,
-});
-
-export const passportInclude = {
-  departments: true,
-  customValues: true,
+export const preparationInclude = {
+  manager: true,
+  priority: true,
+  departments: { include: { department: true } },
 } as const;
 
 export const cardInclude = {
   initiativeYear: { include: { initiative: true } },
-  passport: { include: passportInclude },
+  manager: true,
+  priority: true,
   status: true,
-  checklistItems: { include: { status: true, departments: true, assignees: true } },
+  sizeDefinition: true,
+  departments: { include: { department: true } },
+  customFieldValues: true,
+  scopeItems: {
+    include: {
+      weightDefinition: true,
+      executors: { include: { department: true } },
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
 } as const;
+
+export const yearInclude = {
+  initiative: true,
+  preparationStage: { include: preparationInclude },
+  quarterCards: { include: cardInclude, orderBy: { quarter: 'asc' as const } },
+} as const;
+
+export const mapPreparation = (stage: any) => stage ? ({
+  initiative_year_id: stage.initiativeYearId,
+  manager_id: stage.managerId ?? null,
+  manager: stage.manager ? { id: stage.manager.id, name: stage.manager.name } : null,
+  priority_id: stage.priorityId ?? null,
+  priority: stage.priority ? { id: stage.priority.id, name: stage.priority.name } : null,
+  department_ids: stage.departments.map((link: any) => link.departmentId),
+  departments: stage.departments.map((link: any) => ({ id: link.department.id, name: link.department.name })),
+  revision: stage.revision,
+}) : null;
+
+export const mapScopeItem = (item: any) => ({
+  id: item.id,
+  lineage_id: item.lineageId,
+  copied_from_item_id: item.copiedFromItemId ?? null,
+  text: item.text,
+  status_code: item.statusCode,
+  weight_definition_id: item.weightDefinitionId ?? null,
+  weight_snapshot: {
+    name: item.weightSnapshotName,
+    value: numberValue(item.weightSnapshotValue) ?? 0,
+  },
+  executor_department_ids: item.executors.map((link: any) => link.departmentId),
+  executors: item.executors.map((link: any) => ({ id: link.department.id, name: link.department.name })),
+  moved_from_card_id: item.movedFromCardId ?? null,
+  revision: item.revision,
+});
+
+export const mapCard = (card: any) => {
+  const executorIds = new Set<string>(card.scopeItems.flatMap((item: any) => item.executors.map((link: any) => link.departmentId)));
+  const departmentIds = card.departments.map((link: any) => link.departmentId);
+  return {
+    id: card.id,
+    initiative_year_id: card.initiativeYearId,
+    initiative_id: card.initiativeYear.initiativeId,
+    kind: card.initiativeYear.initiative.kind,
+    name: card.initiativeYear.initiative.name,
+    strategic_goal: card.initiativeYear.strategicGoal ?? null,
+    year: card.initiativeYear.year,
+    quarter: `Q${card.quarter}`,
+    manager_id: card.managerId ?? null,
+    manager: card.manager ? { id: card.manager.id, name: card.manager.name } : null,
+    priority_id: card.priorityId ?? null,
+    priority: card.priority ? { id: card.priority.id, name: card.priority.name } : null,
+    department_ids: departmentIds,
+    effective_involved_department_ids: departmentIds.filter((id: string) => !executorIds.has(id)),
+    status_id: card.statusId,
+    status_code: card.status.code,
+    status: { id: card.status.id, code: card.status.code, name: card.status.name, color: card.status.color },
+    notes: card.notes ?? null,
+    total_weight: numberValue(card.totalWeight) ?? 0,
+    size_snapshot: {
+      definition_id: card.sizeDefinitionId ?? null,
+      name: card.sizeSnapshotName ?? 'Не визначено',
+      min: numberValue(card.sizeSnapshotMin),
+      max: numberValue(card.sizeSnapshotMax),
+    },
+    custom_fields: Object.fromEntries(card.customFieldValues.map((value: any) => [
+      value.definitionId,
+      value.numberValue?.toNumber() ?? value.booleanValue ?? value.dateValue?.toISOString().slice(0, 10) ?? value.optionValue ?? value.textValue,
+    ])),
+    scope: card.scopeItems.map(mapScopeItem),
+    moved_from: card.movedFromYear ? { year: card.movedFromYear, quarter: `Q${card.movedFromQuarter}` } : null,
+    revision: card.revision,
+  };
+};
+
+export const mapYear = (year: any) => ({
+  id: year.id,
+  initiative_id: year.initiativeId,
+  kind: year.initiative.kind,
+  name: year.initiative.name,
+  initiative_revision: year.initiative.revision,
+  year: year.year,
+  strategic_goal: year.strategicGoal ?? null,
+  revision: year.revision,
+  preparation: mapPreparation(year.preparationStage),
+  cards: year.quarterCards.map((card: any) => ({
+    id: card.id,
+    quarter: `Q${card.quarter}`,
+    status_id: card.statusId,
+    status_code: card.status.code,
+    revision: card.revision,
+    total_weight: numberValue(card.totalWeight) ?? 0,
+  })),
+});

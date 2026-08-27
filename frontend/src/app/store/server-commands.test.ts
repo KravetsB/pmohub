@@ -12,10 +12,10 @@ describe("server command routing", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await serverCommands.updateCard("card-id", { revision: 1 });
+    await serverCommands.updateCard("card-id", { revision: 1, department_ids: [], status_id: "00000000-0000-4000-8000-000000000001", scope: [] });
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(String(fetchMock.mock.calls[0][0])).toContain("/initiatives/cards/card-id");
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/quarter-cards/card-id");
     expect(String(fetchMock.mock.calls[0][0])).not.toContain("/backups/import");
   });
 
@@ -26,6 +26,21 @@ describe("server command routing", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("/role-permissions/ADMIN");
   });
 
+  it("uses a dedicated scope copy command without sending client snapshots", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ success: true }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await serverCommands.copyScope("card-id", "scope-id", 4, 2027, "Q2", 2);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/quarter-cards/card-id/scope/scope-id/copy");
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      revision: 4,
+      to_year: 2027,
+      to_quarter: "Q2",
+      target_revision: 2,
+    });
+  });
+
   it("covers the login-create-edit-move-delete-logout smoke flow", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ success: true, access_token: "token", expires_in: 900, user: {}, data: { id: "id" } }), { status: 200 }),
@@ -33,8 +48,8 @@ describe("server command routing", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await loginSession("admin@example.com", "password");
-    await serverCommands.createInitiative({ kind: "project", year: 2026, passport: { name: "Smoke", implementer_dept_ids: [], cross_functional_dept_ids: [] }, quarters: [] });
-    await serverCommands.updateCard("card-id", { revision: 1 });
+    await serverCommands.createInitiative({ kind: "PROJECT", name: "Smoke", year: 2026, preparation: { department_ids: [] } });
+    await serverCommands.updateCard("card-id", { revision: 1, department_ids: [], status_id: "00000000-0000-4000-8000-000000000001", scope: [] });
     await serverCommands.moveCard("card-id", 1, 2027, "Q1");
     await serverCommands.deleteCard("card-id", 2);
     await logoutSession();
@@ -42,9 +57,9 @@ describe("server command routing", () => {
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
       expect.stringContaining("/auth/login"),
       expect.stringContaining("/initiatives"),
-      expect.stringContaining("/initiatives/cards/card-id"),
-      expect.stringContaining("/initiatives/cards/card-id/move"),
-      expect.stringContaining("/initiatives/cards/card-id"),
+      expect.stringContaining("/quarter-cards/card-id"),
+      expect.stringContaining("/quarter-cards/card-id/move"),
+      expect.stringContaining("/quarter-cards/card-id"),
       expect.stringContaining("/auth/logout"),
     ]);
   });
@@ -53,7 +68,7 @@ describe("server command routing", () => {
     const handler = vi.fn();
     setAuthFailureHandler(handler);
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ success: false, code: "INVALID_ACCESS_TOKEN", message: "expired" }), { status: 401 })));
-    await expect(serverCommands.updateCard("card-id", { revision: 1 })).rejects.toMatchObject({ status: 401 });
+    await expect(serverCommands.updateCard("card-id", { revision: 1, department_ids: [], status_id: "00000000-0000-4000-8000-000000000001", scope: [] })).rejects.toMatchObject({ status: 401 });
     expect(handler).toHaveBeenCalledOnce();
     setAuthFailureHandler(null);
   });

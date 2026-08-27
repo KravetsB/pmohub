@@ -14,7 +14,7 @@ export const PreparationStageModal = ({
   type: "project" | "task";
   onClose: () => void;
 }) => {
-  const { departments, managers, priorities, updatePreparationStage, isMutating } =
+  const { departments, managers, priorities, updatePreparationStage } =
     useAppContext();
   const stage = getYearSnapshot(item, item.year)?.preparationStage;
   const [managerId, setManagerId] = useState(stage?.manager_id ?? "");
@@ -23,6 +23,7 @@ export const PreparationStageModal = ({
     stage?.cross_functional_dept_ids ?? [],
   );
   const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const toggle = (id: string) =>
     setDepartmentIds((current) =>
       current.includes(id)
@@ -30,16 +31,23 @@ export const PreparationStageModal = ({
         : [...current, id],
     );
   const save = async () => {
-    const result = await updatePreparationStage(type, item.id, {
-      manager_id: managerId || undefined,
-      priority: priority || undefined,
-      cross_functional_dept_ids: departmentIds,
-    });
-    if (!result.success) {
-      setError(result.message);
-      return;
+    if (isSaving) return;
+    setIsSaving(true);
+    setError("");
+    try {
+      const result = await updatePreparationStage(type, item.id, {
+        manager_id: managerId || undefined,
+        priority: priority || undefined,
+        cross_functional_dept_ids: departmentIds,
+      });
+      if (!result.success) {
+        setError(result.message);
+        return;
+      }
+      onClose();
+    } finally {
+      setIsSaving(false);
     }
-    onClose();
   };
   return createPortal(
     <div className={styles.preparationBackdrop}>
@@ -142,10 +150,10 @@ export const PreparationStageModal = ({
           </button>
           <button
             onClick={save}
-            disabled={isMutating}
+            disabled={isSaving}
             className={styles.preparationSave}
           >
-            {isMutating ? "Збереження…" : "Зберегти"}
+            {isSaving ? "Збереження…" : "Зберегти"}
           </button>
         </div>
       </div>

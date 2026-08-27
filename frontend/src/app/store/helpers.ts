@@ -1,4 +1,4 @@
-import { MutationResult, ScopeMergePreview } from "../../shared/types";
+import { MutationResult } from "../../shared/types";
 
 export const ok = <T = undefined>(message: string, data?: T): MutationResult<T> => ({
   success: true,
@@ -8,5 +8,4 @@ export const ok = <T = undefined>(message: string, data?: T): MutationResult<T> 
 
 export const fail = <T = undefined>(
   message: string,
-  requiresConfirmation?: ScopeMergePreview,
-): MutationResult<T> => ({ success: false, message, requiresConfirmation });
+): MutationResult<T> => ({ success: false, message });
