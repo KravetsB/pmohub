@@ -10,6 +10,7 @@ export const queryKeys = {
   users: ["reference-data", "users"] as const,
   permissions: ["reference-data", "permissions"] as const,
   customFields: ["reference-data", "custom-fields"] as const,
+  analytics: (mode: "quarterly" | "annual", params: string) => ["analytics", mode, params] as const,
 };
 
 export const queryClient = new QueryClient({

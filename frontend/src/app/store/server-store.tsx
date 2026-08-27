@@ -19,6 +19,9 @@ import { dictionaryApiType, dictionaryPayload, DictionaryItem, DictionaryStateKe
 import { fail, ok } from "./helpers";
 import { serverCommands } from "./server-commands";
 import { uuidOrUndefined } from "./api-contract-mappers";
+import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
+import { notify } from "../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -109,7 +112,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const disableAdminData = useCallback(() => setAdminDataEnabled(false), []);
   const [dataScope, setInitiativeDataScope] = useState<InitiativeDataScope>(initialDataScope);
   const bootstrapQuery = useBootstrapQuery(authenticated);
-  const dashboardMode = dataScope.mode === "dashboard";
   const projectMode = dataScope.mode === "projects";
   const taskMode = dataScope.mode === "tasks";
   const projectBacklogMode = dataScope.mode === "backlog" && dataScope.kind === "project";
@@ -118,12 +120,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const taskYear = taskMode || taskBacklogMode ? dataScope.year : undefined;
   const projectQuarter = projectMode ? dataScope.quarter : undefined;
   const taskQuarter = taskMode ? dataScope.quarter : undefined;
-  const projectYearsQuery = useInitiativeYearsQuery("project", authenticated && (dashboardMode || projectBacklogMode), projectYear);
-  const taskYearsQuery = useInitiativeYearsQuery("task", authenticated && (dashboardMode || taskBacklogMode), taskYear);
+  const projectYearsQuery = useInitiativeYearsQuery("project", authenticated && projectBacklogMode, projectYear);
+  const taskYearsQuery = useInitiativeYearsQuery("task", authenticated && taskBacklogMode, taskYear);
   const projectNextYearsQuery = useInitiativeYearsQuery("project", authenticated && projectBacklogMode, projectBacklogMode ? dataScope.year + 1 : undefined);
   const taskNextYearsQuery = useInitiativeYearsQuery("task", authenticated && taskBacklogMode, taskBacklogMode ? dataScope.year + 1 : undefined);
-  const projectCardsQuery = useQuarterCardsQuery("project", authenticated && (dashboardMode || projectMode || projectBacklogMode), projectYear, projectQuarter, dashboardMode ? "analytics" : undefined);
-  const taskCardsQuery = useQuarterCardsQuery("task", authenticated && (dashboardMode || taskMode || taskBacklogMode), taskYear, taskQuarter, dashboardMode ? "analytics" : undefined);
+  const projectCardsQuery = useQuarterCardsQuery("project", authenticated && (projectMode || projectBacklogMode), projectYear, projectQuarter);
+  const taskCardsQuery = useQuarterCardsQuery("task", authenticated && (taskMode || taskBacklogMode), taskYear, taskQuarter);
   const usersQuery = useUsersQuery(authenticated && adminDataEnabled);
   const permissionsQuery = usePermissionsQuery(authenticated && adminDataEnabled);
   const refreshBootstrap = useCallback(async () => {
@@ -144,10 +146,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (includeYears) requests.push(queryClient.fetchQuery({ queryKey: queryKeys.initiativeYears(kind, year), queryFn: ({ signal }) => loadInitiativeYears(kind, signal, year), staleTime: 0 }));
       requests.push(queryClient.fetchQuery({ queryKey: queryKeys.portfolioCards(kind, year, quarter, view ?? "detail"), queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter, view), staleTime: 0 }));
     };
-    if (dataScope.mode === "dashboard") {
-      loadKind("project", true, undefined, undefined, "analytics");
-      loadKind("task", true, undefined, undefined, "analytics");
-    } else if (dataScope.mode === "projects") loadKind("project", false, dataScope.year, dataScope.quarter);
+    if (dataScope.mode === "projects") loadKind("project", false, dataScope.year, dataScope.quarter);
     else if (dataScope.mode === "tasks") loadKind("task", false, dataScope.year, dataScope.quarter);
     else if (dataScope.mode === "backlog") {
       loadKind(dataScope.kind, true, dataScope.year);
@@ -179,7 +178,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient]);
 
-  const bootstrap = bootstrapQuery.data ?? queryClient.getQueryData<Partial<ReferenceDataState>>(queryKeys.bootstrap);
+  const bootstrap = authenticated
+    ? bootstrapQuery.data ?? queryClient.getQueryData<Partial<ReferenceDataState>>(queryKeys.bootstrap)
+    : undefined;
   const state: ReferenceDataState = {
     departments: bootstrap?.departments ?? [],
     priorities: bootstrap?.priorities ?? [],
@@ -266,17 +267,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const hasRevision = (item: Initiative | undefined): item is Initiative & { revision: number } => typeof item?.revision === "number";
   const adminAllowed = () => Boolean(getPermissions(state.currentUser, state.rolePermissions)?.canAccessAdmin);
   const authenticate = async (email: string, password: string): Promise<MutationResult> => {
-    try { await loginSession(email, password); setAuthenticated(true); await refreshInitialData(); return ok("Вхід виконано"); }
-    catch (error) { return fail(error instanceof ApiError ? error.message : "Не вдалося підключитися до сервера"); }
+    try {
+      await loginSession(email, password);
+      setAuthenticated(true);
+      await refreshInitialData();
+      notify(NOTIFICATION_KINDS.success, SYSTEM_MESSAGES.auth.loginSuccess);
+      return ok(SYSTEM_MESSAGES.auth.loginSuccess);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : SYSTEM_MESSAGES.auth.connectionFailed;
+      notify(NOTIFICATION_KINDS.error, message);
+      return fail(message);
+    }
   };
-  const logout = () => { setAuthenticated(false); setAdminDataEnabled(false); void logoutSession().finally(() => queryClient.clear()); };
+  const logout = () => {
+    setAuthenticated(false);
+    setAdminDataEnabled(false);
+    queryClient.clear();
+    notify(NOTIFICATION_KINDS.success, SYSTEM_MESSAGES.auth.logoutSuccess);
+    void logoutSession();
+  };
   const changePassword = async (currentPassword: string, newPassword: string): Promise<MutationResult> => {
-    try { await changeApiPassword(currentPassword, newPassword); return ok("Пароль успішно змінено"); }
-    catch (error) { return fail(error instanceof ApiError ? error.message : "Не вдалося змінити пароль"); }
+    try {
+      await changeApiPassword(currentPassword, newPassword);
+      notify(NOTIFICATION_KINDS.success, SYSTEM_MESSAGES.auth.passwordChanged);
+      return ok(SYSTEM_MESSAGES.auth.passwordChanged);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : SYSTEM_MESSAGES.auth.passwordChangeFailed;
+      notify(NOTIFICATION_KINDS.error, message);
+      return fail(message);
+    }
   };
 
   const addUser = async (user: User): Promise<MutationResult<{ temporary_password: string }>> => {
-    if (!adminAllowed()) return fail("Недостатньо прав");
+    if (!adminAllowed()) return fail(SYSTEM_MESSAGES.access.denied);
     const result = await executeRemote<{ user: User; temporary_password: string }>(() => serverCommands.user("POST", undefined, { name: user.name, email: user.email, role: user.role, department_id: user.departmentId }), refreshUsers);
     return result.success && result.data ? ok(result.message, { temporary_password: result.data.temporary_password }) : fail(result.message);
   };
@@ -284,7 +307,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.email !== undefined ? { email: patch.email } : {}),
     ...(patch.role !== undefined ? { role: patch.role } : {}), ...(patch.departmentId !== undefined ? { department_id: patch.departmentId } : {}),
   }), refreshUsers);
-  const deleteUser = (id: string) => state.currentUser?.id === id ? Promise.resolve(fail("Не можна видалити активного користувача")) : executeRemote(() => serverCommands.user("DELETE", id), refreshUsers);
+  const deleteUser = (id: string) => state.currentUser?.id === id ? Promise.resolve(fail(SYSTEM_MESSAGES.access.activeUserDeleteDenied)) : executeRemote(() => serverCommands.user("DELETE", id), refreshUsers);
   const resetUserPassword = async (id: string): Promise<MutationResult<{ temporary_password: string }>> => {
     const result = await executeRemote<{ user: unknown; temporary_password: string }>(() => serverCommands.resetUserPassword(id), refreshUsers);
     return result.success && result.data ? ok(result.message, { temporary_password: result.data.temporary_password }) : fail(result.message);
@@ -293,12 +316,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const addInitiative = (kind: InitiativeKind, raw: Initiative): Promise<MutationResult> => raw.record_type === "YEAR"
     ? executeRemote(() => serverCommands.createInitiative(createBody(kind, raw)), () => refreshKind(kind))
     : raw.initiative_year_id ? executeRemote(() => serverCommands.createCard(raw.initiative_year_id!, { quarter: raw.quarter }), () => refreshKind(kind))
-    : Promise.resolve(fail("Потрібен валідний initiative_year_id"));
+    : Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.validYearIdRequired));
   const updateInitiative = <T extends Initiative>(kind: InitiativeKind, id: string, patch: Partial<T>): Promise<MutationResult> => {
     const record = recordsFor(kind).find((item) => item.id === id);
-    if (!hasRevision(record)) return Promise.resolve(fail("Запис не знайдено або недоступний для цієї команди"));
+    if (!hasRevision(record)) return Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.recordUnavailable));
     if (record.record_type === "YEAR") {
-      if (!record.initiative_revision) return Promise.resolve(fail("Відсутня revision кореня ініціативи"));
+      if (!record.initiative_revision) return Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.initiativeRevisionMissing));
       return executeRemote(() => serverCommands.updateBacklog(record.id, {
         initiative_revision: record.initiative_revision!,
         year_revision: record.revision!,
@@ -308,27 +331,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
     const refreshCard = async () => {
       const response = await loadInitiativeCardModel(id);
-      if (!response.data) throw new Error("Канонічну картку не отримано");
+      if (!response.data) throw new Error(SYSTEM_MESSAGES.api.canonicalCardMissing);
       queryClient.setQueriesData<QuarterCardReadModel[]>({ queryKey: ["quarter-cards", kind] }, (current) => current?.map((item) => item.id === id ? response.data : item));
       queryClient.setQueryData(queryKeys.initiativeCard(id), response.data);
       await queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" });
     };
     const updatedRecord = { ...record, ...patch };
     const body = cardBody(updatedRecord, record.revision);
-    if (!body || body.scope.some((item) => !item.weight_definition_id)) return Promise.resolve(fail("Для кожного завдання потрібна активна вага"));
+    if (!body || body.scope.some((item) => !item.weight_definition_id)) return Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.activeWeightRequired));
     return executeRemote(() => serverCommands.updateCard(id, body), refreshCard);
   };
   const removeInitiative = (kind: InitiativeKind, id: string): Promise<MutationResult> => {
     const record = recordsFor(kind).find((item) => item.id === id);
-    return hasRevision(record) ? executeRemote(() => record.record_type === "YEAR" ? serverCommands.deleteYear(id, record.revision) : serverCommands.deleteCard(id, record.revision), () => refreshKind(kind)) : Promise.resolve(fail("Запис не знайдено або відсутня revision"));
+    return hasRevision(record) ? executeRemote(() => record.record_type === "YEAR" ? serverCommands.deleteYear(id, record.revision) : serverCommands.deleteCard(id, record.revision), () => refreshKind(kind)) : Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.recordRevisionMissing));
   };
-  const moveCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const kind = isProject ? "project" : "task"; const card = recordsFor(kind).find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.moveCard(cardId, card.revision!, toYear, toQuarter), () => refreshKind(kind)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
-  const continueCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const kind = isProject ? "project" : "task"; const card = recordsFor(kind).find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.continueCard(cardId, card.revision!, toYear, toQuarter), () => refreshKind(kind)) : Promise.resolve(fail("Картку не знайдено або відсутня revision")); };
+  const moveCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const kind = isProject ? "project" : "task"; const card = recordsFor(kind).find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.moveCard(cardId, card.revision!, toYear, toQuarter), () => refreshKind(kind)) : Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.cardRevisionMissing)); };
+  const continueCard = (cardId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => { const kind = isProject ? "project" : "task"; const card = recordsFor(kind).find((item) => item.id === cardId); return card?.revision ? executeRemote(() => serverCommands.continueCard(cardId, card.revision!, toYear, toQuarter), () => refreshKind(kind)) : Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.cardRevisionMissing)); };
   const scopeTransfer = async (mode: "MOVE" | "COPY", cardId: string, itemId: string, toYear: number, toQuarter: Quarter, isProject: boolean) => {
     const kind = isProject ? "project" : "task";
     const records = recordsFor(kind);
     const card = records.find((item) => item.id === cardId);
-    if (!card?.revision) return fail("Картку не знайдено або відсутня revision");
+    if (!card?.revision) return fail(SYSTEM_MESSAGES.initiatives.cardRevisionMissing);
     let target = records.find((item) => item.record_type === "CARD" && getChainId(item) === getChainId(card) && item.year === toYear && item.quarter === toQuarter);
     if (!target) {
       try {
@@ -336,7 +359,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const targetModel = targetCards.find((item) => item.initiative_id === getChainId(card));
         if (targetModel) target = toQuarterCardViewModel(targetModel);
       } catch (error) {
-        return fail(error instanceof ApiError ? error.message : "Не вдалося перевірити цільовий квартал");
+        return fail(error instanceof ApiError ? error.message : SYSTEM_MESSAGES.api.targetQuarterCheckFailed);
       }
     }
     return executeRemote(
@@ -353,19 +376,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return executeRemote<{ years: unknown[] }>(() => serverCommands.extendYears(sources, targetYear), () => refreshKind(kind)).then((result) => result.success ? ok(result.message, { created: result.data?.years.length ?? 0 }) : fail<{ created: number }>(result.message));
   };
   const createBacklogSnapshot = async (kind: InitiativeKind, masterId: string, sourceYear: number, targetYear: number): Promise<MutationResult> => {
-    const result = await createBacklogSnapshots(kind, [masterId], sourceYear, targetYear); return result.success ? ok("Snapshot створено") : fail(result.message);
+    const result = await createBacklogSnapshots(kind, [masterId], sourceYear, targetYear); return result.success ? ok(SYSTEM_MESSAGES.initiatives.snapshotCreated) : fail(result.message);
   };
   const createBacklogWithCards = async (kind: InitiativeKind, raw: Initiative, quarters: Quarter[], _initialScope: Initiative["checklist"] = []) => {
-    if (quarters.length > 1) return fail("За одну операцію можна створити лише одну початкову квартальну картку");
+    if (quarters.length > 1) return fail(SYSTEM_MESSAGES.initiatives.onlyOneInitialCard);
     const initialCard = quarters.length ? initialCardBody({ ...raw, quarter: quarters[0], checklist: _initialScope }) : undefined;
-    if (quarters.length && !initialCard) return fail("Для картки потрібні валідний статус і вага кожного завдання");
+    if (quarters.length && !initialCard) return fail(SYSTEM_MESSAGES.initiatives.initialCardDataInvalid);
     return executeRemote(
       () => serverCommands.createInitiative({ ...createBody(kind, raw), ...(initialCard ? { initial_card: initialCard } : {}) }),
       () => refreshKind(kind),
     );
   };
   const updatePreparationStage = (kind: InitiativeKind, masterId: string, patch: Partial<InitiativeMetadata>) => {
-    const master = recordsFor(kind).find((item) => item.record_type === "YEAR" && item.id === masterId); if (!hasRevision(master)) return Promise.resolve(fail("Річний запис не знайдено або відсутня revision"));
+    const master = recordsFor(kind).find((item) => item.record_type === "YEAR" && item.id === masterId); if (!hasRevision(master)) return Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.yearRevisionMissing));
     const stage = getYearSnapshot(master, master.year)?.preparationStage ?? preparationMetadataFrom(master);
     const updatedStage = { ...stage, ...patch };
     return executeRemote(() => serverCommands.updatePreparation(masterId, {
@@ -378,20 +401,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const dictionaryOps = <T extends DictionaryItem>(key: DictionaryStateKey) => ({
     add: (item: T) => executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "POST", undefined, dictionaryPayload(item)), refreshBootstrap),
-    update: (id: string, patch: Partial<T>) => { const current = (state[key] as unknown as T[]).find((item) => item.id === id); return current ? executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "PATCH", id, dictionaryPayload({ ...current, ...patch } as T)), refreshBootstrap) : Promise.resolve(fail("Запис не знайдено")); },
+    update: (id: string, patch: Partial<T>) => { const current = (state[key] as unknown as T[]).find((item) => item.id === id); return current ? executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "PATCH", id, dictionaryPayload({ ...current, ...patch } as T)), refreshBootstrap) : Promise.resolve(fail(SYSTEM_MESSAGES.entities.recordNotFound)); },
     remove: (id: string) => executeRemote(() => serverCommands.dictionary(dictionaryApiType(key), "DELETE", id), refreshBootstrap),
   });
   const departments = dictionaryOps<Department>("departments"), managers = dictionaryOps<Manager>("managers"), priorities = dictionaryOps<PriorityDef>("priorities"), statuses = dictionaryOps<InitiativeStatusDef>("initiativeStatuses"), weights = dictionaryOps<TaskWeightDef>("taskWeights"), sizes = dictionaryOps<InitiativeSizeDef>("initiativeSizes");
-  const checkDictionary = (key: DictionaryStateKey, id: string): MutationResult => !adminAllowed() ? fail("Недостатньо прав адміністратора") : (state[key] as unknown as Array<{ id: string }>).some((item) => item.id === id) ? ok("Видалення дозволено") : fail("Запис не знайдено");
+  const checkDictionary = (key: DictionaryStateKey, id: string): MutationResult => !adminAllowed() ? fail(SYSTEM_MESSAGES.access.adminDenied) : (state[key] as unknown as Array<{ id: string }>).some((item) => item.id === id) ? ok(SYSTEM_MESSAGES.entities.deletionAllowed) : fail(SYSTEM_MESSAGES.entities.recordNotFound);
   const addCustomField = (item: CustomFieldDef) => { const { id: _id, ...body } = item; return executeRemote(() => serverCommands.customField("POST", undefined, body), refreshBootstrap); };
-  const updateCustomField = (id: string, patch: Partial<CustomFieldDef>) => { const current = state.customFields.find((item) => item.id === id); if (!current) return Promise.resolve(fail("Поле не знайдено")); const { id: _id, ...body } = { ...current, ...patch }; return executeRemote(() => serverCommands.customField("PATCH", id, body), refreshBootstrap); };
+  const updateCustomField = (id: string, patch: Partial<CustomFieldDef>) => { const current = state.customFields.find((item) => item.id === id); if (!current) return Promise.resolve(fail(SYSTEM_MESSAGES.entities.fieldNotFound)); const { id: _id, ...body } = { ...current, ...patch }; return executeRemote(() => serverCommands.customField("PATCH", id, body), refreshBootstrap); };
   const deleteCustomField = (id: string) => executeRemote(() => serverCommands.customField("DELETE", id), refreshBootstrap);
   const value: AppContextType = {
     ...state, isHydrating: !sessionReady || (authenticated && bootstrapQuery.isPending), backendEnabled: true,
     enableAdminData,
     disableAdminData,
     setInitiativeDataScope,
-    authenticate, changePassword, login: () => fail("Локальний вхід вимкнено"), logout,
+    authenticate, changePassword, login: () => fail(SYSTEM_MESSAGES.auth.localLoginDisabled), logout,
     addUser, updateUser, deleteUser, resetUserPassword,
     addProject: (item) => addInitiative("project", item), updateProject: (id, patch) => updateInitiative("project", id, patch), deleteProject: (id) => removeInitiative("project", id),
     addTask: (item) => addInitiative("task", item), updateTask: (id, patch) => updateInitiative("task", id, patch), deleteTask: (id) => removeInitiative("task", id),

@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useAppContext } from "../../app/store";
 import styles from "./PasswordChangeModal.module.css";
+import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 
 type PasswordChangeModalProps = { isOpen: boolean; onClose: () => void };
 
@@ -22,12 +23,12 @@ export const PasswordChangeModal = ({ isOpen, onClose }: PasswordChangeModalProp
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(""); setSuccess("");
-    if (!currentUser || !currentPassword || !newPassword || !confirmPassword) return setError("Будь ласка, заповніть всі поля");
-    if (newPassword.length < 12) return setError("Новий пароль має містити щонайменше 12 символів");
-    if (newPassword !== confirmPassword) return setError("Нові паролі не співпадають");
+    if (!currentUser || !currentPassword || !newPassword || !confirmPassword) return setError(SYSTEM_MESSAGES.auth.allFieldsRequired);
+    if (newPassword.length < 12) return setError(SYSTEM_MESSAGES.auth.passwordTooShort);
+    if (newPassword !== confirmPassword) return setError(SYSTEM_MESSAGES.auth.passwordsDoNotMatch);
     const result = await changePassword(currentPassword, newPassword);
     if (!result.success) return setError(result.message);
-    setSuccess("Пароль успішно змінено");
+    setSuccess(SYSTEM_MESSAGES.auth.passwordChanged);
     window.setTimeout(resetAndClose, 1200);
   };
 

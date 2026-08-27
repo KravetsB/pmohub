@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { serverCommands } from "./server-commands";
-import { loadInitiativeYears, loadQuarterCards, loginSession, logoutSession, setAuthFailureHandler } from "../../api/apiClient";
+import { loadAnalytics, loadInitiativeYears, loadQuarterCards, loginSession, logoutSession, setAuthFailureHandler } from "../../api/apiClient";
 
 describe("server command routing", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -126,5 +126,31 @@ describe("server command routing", () => {
     await expect(serverCommands.updateCard("card-id", { revision: 1, department_ids: [], status_id: "00000000-0000-4000-8000-000000000001", scope: [] })).rejects.toMatchObject({ status: 401 });
     expect(handler).toHaveBeenCalledOnce();
     setAuthFailureHandler(null);
+  });
+
+  it("clears the bearer token before the logout request completes", async () => {
+    let finishLogout!: (response: Response) => void;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/login')) return new Response(JSON.stringify({ access_token: 'secret', expires_in: 900, user: {} }), { status: 200 });
+      if (url.includes('/auth/logout')) return new Promise<Response>((resolve) => { finishLogout = resolve; });
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await loginSession('admin@example.com', 'password');
+    const pendingLogout = logoutSession();
+    await serverCommands.recalculateSizes();
+    const headers = new Headers(fetchMock.mock.calls[2][1]?.headers);
+    expect(headers.has('authorization')).toBe(false);
+    finishLogout(new Response(JSON.stringify({ success: true }), { status: 200 }));
+    await pendingLogout;
+  });
+
+  it("loads one filtered server analytics read-model", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ success: true, data: {} }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await loadAnalytics('quarterly', new URLSearchParams({ year: '2027', quarter: 'Q2', kind: 'PROJECT' }));
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/analytics/quarterly?year=2027&quarter=Q2&kind=PROJECT');
   });
 });

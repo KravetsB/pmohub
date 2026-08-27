@@ -3,6 +3,9 @@ import { useAppContext } from "../../app/store";
 import { User } from "../../shared/types";
 import { Eye, EyeOff } from "lucide-react";
 import styles from "./Login.module.css";
+import { notify } from "../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
+import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 
 export const Login = () => {
   const { users, authenticate, departments, backendEnabled } = useAppContext();
@@ -10,18 +13,32 @@ export const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await authenticate(email, password);
-    if (!result.success) setError(result.message);
+    if (isSubmitting) return;
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password) {
+      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.auth.credentialsRequired);
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.auth.invalidEmail);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      // authenticate() owns both success and error notifications.
+      await authenticate(normalizedEmail, password);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleTestUserClick = (user: User) => {
     setEmail(user.email);
     setPassword(user.password || "password123");
-    setError("");
   };
 
   return (
@@ -50,7 +67,7 @@ export const Login = () => {
           </p>
         </div>
 
-        <form onSubmit={handleEmailLogin} className={styles.loginForm}>
+        <form onSubmit={handleEmailLogin} className={styles.loginForm} noValidate>
           <div>
             <label className={styles.fieldLabel}>Ел. пошта</label>
             <input
@@ -58,7 +75,6 @@ export const Login = () => {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                setError("");
               }}
               className={styles.input}
               placeholder="Введіть email..."
@@ -72,7 +88,6 @@ export const Login = () => {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  setError("");
                 }}
                 className={`${styles.input} ${styles.passwordInput}`}
                 placeholder="Введіть пароль..."
@@ -86,9 +101,8 @@ export const Login = () => {
               </button>
             </div>
           </div>
-          {error && <p className={styles.error}>{error}</p>}
-          <button type="submit" className={styles.submitButton}>
-            Увійти
+          <button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+            {isSubmitting ? "Вхід…" : "Увійти"}
           </button>
         </form>
 

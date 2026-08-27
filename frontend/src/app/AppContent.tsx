@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAppContext } from "./store";
 import { AppTabId, NavigationItem } from "./appTypes";
+import { dataScopeForTab } from "./appNavigation";
 import { AppSidebar } from "./components/AppSidebar";
 import { AppContentArea } from "./components/AppContentArea";
 import { MobileHeader } from "./components/MobileHeader";
@@ -33,7 +34,7 @@ const getRoleLabel = (role: string) =>
       : "Користувач";
 
 export const AppContent = () => {
-  const { currentUser, logout, departments, rolePermissions, isHydrating } = useAppContext();
+  const { currentUser, logout, departments, rolePermissions, isHydrating, setInitiativeDataScope } = useAppContext();
   const [activeTab, setActiveTab] = useState<AppTabId>(() => {
     const saved = window.sessionStorage.getItem("pmohub-active-tab");
     return (["dashboard", "projects", "tasks", "backlog", "admin"] as AppTabId[]).includes(saved as AppTabId) ? saved as AppTabId : "dashboard";
@@ -80,6 +81,7 @@ export const AppContent = () => {
       )?.name ?? "")
     : "";
   const selectTab = (tab: AppTabId) => {
+    setInitiativeDataScope(dataScopeForTab(tab));
     setActiveTab(tab);
     window.sessionStorage.setItem("pmohub-active-tab", tab);
     setIsMobileMenuOpen(false);
@@ -92,6 +94,7 @@ export const AppContent = () => {
   const handleLogout = () => {
     logout();
     setActiveTab("dashboard");
+    window.sessionStorage.setItem("pmohub-active-tab", "dashboard");
     setIsMobileMenuOpen(false);
   };
 

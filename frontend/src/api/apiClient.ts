@@ -6,6 +6,9 @@ import {
   QuarterCardReadModel,
   User,
 } from "../shared/types";
+import type { AnalyticsMode, AnalyticsResponse } from "../features/analytics/analyticsTypes";
+import { SYSTEM_MESSAGES } from "../shared/constants/systemMessages";
+import { NOTIFICATION_KINDS, NOTIFICATION_MESSAGES } from "../shared/constants/notificationConstants";
 
 const configuredBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
 export const backendEnabled = true;
@@ -32,6 +35,15 @@ export class ApiError extends Error {
 }
 
 type RequestOptions = RequestInit & { retryAuth?: boolean; notify?: boolean };
+const apiMessage = (value: unknown, fallback: string) => {
+  if (typeof value === "string" && value.trim()) return value;
+  if (Array.isArray(value)) {
+    const messages = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()));
+    if (messages.length) return messages.join(". ");
+  }
+  return fallback;
+};
+
 export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
@@ -62,15 +74,15 @@ export async function apiRequest<T>(
   if (!response.ok) {
     const error = new ApiError(
       body.code ?? "HTTP_ERROR",
-      body.message ?? "Помилка API",
+      apiMessage(body.message, SYSTEM_MESSAGES.api.genericError),
       response.status,
       body.details,
     );
-    if (options.notify) notify("error", error.message);
+    if (options.notify) notify(NOTIFICATION_KINDS.error, error.message);
     throw error;
   }
   if (options.notify)
-    notify("success", body.message ?? "Зміни успішно збережено");
+    notify(NOTIFICATION_KINDS.success, body.message ?? NOTIFICATION_MESSAGES.changesSaved);
   return body as T;
 }
 
@@ -112,11 +124,12 @@ export async function refreshSession() {
   return refreshPromise;
 }
 export async function logoutSession() {
+  // The UI must become unauthenticated immediately; the cookie revocation is
+  // a best-effort server cleanup and must never hold the login screen hostage.
+  setAccessToken(null);
   try {
     await apiRequest("/auth/logout", { method: "POST", retryAuth: false });
-  } finally {
-    setAccessToken(null);
-  }
+  } finally { /* access token was cleared synchronously above */ }
 }
 export const changePassword = (
   current_password: string,
@@ -151,6 +164,8 @@ export const loadInitiativeYears = (kind: "project" | "task", signal?: AbortSign
   apiRequest<ApiResponse<InitiativeYearReadModel[]>>(`/initiative-years?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}`, { signal }).then((response) => response.data);
 export const loadQuarterCards = (kind: "project" | "task", signal?: AbortSignal, year?: number, quarter?: string, view?: "analytics") =>
   apiRequest<ApiResponse<QuarterCardReadModel[]>>(`/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}${view ? `&view=${view}` : ""}`, { signal }).then((response) => response.data);
+export const loadAnalytics = (mode: AnalyticsMode, params: URLSearchParams, signal?: AbortSignal) =>
+  apiRequest<ApiResponse<AnalyticsResponse>>(`/analytics/${mode}?${params.toString()}`, { signal }).then((response) => response.data);
 
 export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): InitiativeViewModel => ({
   id: year.id,

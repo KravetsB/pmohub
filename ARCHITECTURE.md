@@ -77,6 +77,21 @@ mutation -> commit -> canonical GET/refetch -> cache update -> close form
 
 There are no optimistic server-state updates. A failed commit keeps the form and cache unchanged. Abort signals are forwarded to GET requests, access-token refresh is single-flight, and a failed refresh clears authentication plus the full query cache.
 
+Dashboard data is not sourced from the portfolio collections. `GET /analytics/quarterly` and `GET /analytics/annual` apply `kind`, `year`, `quarter`, `department_id`, and `manager_id` on the server and return aggregates plus minimal drill-down records.
+
+## Analytics aggregation rules
+
+- Quarterly mode includes only the selected quarter. Every widget uses the same type, year, quarter, department and manager filters.
+- Annual card count and total workload include every QuarterCard in the selected year.
+- Annual initiative count is the number of unique `(kind, initiative_id)` values.
+- Annual initiative status, size and average progress use only the latest QuarterCard of each initiative in the year.
+- Annual duration is the average number of existing quarterly cards per unique initiative.
+- Annual department workload is the sum of its four quarterly loads; annual capacity is four times the quarterly department limit.
+- Executor load is task snapshot weight divided equally among its executors.
+- Effective involved load is `(card total snapshot weight / scope item count) / effective involved department count`.
+- Type, department and manager filters are combined with AND. Department-filtered capacity contains only the selected department.
+- Drill-down IDs are produced from the same card set as the aggregate; initiative-level annual drill-down uses the latest card per initiative.
+
 ## Security and operations
 
 `isReadOnly` overrides mutation permissions in guards and services. Card and scope archive rules are enforced by backend policy. Audit aggregate IDs are strings rather than UUID-only columns, so dictionary and route identifiers cannot break a completed business mutation.

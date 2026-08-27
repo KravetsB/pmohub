@@ -4,6 +4,7 @@ import { useAppContext } from "../../../../app/store";
 import { UserRole } from "../../../../shared/types";
 import { truncateText } from "../../../../shared/utils";
 import styles from "./RbacSection.module.css";
+import { SYSTEM_MESSAGES } from "../../../../shared/constants/systemMessages";
 
 export const RbacSection = () => {
   const {
@@ -52,13 +53,13 @@ export const RbacSection = () => {
 
   const handleAddUser = async () => {
     if (!newUserName.trim() || !newUserEmail.trim() || !newUserDept) {
-      setError("Заповніть всі поля");
+      setError(SYSTEM_MESSAGES.entities.fillAllFields);
       return;
     }
     if (
       users.some((u) => u.email.toLowerCase() === newUserEmail.toLowerCase())
     ) {
-      setError("Користувач з таким email вже існує");
+      setError(SYSTEM_MESSAGES.auth.duplicateEmail);
       return;
     }
 

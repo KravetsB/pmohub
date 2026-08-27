@@ -532,14 +532,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/analytics": {
+    "/api/v1/analytics/quarterly": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AnalyticsController_get"];
+        get: operations["AnalyticsController_quarterly"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/annual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_annual"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1865,11 +1881,14 @@ export interface operations {
             };
         };
     };
-    AnalyticsController_get: {
+    AnalyticsController_quarterly: {
         parameters: {
-            query?: {
-                year?: string;
-                quarter?: string;
+            query: {
+                quarter: "Q1" | "Q2" | "Q3" | "Q4";
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
             };
             header?: never;
             path?: never;
@@ -1881,7 +1900,33 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ApiSuccessDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_annual: {
+        parameters: {
+            query: {
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiSuccessDto"];
+                };
             };
         };
     };

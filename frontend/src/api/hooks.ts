@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { ApiResponse, apiRequest, loadBootstrap, loadInitiativeCardModel, loadInitiativeYearModel, loadInitiativeYears, loadPermissions, loadQuarterCards, loadUsers } from './apiClient';
 import { queryKeys } from './queryClient';
+import { loadAnalytics } from './apiClient';
+import { AnalyticsMode } from '../features/analytics/analyticsTypes';
 
 export const useBootstrapQuery = (enabled: boolean) => useQuery({
   queryKey: queryKeys.bootstrap,
@@ -39,4 +41,10 @@ export const usePermissionsQuery = (enabled = false) => useQuery({
   queryKey: queryKeys.permissions,
   queryFn: ({ signal }) => loadPermissions(signal),
   enabled,
+});
+export const useAnalyticsQuery = (mode: AnalyticsMode, params: URLSearchParams, enabled = true) => useQuery({
+  queryKey: queryKeys.analytics(mode, params.toString()),
+  queryFn: ({ signal }) => loadAnalytics(mode, params, signal),
+  enabled,
+  placeholderData: (previous) => previous,
 });

@@ -23,6 +23,7 @@ import {
 import { canEditInitiative, getPermissions } from "../../../domain/permissions";
 import { RichTextEditor } from "../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCardModal.module.css";
+import { SYSTEM_MESSAGES } from "../../../shared/constants/systemMessages";
 import { InitiativeHistory } from "./InitiativeHistory";
 import { useAuditQuery } from "../../../api/hooks";
 
@@ -197,7 +198,7 @@ export const InitiativeCardModal = ({
   const requestMove = async () => {
     if (isPending || hasRevisionConflict) return;
     if (!item) {
-      setError("Спочатку збережіть нову картку");
+      setError(SYSTEM_MESSAGES.initiatives.saveNewCardFirst);
       return;
     }
     setIsPending(true);

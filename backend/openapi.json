@@ -1495,30 +1495,142 @@
         ]
       }
     },
-    "/api/v1/analytics": {
+    "/api/v1/analytics/quarterly": {
       "get": {
-        "operationId": "AnalyticsController_get",
+        "operationId": "AnalyticsController_quarterly",
         "parameters": [
           {
+            "name": "quarter",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            }
+          },
+          {
             "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
             "required": false,
             "in": "query",
             "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           },
           {
-            "name": "quarter",
+            "name": "manager_id",
             "required": false,
             "in": "query",
             "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccessDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/annual": {
+      "get": {
+        "operationId": "AnalyticsController_annual",
+        "parameters": [
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccessDto"
+                }
+              }
+            }
           }
         },
         "security": [

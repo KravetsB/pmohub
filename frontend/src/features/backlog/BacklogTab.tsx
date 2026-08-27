@@ -19,6 +19,7 @@ import { BacklogTable } from "./components/BacklogTable";
 import { BacklogDeleteDialog } from "./components/BacklogDeleteDialog";
 import { BacklogInitiative as Initiative, BacklogTabKind as Tab, QuarterFilter } from "./backlogTypes";
 import styles from "./BacklogTab.module.css";
+import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -207,7 +208,7 @@ export const BacklogTab = () => {
     const commandKey = `quarter-${master.id}-${selectedYear}-${quarter}`;
     if (pendingCommands.current.has(commandKey)) return;
     if (isPastQuarter(quarter)) {
-      setNotice({ type: "error", message: "Картки можна створювати лише для поточного або майбутніх кварталів" });
+      setNotice({ type: "error", message: SYSTEM_MESSAGES.initiatives.cardCreationPeriodRestricted });
       return;
     }
     pendingCommands.current.add(commandKey);
