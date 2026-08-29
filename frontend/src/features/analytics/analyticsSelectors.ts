@@ -18,7 +18,7 @@ export const recordsByIds = (data: AnalyticsResponse | undefined, ids?: string[]
 };
 
 export const statusCardIds = (data: AnalyticsResponse | undefined, status: AnalyticsRecord['status_code']) =>
-  latestInitiativeRecords(data).filter((record) => record.status_code === status).map((record) => record.id);
+  (data?.records ?? []).filter((record) => record.status_code === status).map((record) => record.id);
 
 export const latestInitiativeRecords = (data: AnalyticsResponse | undefined): AnalyticsRecord[] => {
   if (!data) return [];

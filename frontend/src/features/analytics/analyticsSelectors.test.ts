@@ -41,14 +41,14 @@ describe('analytics filter matrix', () => {
     expect(recordsByIds(data, ['red'])).toEqual([records[1]]);
   });
 
-  it('uses only the latest annual card for initiative-level status drill-down', () => {
+  it('uses every annual card for status drill-down while keeping unique-initiative drill-down deduplicated', () => {
     const records = [
       { id: 'q1', initiative_id: 'initiative', kind: 'PROJECT', quarter: 'Q1', status_code: 'YELLOW' },
       { id: 'q2', initiative_id: 'initiative', kind: 'PROJECT', quarter: 'Q2', status_code: 'GREEN' },
     ] as AnalyticsResponse['records'];
     const data = { mode: 'ANNUAL', records } as AnalyticsResponse;
     expect(latestInitiativeRecords(data).map((item) => item.id)).toEqual(['q2']);
-    expect(statusCardIds(data, 'YELLOW')).toEqual([]);
+    expect(statusCardIds(data, 'YELLOW')).toEqual(['q1']);
     expect(statusCardIds(data, 'GREEN')).toEqual(['q2']);
   });
 

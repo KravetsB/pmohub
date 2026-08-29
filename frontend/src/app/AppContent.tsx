@@ -18,6 +18,7 @@ import { BacklogTab } from "../features/backlog/BacklogTab";
 import { Login } from "../features/auth/Login";
 import { PasswordChangeModal } from "../features/auth/PasswordChangeModal";
 import styles from "./AppShell.module.css";
+import { AppLoader } from "../components/ui/AppLoader";
 
 const AdminTab = React.lazy(() =>
   import("../features/admin/AdminTab").then((module) => ({
@@ -42,7 +43,7 @@ export const AppContent = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  if (isHydrating) return <div className={styles.loading}>Відновлення сесії…</div>;
+  if (isHydrating) return <AppLoader label="Відновлення сесії…" fullPage />;
   if (!currentUser) return <Login />;
 
   const userRolePerm = rolePermissions.find(
@@ -131,17 +132,13 @@ export const AppContent = () => {
           />
         }
       >
-        {currentTab.id === "dashboard" && <React.Suspense fallback={<div className={styles.loading}>Завантаження аналітики…</div>}><Dashboard /></React.Suspense>}
+        {currentTab.id === "dashboard" && <React.Suspense fallback={<AppLoader label="Завантаження аналітики…" />}><Dashboard /></React.Suspense>}
         {currentTab.id === "projects" && <ProjectsTab />}
         {currentTab.id === "tasks" && <TasksTab />}
         {currentTab.id === "backlog" && <BacklogTab />}
         {currentTab.id === "admin" && (
           <React.Suspense
-            fallback={
-              <div className={styles.loading}>
-                Завантаження адміністрування…
-              </div>
-            }
+            fallback={<AppLoader label="Завантаження адміністрування…" />}
           >
             <AdminTab />
           </React.Suspense>

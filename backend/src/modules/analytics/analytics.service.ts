@@ -12,17 +12,27 @@ export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async quarterly(filter: QuarterlyAnalyticsFilterDto) {
-    const cards = await this.cards({ ...filter, quarter: Number(filter.quarter.slice(1)) });
+    const quarter = Number(filter.quarter.slice(1));
+    const previousQuarter = quarter === 1 ? 4 : quarter - 1;
+    const previousYear = quarter === 1 ? filter.year - 1 : filter.year;
+    const cards = await this.cards({ ...filter, quarter });
+    const previousCards = await this.cards({ ...filter, year: previousYear, quarter: previousQuarter });
     return {
       mode: 'QUARTERLY', filters: filter,
       ...await this.aggregate(cards, false, filter.department_id),
       available_years: await this.availableYears(filter.kind),
-      quarter_trend: [], history: [], preparation: { total: 0, ready: 0, records: [] },
+      quarter_trend: [], volume_trend: [],
+      period_comparison: [
+        { label: `Q${previousQuarter} ${previousYear}`, cards: previousCards.length },
+        { label: `${filter.quarter} ${filter.year}`, cards: cards.length },
+      ],
+      history: [], preparation: { total: 0, ready: 0, records: [] },
     };
   }
 
   async annual(filter: AnalyticsFilterDto) {
     const cards = await this.cards(filter);
+    const previousYearCards = await this.cards({ ...filter, year: filter.year - 1 });
     const years = await this.filteredYears(filter);
     const preparationRecords = years.filter((year) => !year.quarterCards.length).map((year) => ({
       id: year.id, initiative_id: year.initiativeId, kind: year.initiative.kind,
@@ -40,7 +50,7 @@ export class AnalyticsService {
       historyByYear.set(card.initiativeYear.year, bucket);
     });
     const history = [...historyByYear.entries()].sort(([a], [b]) => a - b).map(([year, yearCards]) => ({
-      year, status_counts: this.statusCounts(this.latestCards(yearCards)),
+      year, status_counts: this.statusCounts(yearCards),
       initiatives: new Set(yearCards.map((card) => card.initiativeYear.initiativeId)).size,
       cards: yearCards.length,
     }));
@@ -52,6 +62,12 @@ export class AnalyticsService {
         const period = cards.filter((card) => card.quarter === quarter);
         return { quarter: `Q${quarter}`, cards: period.length, initiatives: new Set(period.map((card) => card.initiativeYear.initiativeId)).size, total_weight: round(period.reduce((sum, card) => sum + card.totalWeight.toNumber(), 0)) };
       }),
+      volume_trend: [1, 2, 3, 4].map((quarter) => ({
+        quarter: `Q${quarter}`,
+        current: cards.filter((card) => card.quarter === quarter).length,
+        previous: previousYearCards.filter((card) => card.quarter === quarter).length,
+      })),
+      period_comparison: [],
       history,
       preparation: { total: preparationRecords.length, ready: preparationRecords.filter((item) => item.ready).length, records: preparationRecords },
     };
@@ -95,7 +111,6 @@ export class AnalyticsService {
   }
 
   private async aggregate(cards: Card[], annual: boolean, departmentId?: string) {
-    const statusBasis = annual ? this.latestCards(cards) : cards;
     const loadsByQuarter = [1, 2, 3, 4].map((quarter) => ({ quarter: `Q${quarter}`, loads: this.departmentLoads(cards.filter((card) => card.quarter === quarter)) }));
     const departments = await this.prisma.department.findMany({ where: departmentId ? { id: departmentId } : undefined });
     const capacity = departments.map((department) => {
@@ -111,16 +126,35 @@ export class AnalyticsService {
       current.load = round(current.load + card.totalWeight.toNumber()); current.card_ids.push(card.id); managerMap.set(card.managerId, current);
     });
     const records = cards.map((card) => this.record(card));
-    const progress = statusBasis.flatMap((card) => card.scopeItems.length ? [this.progress(card)] : []);
+    const scopeItems = cards.flatMap((card) => card.scopeItems);
+    const progress = annual
+      ? (scopeItems.length ? Math.round(scopeItems.filter((item) => item.statusCode === 'GREEN').length / scopeItems.length * 100) : 0)
+      : (() => {
+          const cardProgress = cards.flatMap((card) => card.scopeItems.length ? [this.progress(card)] : []);
+          return cardProgress.length ? Math.round(cardProgress.reduce((sum, value) => sum + value, 0) / cardProgress.length) : 0;
+        })();
     const scopeStatusCounts = this.emptyCounts();
-    cards.flatMap((card) => card.scopeItems).forEach((item) => { scopeStatusCounts[this.status(item.statusCode)] += 1; });
+    scopeItems.forEach((item) => { scopeStatusCounts[this.status(item.statusCode)] += 1; });
     const sizeMap = new Map<string, string[]>();
-    statusBasis.forEach((card) => { const name = card.sizeSnapshotName ?? 'Не визначено'; sizeMap.set(name, [...(sizeMap.get(name) ?? []), card.id]); });
+    cards.forEach((card) => { const name = card.sizeSnapshotName ?? 'Не визначено'; sizeMap.set(name, [...(sizeMap.get(name) ?? []), card.id]); });
     const priorityMap = new Map<string, { priority_id: string | null; name: string; total_weight: number; card_ids: string[] }>();
     cards.forEach((card) => {
       const key = card.priorityId ?? 'NONE';
       const current = priorityMap.get(key) ?? { priority_id: card.priorityId, name: card.priority?.name ?? 'Без пріоритету', total_weight: 0, card_ids: [] as string[] };
       current.total_weight = round(current.total_weight + card.totalWeight.toNumber()); current.card_ids.push(card.id); priorityMap.set(key, current);
+    });
+    const priorityStatusMap = new Map<string, { priority_id: string | null; name: string; card_ids: string[]; status_counts: Record<Status, number> }>();
+    cards.forEach((card) => {
+      const key = card.priorityId ?? 'NONE';
+      const current = priorityStatusMap.get(key) ?? {
+        priority_id: card.priorityId,
+        name: card.priority?.name ?? 'Без пріоритету',
+        card_ids: [] as string[],
+        status_counts: this.emptyCounts(),
+      };
+      current.card_ids.push(card.id);
+      current.status_counts[this.status(card.status.code)] += 1;
+      priorityStatusMap.set(key, current);
     });
     const risks = records.filter((record) => record.risks.length).map((record) => ({ id: record.id, name: record.name, risks: record.risks }));
     const duration = new Map<string, number>();
@@ -129,23 +163,18 @@ export class AnalyticsService {
       summary: {
         cards: cards.length, initiatives: new Set(cards.map((card) => card.initiativeYear.initiativeId)).size,
         total_weight: round(cards.reduce((sum, card) => sum + card.totalWeight.toNumber(), 0)),
-        average_progress: progress.length ? Math.round(progress.reduce((sum, value) => sum + value, 0) / progress.length) : 0,
+        average_progress: progress,
         average_duration: duration.size ? round([...duration.values()].reduce((sum, value) => sum + value, 0) / duration.size) : 0,
         overloaded_departments: capacity.filter((item) => item.is_over_capacity).length,
       },
-      status_counts: this.statusCounts(statusBasis), scope_status_counts: scopeStatusCounts,
+      status_counts: this.statusCounts(cards), scope_status_counts: scopeStatusCounts,
       size_breakdown: [...sizeMap].map(([name, card_ids]) => ({ name, count: card_ids.length, card_ids })),
       priority_breakdown: [...priorityMap.values()].sort((a, b) => b.total_weight - a.total_weight),
+      priority_status_breakdown: [...priorityStatusMap.values()].sort((a, b) => b.card_ids.length - a.card_ids.length),
       department_capacity: capacity,
       capacity_by_quarter: loadsByQuarter.map((period) => ({ quarter: period.quarter, departments: departments.map((department) => ({ department_id: department.id, name: department.name, load: period.loads.get(department.id) ?? 0, limit: department.capacityLimitPoints.toNumber() })) })),
       manager_loads: [...managerMap.values()].sort((a, b) => b.load - a.load), risks, records,
     };
-  }
-
-  private latestCards(cards: Card[]) {
-    const latest = new Map<string, Card>();
-    cards.forEach((card) => { const key = `${card.initiativeYear.initiative.kind}:${card.initiativeYear.initiativeId}`; if (!latest.has(key) || latest.get(key)!.quarter < card.quarter) latest.set(key, card); });
-    return [...latest.values()];
   }
 
   private record(card: Card) {
