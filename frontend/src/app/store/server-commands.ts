@@ -25,8 +25,8 @@ const dictionaryBody = (body: Schemas["DictionaryDto"] | undefined) => body && (
 });
 
 const permissionBody = (body: Schemas["UpdatePermissionDto"]) => ({
-  ...(body.canCreateEditProjects !== undefined ? { canCreateEditProjects: body.canCreateEditProjects } : {}),
-  ...(body.canDeleteProjects !== undefined ? { canDeleteProjects: body.canDeleteProjects } : {}),
+  ...(body.canCreateEditInitiatives !== undefined ? { canCreateEditInitiatives: body.canCreateEditInitiatives } : {}),
+  ...(body.canDeleteInitiatives !== undefined ? { canDeleteInitiatives: body.canDeleteInitiatives } : {}),
   ...(body.canAccessAdmin !== undefined ? { canAccessAdmin: body.canAccessAdmin } : {}),
   ...(body.isReadOnly !== undefined ? { isReadOnly: body.isReadOnly } : {}),
   ...(body.canEditArchive !== undefined ? { canEditArchive: body.canEditArchive } : {}),
@@ -71,6 +71,7 @@ export const serverCommands = {
     quarter: body.quarter,
   }),
   updateCard: (id: string, body: Schemas["UpdateCardDto"]) => command<CommandResult>(`/quarter-cards/${id}`, "PATCH", body),
+  updateArchivedCard: (id: string, body: { revision: number; notes?: string; status_id?: string; scope_status_updates: Array<{ id: string; revision: number; status_code: string }> }) => command<CommandResult>(`/quarter-cards/${id}/archive`, "PATCH", body),
   deleteCard: (id: string, revision: number) => command<CommandResult>(`/quarter-cards/${id}?revision=${revision}`, "DELETE"),
   deleteYear: (id: string, revision: number) => command<CommandResult>(`/initiative-years/${id}?revision=${revision}`, "DELETE"),
   moveCard: (id: string, revision: number, toYear: number, toQuarter: Quarter) => command<CommandResult>(`/quarter-cards/${id}/move`, "POST", { revision, to_year: toYear, to_quarter: toQuarter }),

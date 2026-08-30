@@ -8,6 +8,7 @@ import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AppExceptionFilter } from './common/filters/app-exception.filter';
+import { validationExceptionFactory } from './common/validation/validation-exception.factory';
 
 export async function createApp() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
@@ -20,7 +21,12 @@ export async function createApp() {
   app.enableCors({ origin: origins, credentials: true });
   app.use(helmet());
   app.use(cookieParser());
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    exceptionFactory: validationExceptionFactory,
+  }));
   app.useGlobalFilters(new AppExceptionFilter(config));
   app.enableShutdownHooks();
 

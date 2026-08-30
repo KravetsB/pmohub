@@ -43,8 +43,8 @@ model RefreshToken {
 
 model RolePermission {
   role                  String  @id @db.VarChar(32)
-  canCreateEditProjects Boolean @default(false) @map("can_create_edit_projects")
-  canDeleteProjects     Boolean @default(false) @map("can_delete_projects")
+  canCreateEditInitiatives Boolean @default(false) @map("can_create_edit_initiatives")
+  canDeleteInitiatives     Boolean @default(false) @map("can_delete_initiatives")
   canAccessAdmin        Boolean @default(false) @map("can_access_admin")
   isReadOnly            Boolean @default(false) @map("is_read_only")
   canEditArchive        Boolean @default(false) @map("can_edit_archive")
@@ -166,6 +166,7 @@ model CustomFieldOption {
   definitionId String                @map("definition_id") @db.UniqueIdentifier
   value        String                @db.NVarChar(500)
   sortOrder    Int                   @map("sort_order")
+  isActive     Boolean               @default(true) @map("is_active")
   definition   CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([definitionId, value], map: "UX_custom_field_options_definition_value")
@@ -182,6 +183,7 @@ model Initiative {
   updatedAt DateTime         @updatedAt @map("updated_at") @db.DateTime2
   years     InitiativeYear[]
 
+  @@unique([kind, name], map: "UX_initiatives_kind_name")
   @@index([kind], map: "IX_initiatives_kind")
   @@map("initiatives")
 }

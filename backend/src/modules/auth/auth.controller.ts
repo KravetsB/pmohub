@@ -9,13 +9,14 @@ import { ChangePasswordDto, LoginDto } from './dto';
 import { AuthService } from './auth.service';
 import { AppError } from '../../common/errors/app-error';
 import { HttpStatus } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService, private readonly config: ConfigService) {}
 
-  @Public() @HttpCode(200) @Post('login')
+  @Public() @Throttle({ default: { limit: 5, ttl: 60_000 } }) @HttpCode(200) @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     this.assertAllowedOrigin(req);
     const session = await this.auth.login(dto.email, dto.password, req.headers['user-agent']);
@@ -24,7 +25,7 @@ export class AuthController {
     return body;
   }
 
-  @Public() @HttpCode(200) @Post('refresh')
+  @Public() @Throttle({ default: { limit: 20, ttl: 60_000 } }) @HttpCode(200) @Post('refresh')
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     this.assertAllowedOrigin(req);
     const session = await this.auth.refresh(req.cookies?.pmohub_refresh, req.headers['user-agent']);
@@ -44,8 +45,11 @@ export class AuthController {
   @Get('me') me(@CurrentUser() user: AuthUser) { return user; }
 
   @HttpCode(200) @Post('change-password')
-  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
-    return this.auth.changePassword(user, dto.current_password, dto.new_password);
+  async changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const session = await this.auth.changePassword(user, dto.current_password, dto.new_password, req.headers['user-agent']);
+    this.setRefreshCookie(res, session.refresh_token);
+    const { refresh_token: _, ...body } = session;
+    return body;
   }
 
   private setRefreshCookie(response: Response, token: string) {

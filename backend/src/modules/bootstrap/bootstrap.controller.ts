@@ -6,6 +6,7 @@ import { AuthUser } from '../../common/auth/auth-user';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { DictionariesService } from '../dictionaries/dictionaries.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
+import { currentPeriod } from '../initiatives/domain/period.policy';
 
 @ApiTags('bootstrap') @ApiBearerAuth() @ApiOkResponse({ type: ApiSuccessDto }) @Controller('bootstrap')
 export class BootstrapController {
@@ -28,6 +29,7 @@ export class BootstrapController {
         initiativeSizes,
         customFields,
         rolePermissions: currentRolePermission ? [currentRolePermission] : [],
+        businessPeriod: { ...currentPeriod(), time_zone: 'Europe/Kyiv' },
       },
     };
   }

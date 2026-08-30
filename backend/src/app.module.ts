@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { environmentSchema } from './config/environment';
@@ -17,7 +17,6 @@ import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module
 import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuditModule } from './modules/audit/audit.module';
-import { AdminMutationAuditInterceptor } from './common/audit/admin-mutation-audit.interceptor';
 
 @Module({
   imports: [
@@ -39,7 +38,6 @@ import { AdminMutationAuditInterceptor } from './common/audit/admin-mutation-aud
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AccessTokenGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
-    { provide: APP_INTERCEPTOR, useClass: AdminMutationAuditInterceptor },
   ],
 })
 export class AppModule implements NestModule {

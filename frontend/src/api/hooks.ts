@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ApiResponse, apiRequest, loadBootstrap, loadInitiativeCardModel, loadInitiativeYearModel, loadInitiativeYears, loadPermissions, loadQuarterCards, loadUsers } from './apiClient';
+import { ApiResponse, apiRequest, loadAnalyticsDrilldown, loadBootstrap, loadInitiativeCardModel, loadInitiativeYearCounts, loadInitiativeYearModel, loadInitiativeYears, loadPermissions, loadQuarterCards, loadUsers } from './apiClient';
 import { queryKeys } from './queryClient';
 import { loadAnalytics } from './apiClient';
 import { AnalyticsMode } from '../features/analytics/analyticsTypes';
@@ -16,9 +16,14 @@ export const useInitiativeYearsQuery = (kind: 'project' | 'task', enabled = true
   queryFn: ({ signal }) => loadInitiativeYears(kind, signal, year),
   enabled,
 });
-export const useQuarterCardsQuery = (kind: 'project' | 'task', enabled = true, year?: number, quarter?: string, view?: 'analytics') => useQuery({
-  queryKey: queryKeys.portfolioCards(kind, year, quarter, view ?? 'detail'),
-  queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter, view),
+export const useInitiativeYearCountsQuery = (year: number, enabled = true) => useQuery({
+  queryKey: queryKeys.initiativeYearCounts(year),
+  queryFn: ({ signal }) => loadInitiativeYearCounts(year, signal),
+  enabled,
+});
+export const useQuarterCardsQuery = (kind: 'project' | 'task', enabled = true, year?: number, quarter?: string) => useQuery({
+  queryKey: queryKeys.portfolioCards(kind, year, quarter),
+  queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter),
   enabled,
 });
 export const useQuarterCardDetailQuery = (id?: string) => useQuery({
@@ -47,4 +52,9 @@ export const useAnalyticsQuery = (mode: AnalyticsMode, params: URLSearchParams, 
   queryFn: ({ signal }) => loadAnalytics(mode, params, signal),
   enabled,
   placeholderData: (previous) => previous,
+});
+export const useAnalyticsDrilldownQuery = (params: URLSearchParams, enabled = true) => useQuery({
+  queryKey: queryKeys.analyticsDrilldown(params.toString()),
+  queryFn: ({ signal }) => loadAnalyticsDrilldown(params, signal),
+  enabled,
 });

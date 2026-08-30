@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
@@ -33,8 +33,13 @@ export class AccessTokenGuard implements CanActivate {
         department_id: user.departmentId ?? undefined,
         must_change_password: user.mustChangePassword,
       };
+      const path = String(request.path ?? request.url ?? '');
+      if (user.mustChangePassword && !path.endsWith('/auth/change-password') && !path.endsWith('/auth/me')) {
+        throw new ForbiddenException({ success: false, code: 'PASSWORD_CHANGE_REQUIRED', message: 'Потрібно змінити тимчасовий пароль' });
+      }
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) throw error;
       throw new UnauthorizedException({ success: false, code: 'INVALID_ACCESS_TOKEN', message: 'Сесія недійсна або завершилася' });
     }
   }

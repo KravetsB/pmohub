@@ -11,6 +11,7 @@ import {
   loginSession, logoutSession, refreshSession, setAuthFailureHandler, toInitiativeYearViewModel, toQuarterCardViewModel,
 } from "../../api/apiClient";
 import { queryKeys } from "../../api/queryClient";
+import { invalidateInitiativeCaches } from "../../api/cacheInvalidation";
 import { useBootstrapQuery, useInitiativeYearsQuery, usePermissionsQuery, useQuarterCardsQuery, useUsersQuery } from "../../api/hooks";
 import { getChainId, getYearSnapshot, preparationMetadataFrom } from "../../domain/initiatives";
 import { getPermissions } from "../../domain/permissions";
@@ -18,10 +19,11 @@ import { executeBackendMutation } from "./backend-mutation";
 import { dictionaryApiType, dictionaryPayload, DictionaryItem, DictionaryStateKey } from "./dictionary-api";
 import { fail, ok } from "./helpers";
 import { serverCommands } from "./server-commands";
-import { uuidOrUndefined } from "./api-contract-mappers";
+import { activeReferenceId, uuidOrUndefined } from "./api-contract-mappers";
 import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 import { notify } from "../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
+import { isPeriodLocked } from "../../shared/utils";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -107,11 +109,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
   const [sessionReady, setSessionReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [adminDataEnabled, setAdminDataEnabled] = useState(false);
   const enableAdminData = useCallback(() => setAdminDataEnabled(true), []);
   const disableAdminData = useCallback(() => setAdminDataEnabled(false), []);
   const [dataScope, setInitiativeDataScope] = useState<InitiativeDataScope>(initialDataScope);
-  const bootstrapQuery = useBootstrapQuery(authenticated);
+  const bootstrapQuery = useBootstrapQuery(authenticated && !sessionUser?.must_change_password);
   const projectMode = dataScope.mode === "projects";
   const taskMode = dataScope.mode === "tasks";
   const projectBacklogMode = dataScope.mode === "backlog" && dataScope.kind === "project";
@@ -132,19 +135,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await queryClient.fetchQuery({ queryKey: queryKeys.bootstrap, queryFn: ({ signal }) => loadBootstrap(signal), staleTime: 0 });
   }, [queryClient]);
   const refreshKind = useCallback(async (kind: InitiativeKind) => {
-    await Promise.all([
-      queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" }),
-      queryClient.refetchQueries({ queryKey: ["quarter-cards", kind], type: "active" }),
-    ]);
+    await invalidateInitiativeCaches(queryClient, kind);
   }, [queryClient]);
   const refreshAllInitiatives = useCallback(async () => {
     await Promise.all([refreshKind("project"), refreshKind("task")]);
   }, [refreshKind]);
   const refreshInitialData = useCallback(async () => {
     const requests: Array<Promise<unknown>> = [refreshBootstrap()];
-    const loadKind = (kind: InitiativeKind, includeYears: boolean, year?: number, quarter?: Quarter, view?: "analytics") => {
+    const loadKind = (kind: InitiativeKind, includeYears: boolean, year?: number, quarter?: Quarter) => {
       if (includeYears) requests.push(queryClient.fetchQuery({ queryKey: queryKeys.initiativeYears(kind, year), queryFn: ({ signal }) => loadInitiativeYears(kind, signal, year), staleTime: 0 }));
-      requests.push(queryClient.fetchQuery({ queryKey: queryKeys.portfolioCards(kind, year, quarter, view ?? "detail"), queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter, view), staleTime: 0 }));
+      requests.push(queryClient.fetchQuery({ queryKey: queryKeys.portfolioCards(kind, year, quarter), queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter), staleTime: 0 }));
     };
     if (dataScope.mode === "projects") loadKind("project", false, dataScope.year, dataScope.quarter);
     else if (dataScope.mode === "tasks") loadKind("task", false, dataScope.year, dataScope.quarter);
@@ -169,8 +169,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   [refreshInitialData]);
 
   useEffect(() => {
-    setAuthFailureHandler(() => { setAuthenticated(false); queryClient.clear(); });
-    refreshSession().then(async () => { setAuthenticated(true); await refreshInitialData(); })
+    setAuthFailureHandler(() => { setAuthenticated(false); setSessionUser(null); queryClient.clear(); });
+    refreshSession().then(async (session) => { setSessionUser(session.user); setAuthenticated(true); if (!session.user.must_change_password) await refreshInitialData(); })
       .catch(() => setAuthenticated(false)).finally(() => setSessionReady(true));
     return () => setAuthFailureHandler(null);
     // Session restoration runs once. Feature scope changes are handled by the
@@ -191,7 +191,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     users: usersQuery.data ?? [],
     rolePermissions: permissionsQuery.data ?? bootstrap?.rolePermissions ?? [],
     customFields: bootstrap?.customFields ?? [],
-    currentUser: bootstrap?.currentUser ?? null,
+    currentUser: bootstrap?.currentUser ?? sessionUser,
     projects: [
       ...(projectYearsQuery.data ?? []).map(toInitiativeYearViewModel),
       ...(projectBacklogMode ? (projectNextYearsQuery.data ?? []).map(toInitiativeYearViewModel) : []),
@@ -216,13 +216,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       department_ids: raw.cross_functional_dept_ids.filter((id) => uuidOrUndefined(id)),
     },
   });
+  const activeWeightId = (item: Initiative["checklist"][number], fallbackWeightId?: string) => {
+    const selectedId = item.weightId ?? item.weightSnapshot?.definitionId;
+    return activeReferenceId(selectedId, state.taskWeights, fallbackWeightId) ?? "";
+  };
   const initialCardBody = (record: Initiative) => {
     const statusId = healthStatusId(record.health_status, record);
     const fallbackWeightId = state.taskWeights.find((weight) => weight.is_active && weight.is_default)?.id;
     const scope = record.checklist.map((item) => ({
       text: item.text,
       status_code: (item.color === "GRAY" ? "DEFAULT" : (item.color ?? (item.is_completed ? "GREEN" : "DEFAULT"))) as "DEFAULT" | "GREEN" | "YELLOW" | "RED",
-      weight_definition_id: uuidOrUndefined(item.weightId ?? item.weightSnapshot?.definitionId) ?? fallbackWeightId ?? "",
+      weight_definition_id: activeWeightId(item, fallbackWeightId),
       executor_department_ids: (item.implementer_dept_ids ?? []).filter((id) => uuidOrUndefined(id)),
     }));
     if (!statusId || scope.some((item) => !item.weight_definition_id)) return null;
@@ -246,7 +250,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ...(uuidOrUndefined(item.id) && item.revision ? { revision: item.revision } : {}),
       text: item.text,
       status_code: (item.color === "GRAY" ? "DEFAULT" : (item.color ?? (item.is_completed ? "GREEN" : "DEFAULT"))) as "DEFAULT" | "GREEN" | "YELLOW" | "RED",
-      weight_definition_id: uuidOrUndefined(item.weightId ?? item.weightSnapshot?.definitionId) ?? fallbackWeightId ?? "",
+      weight_definition_id: activeWeightId(item, fallbackWeightId),
       executor_department_ids: (item.implementer_dept_ids ?? []).filter((id) => uuidOrUndefined(id)),
     }));
     return {
@@ -268,9 +272,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const adminAllowed = () => Boolean(getPermissions(state.currentUser, state.rolePermissions)?.canAccessAdmin);
   const authenticate = async (email: string, password: string): Promise<MutationResult> => {
     try {
-      await loginSession(email, password);
+      const session = await loginSession(email, password);
+      setSessionUser(session.user);
       setAuthenticated(true);
-      await refreshInitialData();
+      if (!session.user.must_change_password) await refreshInitialData();
       notify(NOTIFICATION_KINDS.success, SYSTEM_MESSAGES.auth.loginSuccess);
       return ok(SYSTEM_MESSAGES.auth.loginSuccess);
     } catch (error) {
@@ -281,6 +286,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
   const logout = () => {
     setAuthenticated(false);
+    setSessionUser(null);
     setAdminDataEnabled(false);
     queryClient.clear();
     notify(NOTIFICATION_KINDS.success, SYSTEM_MESSAGES.auth.logoutSuccess);
@@ -288,7 +294,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
   const changePassword = async (currentPassword: string, newPassword: string): Promise<MutationResult> => {
     try {
-      await changeApiPassword(currentPassword, newPassword);
+      const session = await changeApiPassword(currentPassword, newPassword);
+      setSessionUser(session.user);
+      await refreshInitialData();
       notify(NOTIFICATION_KINDS.success, SYSTEM_MESSAGES.auth.passwordChanged);
       return ok(SYSTEM_MESSAGES.auth.passwordChanged);
     } catch (error) {
@@ -334,11 +342,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (!response.data) throw new Error(SYSTEM_MESSAGES.api.canonicalCardMissing);
       queryClient.setQueriesData<QuarterCardReadModel[]>({ queryKey: ["quarter-cards", kind] }, (current) => current?.map((item) => item.id === id ? response.data : item));
       queryClient.setQueryData(queryKeys.initiativeCard(id), response.data);
-      await queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["quarter-cards", kind], refetchType: "none" }),
+        queryClient.invalidateQueries({ queryKey: ["analytics"], refetchType: "none" }),
+      ]);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" }),
+        queryClient.refetchQueries({ queryKey: ["quarter-cards", kind], type: "active" }),
+        queryClient.refetchQueries({ queryKey: ["analytics"], type: "active" }),
+      ]);
     };
     const updatedRecord = { ...record, ...patch };
     const body = cardBody(updatedRecord, record.revision);
     if (!body || body.scope.some((item) => !item.weight_definition_id)) return Promise.resolve(fail(SYSTEM_MESSAGES.initiatives.activeWeightRequired));
+    if (record.record_type === 'CARD' && (record.is_locked ?? isPeriodLocked(record.year, record.quarter))) {
+      return executeRemote(() => serverCommands.updateArchivedCard(id, {
+        revision: record.revision!, notes: updatedRecord.notes, status_id: body.status_id,
+        scope_status_updates: body.scope.filter((item) => item.id && item.revision).map((item) => ({ id: item.id!, revision: item.revision!, status_code: item.status_code })),
+      }), refreshCard);
+    }
     return executeRemote(() => serverCommands.updateCard(id, body), refreshCard);
   };
   const removeInitiative = (kind: InitiativeKind, id: string): Promise<MutationResult> => {
@@ -410,7 +432,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const updateCustomField = (id: string, patch: Partial<CustomFieldDef>) => { const current = state.customFields.find((item) => item.id === id); if (!current) return Promise.resolve(fail(SYSTEM_MESSAGES.entities.fieldNotFound)); const { id: _id, ...body } = { ...current, ...patch }; return executeRemote(() => serverCommands.customField("PATCH", id, body), refreshBootstrap); };
   const deleteCustomField = (id: string) => executeRemote(() => serverCommands.customField("DELETE", id), refreshBootstrap);
   const value: AppContextType = {
-    ...state, isHydrating: !sessionReady || (authenticated && bootstrapQuery.isPending), backendEnabled: true,
+    ...state, isHydrating: !sessionReady || (authenticated && !sessionUser?.must_change_password && bootstrapQuery.isPending), backendEnabled: true,
     enableAdminData,
     disableAdminData,
     setInitiativeDataScope,

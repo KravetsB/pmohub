@@ -38,22 +38,27 @@ export const SYSTEM_MESSAGES = {
 
   // Валідація команд ініціатив, карток і річних записів.
   initiatives: {
-    validYearIdRequired: "Потрібен валідний initiative_year_id",
+    validYearIdRequired: "Не вдалося визначити річний запис ініціативи",
     recordUnavailable: "Запис не знайдено або недоступний для цієї команди",
     initiativeRevisionMissing: "Відсутня revision кореня ініціативи",
     recordRevisionMissing: "Запис не знайдено або відсутня revision",
     cardRevisionMissing: "Картку не знайдено або відсутня revision",
     yearRevisionMissing: "Річний запис не знайдено або відсутня revision",
     activeWeightRequired: "Для кожного завдання потрібна активна вага",
-    initialCardDataInvalid: "Для картки потрібні валідний статус і вага кожного завдання",
+    initialCardDataInvalid: "Для картки потрібно вибрати доступний статус і вагу кожного завдання",
     onlyOneInitialCard: "За одну операцію можна створити лише одну початкову квартальну картку",
-    snapshotCreated: "Snapshot створено",
+    snapshotCreated: "Річний запис створено",
     saveNewCardFirst: "Спочатку збережіть нову картку",
+    discardDraftForTransfer: "У формі є незбережені зміни. Відкинути їх і продовжити операцію?",
     cardCreationPeriodRestricted:
       "Картки можна створювати лише для поточного або майбутніх кварталів",
+    yearHasQuarterCards:
+      "Запис беклогу не можна видалити, доки для нього існують квартальні картки.",
+    cardHasCompletedScope:
+      "Квартальну картку не можна видалити, оскільки вона містить завершені завдання.",
   },
 
-  // Довідники, custom fields та локальні перевірки наявності сутності.
+  // Довідники, додаткові поля та локальні перевірки наявності сутності.
   entities: {
     recordNotFound: "Запис не знайдено",
     fieldNotFound: "Поле не знайдено",

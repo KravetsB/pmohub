@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/initiative-years/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InitiativeYearsController_counts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/initiative-years/{id}": {
         parameters: {
             query?: never;
@@ -274,6 +290,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["QuarterCardsController_update"];
+        trace?: never;
+    };
+    "/api/v1/quarter-cards/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["QuarterCardsController_updateArchive"];
         trace?: never;
     };
     "/api/v1/quarter-cards/{id}/move": {
@@ -532,7 +564,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/analytics/quarterly": {
+    "/api/v1/analytics/quarterly/summary": {
         parameters: {
             query?: never;
             header?: never;
@@ -548,7 +580,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/analytics/annual": {
+    "/api/v1/analytics/annual/summary": {
         parameters: {
             query?: never;
             header?: never;
@@ -556,6 +588,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["AnalyticsController_annual"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/drilldown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_drilldown"];
         put?: never;
         post?: never;
         delete?: never;
@@ -673,6 +721,8 @@ export interface components {
             status_code: string;
             revision: number;
             total_weight: number;
+            is_locked: boolean;
+            locked_at: string;
         };
         InitiativeYearReadModelDto: {
             id: string;
@@ -686,6 +736,8 @@ export interface components {
             revision: number;
             preparation: components["schemas"]["PreparationStageReadModelDto"] | null;
             cards: components["schemas"]["QuarterCardSummaryDto"][];
+            is_locked: boolean;
+            locked_at: string;
         };
         InitiativeYearsResponseDto: {
             /** @enum {boolean} */
@@ -776,6 +828,8 @@ export interface components {
             scope: components["schemas"]["ScopeItemReadModelDto"][];
             moved_from: Record<string, never> | null;
             revision: number;
+            is_locked: boolean;
+            locked_at: string;
         };
         QuarterCardsResponseDto: {
             /** @enum {boolean} */
@@ -820,6 +874,21 @@ export interface components {
             /** @default [] */
             scope: components["schemas"]["ScopeItemDto"][];
         };
+        ArchiveScopeStatusDto: {
+            /** Format: uuid */
+            id: string;
+            revision: number;
+            /** @enum {string} */
+            status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
+        };
+        UpdateArchivedCardDto: {
+            revision: number;
+            notes?: string;
+            /** Format: uuid */
+            status_id?: string;
+            /** @default [] */
+            scope_status_updates: components["schemas"]["ArchiveScopeStatusDto"][];
+        };
         PeriodCommandDto: {
             revision: number;
             to_year: number;
@@ -847,8 +916,8 @@ export interface components {
             is_active?: boolean;
         };
         UpdatePermissionDto: {
-            canCreateEditProjects?: boolean;
-            canDeleteProjects?: boolean;
+            canCreateEditInitiatives?: boolean;
+            canDeleteInitiatives?: boolean;
             canAccessAdmin?: boolean;
             isReadOnly?: boolean;
             canEditArchive?: boolean;
@@ -876,6 +945,84 @@ export interface components {
             showInTable?: boolean;
             showInCards?: boolean;
             isActive?: boolean;
+        };
+        CardStatusMetricDto: {
+            /** Format: uuid */
+            status_id: string;
+            code: string;
+            name: string;
+            color: string;
+            count: number;
+            card_ids: string[];
+        };
+        StatusCountsDto: {
+            GREEN: number;
+            YELLOW: number;
+            RED: number;
+            DEFAULT: number;
+        };
+        AnalyticsSummaryDataDto: {
+            /** @enum {string} */
+            mode: "QUARTERLY" | "ANNUAL";
+            available_years: number[];
+            summary: Record<string, never>;
+            status_distribution: components["schemas"]["CardStatusMetricDto"][];
+            scope_status_counts: components["schemas"]["StatusCountsDto"];
+            size_breakdown: Record<string, never>[];
+            priority_breakdown: Record<string, never>[];
+            priority_status_breakdown: Record<string, never>[];
+            department_capacity: Record<string, never>[];
+            capacity_by_quarter: Record<string, never>[];
+            manager_loads: Record<string, never>[];
+            risks: Record<string, never>[];
+            quarter_trend: Record<string, never>[];
+            volume_trend: Record<string, never>[];
+            period_comparison: Record<string, never>[];
+            history: Record<string, never>[];
+            preparation: Record<string, never>;
+        };
+        AnalyticsSummaryResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message?: string;
+            data: components["schemas"]["AnalyticsSummaryDataDto"];
+        };
+        AnalyticsRecordDto: {
+            id: string;
+            initiative_id: string;
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            name: string;
+            year: number;
+            /** @enum {string} */
+            quarter: "Q1" | "Q2" | "Q3" | "Q4";
+            manager_id: string | null;
+            manager_name: string | null;
+            priority_id: string | null;
+            priority_name: string | null;
+            department_ids: string[];
+            /** Format: uuid */
+            status_id: string;
+            status_code: string;
+            status_name: string;
+            status_color: string;
+            total_weight: number;
+            size_name: string;
+            progress: number;
+            scope_items: number;
+            risks: string[];
+        };
+        AnalyticsDrilldownDataDto: {
+            records: components["schemas"]["AnalyticsRecordDto"][];
+            page: number;
+            page_size: number;
+            total: number;
+        };
+        AnalyticsDrilldownResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message?: string;
+            data: components["schemas"]["AnalyticsDrilldownDataDto"];
         };
     };
     responses: never;
@@ -1089,6 +1236,25 @@ export interface operations {
             };
         };
     };
+    InitiativeYearsController_counts: {
+        parameters: {
+            query: {
+                year: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     InitiativeYearsController_get: {
         parameters: {
             query?: never;
@@ -1266,7 +1432,6 @@ export interface operations {
                 kind?: string;
                 year?: string;
                 quarter?: string;
-                view?: string;
             };
             header?: never;
             path?: never;
@@ -1338,6 +1503,29 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateCardDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QuarterCardsController_updateArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateArchivedCardDto"];
             };
         };
         responses: {
@@ -1901,7 +2089,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
+                    "application/json": components["schemas"]["AnalyticsSummaryResponseDto"];
                 };
             };
         };
@@ -1925,7 +2113,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
+                    "application/json": components["schemas"]["AnalyticsSummaryResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_drilldown: {
+        parameters: {
+            query: {
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+                mode: "quarterly" | "annual";
+                quarter?: "Q1" | "Q2" | "Q3" | "Q4";
+                card_ids?: string;
+                status_id?: string;
+                page: number;
+                page_size: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDrilldownResponseDto"];
                 };
             };
         };

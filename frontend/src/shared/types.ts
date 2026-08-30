@@ -32,6 +32,8 @@ export interface QuarterCardSummary {
   status_code: string;
   revision: number;
   total_weight: number;
+  is_locked: boolean;
+  locked_at: string;
 }
 
 export interface InitiativeYearReadModel {
@@ -45,6 +47,8 @@ export interface InitiativeYearReadModel {
   revision: number;
   preparation: PreparationStageReadModel | null;
   cards: QuarterCardSummary[];
+  is_locked: boolean;
+  locked_at: string;
 }
 
 export interface ScopeItemReadModel {
@@ -86,6 +90,8 @@ export interface QuarterCardReadModel {
   scope: ScopeItemReadModel[];
   moved_from: { year: number; quarter: Quarter } | null;
   revision: number;
+  is_locked: boolean;
+  locked_at: string;
 }
 
 export interface User {
@@ -95,12 +101,13 @@ export interface User {
   email: string;
   role: UserRole;
   departmentId?: string;
+  must_change_password?: boolean;
 }
 
 export interface RolePermissions {
   role: UserRole;
-  canCreateEditProjects: boolean;
-  canDeleteProjects: boolean;
+  canCreateEditInitiatives: boolean;
+  canDeleteInitiatives: boolean;
   canAccessAdmin: boolean;
   isReadOnly: boolean;
   canEditArchive: boolean;
@@ -220,6 +227,8 @@ export interface InitiativeViewModel extends InitiativeMetadata {
   moved_from?: string;
   history?: HistoryEvent[];
   sizeSnapshot?: InitiativeSizeSnapshot;
+  is_locked?: boolean;
+  locked_at?: string;
 }
 
 export interface PriorityDef {

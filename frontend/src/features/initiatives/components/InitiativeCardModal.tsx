@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRight, Copy, Plus, Trash2, X } from "lucide-react";
 import { useAppContext } from "../../../app/store";
 import {
@@ -7,6 +8,7 @@ import {
   MutationResult,
   Priority,
   InitiativeViewModel,
+  QuarterCardReadModel,
   Quarter,
 } from "../../../shared/types";
 import {
@@ -26,6 +28,11 @@ import styles from "./InitiativeCardModal.module.css";
 import { SYSTEM_MESSAGES } from "../../../shared/constants/systemMessages";
 import { InitiativeHistory } from "./InitiativeHistory";
 import { useAuditQuery } from "../../../api/hooks";
+import { ApiError, loadInitiativeCardModel } from "../../../api/apiClient";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../../api/queryClient";
+import { notify } from "../../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
 
 type Initiative = InitiativeViewModel;
 type Kind = "project" | "task";
@@ -82,6 +89,7 @@ export const InitiativeCardModal = ({
   defaultYear,
   defaultQuarter,
 }: Props) => {
+  const queryClient = useQueryClient();
   const {
     customFields,
     departments,
@@ -102,11 +110,14 @@ export const InitiativeCardModal = ({
   const quarter = item?.quarter ?? defaultQuarter ?? getCurrentQuarter();
   const noun = kind === "project" ? "проєкту" : "операційної задачі";
   const canSwitchToEdit = Boolean(
-    item && canEditInitiative(item, currentUser, rolePermissions),
+    item && !locked && canEditInitiative(item, currentUser, rolePermissions),
   );
   const permissions = getPermissions(currentUser, rolePermissions);
-  const canCopyScope = Boolean(item && permissions?.canCreateEditProjects && !permissions.isReadOnly);
-  const scopeWeightLocked = Boolean(item && isPeriodLocked(year, quarter));
+  const canCopyScope = Boolean(item && permissions?.canCreateEditInitiatives && !permissions.isReadOnly);
+  const hasCompletedScope = Boolean(item?.checklist.some((scopeItem) =>
+    scopeItem.status_code === "GREEN" || scopeItem.color === "GREEN",
+  ));
+  const scopeWeightLocked = Boolean(item && (item.is_locked ?? isPeriodLocked(year, quarter)));
   const [name, setName] = useState(item?.name ?? "");
   const [goal, setGoal] = useState(item?.strategic_goal ?? "");
   const [managerId, setManagerId] = useState(item?.manager_id ?? "");
@@ -124,9 +135,9 @@ export const InitiativeCardModal = ({
   const [activeTab, setActiveTab] = useState<"SCOPE" | "HISTORY">("SCOPE");
   const auditQuery = useAuditQuery(activeTab === "HISTORY" && item ? "QuarterCard" : undefined, activeTab === "HISTORY" ? item?.id : undefined);
   const [newText, setNewText] = useState("");
-  const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
+  const [committedRefreshFailed, setCommittedRefreshFailed] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(locked || openInViewMode);
   const nextPeriod =
     quarter === "Q4"
@@ -144,6 +155,22 @@ export const InitiativeCardModal = ({
   );
   const [movingId, setMovingId] = useState<string | null>(null);
   const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">("MOVE");
+  const hasUnsavedChanges = Boolean(item) && (
+    managerId !== (item?.manager_id ?? "") || priority !== (item?.priority ?? "") || notes !== (item?.notes ?? "") ||
+    JSON.stringify(involved) !== JSON.stringify(item?.cross_functional_dept_ids ?? []) ||
+    JSON.stringify(checklist) !== JSON.stringify(item?.checklist ?? []) ||
+    JSON.stringify(fieldVals) !== JSON.stringify(item?.custom_fields ?? {})
+  );
+  const refreshCanonicalCard = async () => {
+    if (!item) return;
+    const response = await loadInitiativeCardModel(item.id);
+    queryClient.setQueryData(queryKeys.initiativeCard(item.id), response.data);
+    queryClient.setQueriesData<QuarterCardReadModel[]>({ queryKey: ["quarter-cards", kind] }, (current) =>
+      current?.map((card) => card.id === item.id ? response.data : card),
+    );
+    await queryClient.invalidateQueries({ queryKey: ["analytics"], refetchType: "none" });
+    await queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" });
+  };
   const executors = useMemo(
     () =>
       Array.from(
@@ -196,18 +223,18 @@ export const InitiativeCardModal = ({
             kind === "project",
           );
   const requestMove = async () => {
-    if (isPending || hasRevisionConflict) return;
+    if (isPending || hasRevisionConflict || committedRefreshFailed) return;
     if (!item) {
-      setError(SYSTEM_MESSAGES.initiatives.saveNewCardFirst);
+      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.initiatives.saveNewCardFirst);
       return;
     }
+    if (hasUnsavedChanges && !window.confirm(SYSTEM_MESSAGES.initiatives.discardDraftForTransfer)) return;
     setIsPending(true);
-    setError("");
     try {
       const result = await performMove();
       if (!result) return;
       if (!result.success) {
-        setError(result.message);
+        notify(NOTIFICATION_KINDS.error, result.message);
         return;
       }
       onClose();
@@ -226,7 +253,7 @@ export const InitiativeCardModal = ({
         kind === "project",
       );
       if (!result.success) {
-        setError(result.message);
+        notify(NOTIFICATION_KINDS.error, result.message);
         return;
       }
       onClose();
@@ -236,17 +263,38 @@ export const InitiativeCardModal = ({
   };
   const save = async () => {
     if (isPending) return;
+    if (hasRevisionConflict && item) {
+      setIsPending(true);
+      try {
+        await refreshCanonicalCard();
+        setHasRevisionConflict(false);
+        notify(NOTIFICATION_KINDS.success, 'Актуальну версію завантажено. Перевірте чернетку та збережіть ще раз.');
+      } catch (refreshError) {
+        notify(NOTIFICATION_KINDS.error, refreshError instanceof ApiError ? refreshError.message : SYSTEM_MESSAGES.api.genericError);
+      } finally { setIsPending(false); }
+      return;
+    }
+    if (committedRefreshFailed && item) {
+      setIsPending(true);
+      try {
+        await refreshCanonicalCard();
+        setCommittedRefreshFailed(false);
+        onClose();
+      } catch (refreshError) {
+        notify(NOTIFICATION_KINDS.error, refreshError instanceof ApiError ? refreshError.message : SYSTEM_MESSAGES.api.genericError);
+      } finally { setIsPending(false); }
+      return;
+    }
     if (!name.trim()) {
-      setError(`Вкажіть назву ${noun}`);
+      notify(NOTIFICATION_KINDS.error, `Вкажіть назву ${noun}`);
       return;
     }
     const validation = validateChecklistCapacity(checklist, taskWeights);
     if (validation.length) {
-      setError(validation.join(" • "));
+      notify(NOTIFICATION_KINDS.error, validation.join(" • "));
       return;
     }
     setIsPending(true);
-    setError("");
     try {
       const result = await onSave({
       ...(item ?? {}),
@@ -271,8 +319,9 @@ export const InitiativeCardModal = ({
       history: item?.history ?? [],
       } as Initiative);
       if (result && !result.success) {
-        setError(result.message);
+        notify(NOTIFICATION_KINDS.error, result.message);
         if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
+        if (result.status === "COMMITTED_REFRESH_FAILED") setCommittedRefreshFailed(true);
       }
     } finally {
       setIsPending(false);
@@ -280,8 +329,11 @@ export const InitiativeCardModal = ({
   };
   const requestDelete = async () => {
     if (!item || !onDelete || isPending) return;
+    if (hasCompletedScope) {
+      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.initiatives.cardHasCompletedScope);
+      return;
+    }
     setIsPending(true);
-    setError("");
     try {
       await onDelete(item.id);
     } finally {
@@ -467,7 +519,7 @@ export const InitiativeCardModal = ({
     );
   };
 
-  return (
+  return createPortal(
     <div className={styles.overlay}>
       <div className={styles.dialog}>
         <header className={styles.header}>
@@ -495,7 +547,8 @@ export const InitiativeCardModal = ({
                 <button
                   type="button"
                   onClick={requestDelete}
-                  disabled={isPending}
+                  disabled={isPending || hasCompletedScope}
+                  title={hasCompletedScope ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope : undefined}
                   className={`modal-secondary ${styles.headerAction} ${styles.deleteAction}`}
                 >
                   <Trash2 size={16} className="text-rose-500" />
@@ -514,14 +567,6 @@ export const InitiativeCardModal = ({
           </button>
         </header>
         <main className={`${styles.content} modal-scroll`}>
-          {error && (
-            <div
-              role="alert"
-              className={styles.error}
-            >
-              {error}
-            </div>
-          )}
           {showMove && !movingId && movePanel(false)}
           {item && !isReadOnly && (
             <div className={styles.mobileActions}>
@@ -540,7 +585,8 @@ export const InitiativeCardModal = ({
                 <button
                   type="button"
                   onClick={requestDelete}
-                  disabled={isPending}
+                  disabled={isPending || hasCompletedScope}
+                  title={hasCompletedScope ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope : undefined}
                   className={`modal-secondary ${styles.mobileAction}`}
                 >
                   <Trash2 size={15} className="text-rose-500" />
@@ -554,7 +600,7 @@ export const InitiativeCardModal = ({
               Назва <span className="text-rose-500">*</span>
             </label>
             <input
-              disabled
+              disabled={Boolean(item) || isReadOnly}
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="modal-field text-lg leading-6 font-semibold"
@@ -660,7 +706,7 @@ export const InitiativeCardModal = ({
           <div>
             <label className="modal-label">Стратегічна задача</label>
             <textarea
-              disabled
+              disabled={Boolean(item) || isReadOnly}
               value={goal}
               onChange={(event) => setGoal(event.target.value)}
               onInput={resize}
@@ -970,11 +1016,12 @@ export const InitiativeCardModal = ({
               disabled={isPending}
               className={`modal-primary ${styles.footerPrimary}`}
             >
-              {isPending ? "Збереження…" : hasRevisionConflict ? "Оновіть картку" : "Зберегти"}
+              {isPending ? "Завантаження…" : committedRefreshFailed ? "Повторити завантаження" : hasRevisionConflict ? "Оновити версію" : "Зберегти"}
             </button>
           )}
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

@@ -1,14 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsUniqueIdentifier } from '../../../common/validation/unique-identifier.decorator';
 
 export const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'] as const;
 export type QuarterDto = (typeof QUARTERS)[number];
 
 export class PreparationInputDto {
-  @IsOptional() @IsUUID() manager_id?: string;
-  @IsOptional() @IsUUID() priority_id?: string;
-  @IsArray() @IsUUID('4', { each: true }) department_ids: string[] = [];
+  @IsOptional() @IsUniqueIdentifier() manager_id?: string;
+  @IsOptional() @IsUniqueIdentifier() priority_id?: string;
+  @IsArray() @IsUniqueIdentifier({ each: true }) department_ids: string[] = [];
 }
 
 export class UpdateInitiativeDto {
@@ -37,21 +38,21 @@ export class CreateQuarterCardDto {
 }
 
 export class CreateScopeItemDto {
-  @IsOptional() @IsUUID() lineage_id?: string;
+  @IsOptional() @IsUniqueIdentifier() lineage_id?: string;
   @IsString() @IsNotEmpty() text!: string;
   @IsIn(['DEFAULT', 'GREEN', 'YELLOW', 'RED']) status_code!: 'DEFAULT' | 'GREEN' | 'YELLOW' | 'RED';
-  @IsUUID() weight_definition_id!: string;
-  @IsArray() @IsUUID('4', { each: true }) executor_department_ids: string[] = [];
+  @IsUniqueIdentifier() weight_definition_id!: string;
+  @IsArray() @IsUniqueIdentifier({ each: true }) executor_department_ids: string[] = [];
 }
 
 export class ScopeItemDto extends CreateScopeItemDto {
-  @IsOptional() @IsUUID() id?: string;
+  @IsOptional() @IsUniqueIdentifier() id?: string;
   @IsOptional() @IsInt() @Min(1) revision?: number;
 }
 
 export class InitialQuarterCardDto extends PreparationInputDto {
   @IsIn(QUARTERS) quarter!: QuarterDto;
-  @IsOptional() @IsUUID() status_id?: string;
+  @IsOptional() @IsUniqueIdentifier() status_id?: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsObject() custom_fields?: Record<string, unknown>;
   @IsArray() @ValidateNested({ each: true }) @Type(() => CreateScopeItemDto) scope: CreateScopeItemDto[] = [];
@@ -68,13 +69,27 @@ export class CreateInitiativeDto {
 
 export class UpdateCardDto {
   @IsInt() @Min(1) revision!: number;
-  @IsOptional() @IsUUID() manager_id?: string;
-  @IsOptional() @IsUUID() priority_id?: string;
-  @IsArray() @IsUUID('4', { each: true }) department_ids: string[] = [];
-  @IsUUID() status_id!: string;
+  @IsOptional() @IsUniqueIdentifier() manager_id?: string;
+  @IsOptional() @IsUniqueIdentifier() priority_id?: string;
+  @IsArray() @IsUniqueIdentifier({ each: true }) department_ids: string[] = [];
+  @IsUniqueIdentifier() status_id!: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsObject() custom_fields?: Record<string, unknown>;
   @IsArray() @ValidateNested({ each: true }) @Type(() => ScopeItemDto) scope: ScopeItemDto[] = [];
+}
+
+export class ArchiveScopeStatusDto {
+  @IsUniqueIdentifier() id!: string;
+  @IsInt() @Min(1) revision!: number;
+  @IsIn(['DEFAULT', 'GREEN', 'YELLOW', 'RED']) status_code!: 'DEFAULT' | 'GREEN' | 'YELLOW' | 'RED';
+}
+
+export class UpdateArchivedCardDto {
+  @IsInt() @Min(1) revision!: number;
+  @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsUniqueIdentifier() status_id?: string;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ArchiveScopeStatusDto)
+  scope_status_updates: ArchiveScopeStatusDto[] = [];
 }
 
 export class PeriodCommandDto {
@@ -89,7 +104,7 @@ export class DeleteInitiativeDto {
 }
 
 export class RevisionTargetDto {
-  @IsUUID() id!: string;
+  @IsUniqueIdentifier() id!: string;
   @IsInt() @Min(1) revision!: number;
 }
 
@@ -117,6 +132,8 @@ export class QuarterCardSummaryDto {
   @ApiProperty() status_code!: string;
   @ApiProperty() revision!: number;
   @ApiProperty() total_weight!: number;
+  @ApiProperty() is_locked!: boolean;
+  @ApiProperty() locked_at!: string;
 }
 
 export class InitiativeYearReadModelDto {
@@ -130,6 +147,8 @@ export class InitiativeYearReadModelDto {
   @ApiProperty() revision!: number;
   @ApiProperty({ nullable: true, type: PreparationStageReadModelDto }) preparation!: PreparationStageReadModelDto | null;
   @ApiProperty({ type: [QuarterCardSummaryDto] }) cards!: QuarterCardSummaryDto[];
+  @ApiProperty() is_locked!: boolean;
+  @ApiProperty() locked_at!: string;
 }
 
 export class ScopeItemReadModelDto {
@@ -171,6 +190,8 @@ export class QuarterCardReadModelDto {
   @ApiProperty({ type: [ScopeItemReadModelDto] }) scope!: ScopeItemReadModelDto[];
   @ApiProperty({ nullable: true, type: Object }) moved_from!: { year: number; quarter: QuarterDto } | null;
   @ApiProperty() revision!: number;
+  @ApiProperty() is_locked!: boolean;
+  @ApiProperty() locked_at!: string;
 }
 
 export class InitiativeYearResponseDto {

@@ -6,13 +6,16 @@ const actor = { id: '00000000-0000-4000-8000-000000000099', name: 'Admin', email
 describe('InitiativesService transactional rules', () => {
   it('creates the root, year, preparation and initial card inside one transaction', async () => {
     const tx: any = {
-      initiative: { create: vi.fn(async () => ({ id: 'initiative-1', revision: 1, years: [{ id: 'year-1' }] })) },
+      initiative: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'initiative-1', revision: 1, years: [{ id: 'year-1' }] })),
+      },
       initiativeStatus: { findUnique: vi.fn(async () => ({ id: 'default-status', isActive: true })) },
       taskWeight: { findMany: vi.fn(async () => []) },
       quarterCard: { create: vi.fn(async () => { throw new Error('card insert failed'); }) },
     };
     const prisma: any = {
-      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
       $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
     };
 
@@ -29,6 +32,28 @@ describe('InitiativesService transactional rules', () => {
     expect(tx.quarterCard.create).toHaveBeenCalledOnce();
   });
 
+  it('rejects a duplicate initiative name in the same portfolio kind', async () => {
+    const tx: any = {
+      initiative: { findFirst: vi.fn(async () => ({ id: 'existing-initiative' })) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    await expect(new InitiativesService(prisma).create({
+      kind: 'PROJECT',
+      name: ' Existing initiative ',
+      year: 2027,
+      preparation: { department_ids: [] },
+    }, actor)).rejects.toMatchObject({ code: 'INITIATIVE_NAME_CONFLICT', status: 409 });
+
+    expect(tx.initiative.findFirst).toHaveBeenCalledWith({
+      where: { kind: 'PROJECT', name: 'Existing initiative' },
+      select: { id: true },
+    });
+  });
+
   it('updates global name and yearly goal atomically in one transaction', async () => {
     const tx: any = {
       initiativeYear: {
@@ -39,7 +64,7 @@ describe('InitiativesService transactional rules', () => {
       auditEvent: { create: vi.fn(async () => ({})) },
     };
     const prisma: any = {
-      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
       $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
     };
 
@@ -101,7 +126,7 @@ describe('InitiativesService transactional rules', () => {
       auditEvent: { create: vi.fn(async () => ({})) },
     };
     const prisma: any = {
-      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
       $transaction: (callback: (client: any) => unknown) => callback(tx),
     };
 
@@ -162,7 +187,7 @@ describe('InitiativesService transactional rules', () => {
       auditEvent: { create: vi.fn(async () => ({})) },
     };
     const prisma: any = {
-      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditProjects: true })) },
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
       $transaction: (callback: (client: any) => unknown) => callback(tx),
     };
 
@@ -183,5 +208,31 @@ describe('InitiativesService transactional rules', () => {
       }),
     });
     expect(result.data.scope_item_id).toBe('copy');
+  });
+
+  it('does not delete a backlog year that contains any quarter card', async () => {
+    const tx: any = {
+      initiativeYear: { findUnique: vi.fn(async () => ({ id: 'year-old', initiativeId: 'initiative', year: 2025, quarterCards: [{ id: 'card-old', quarter: 1 }] })) },
+      quarterCard: {},
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canDeleteInitiatives: true })) },
+      $transaction: (callback: (client: any) => unknown) => callback(tx),
+    };
+    await expect(new InitiativesService(prisma).removeYear('year-old', 1, actor)).rejects.toMatchObject({ code: 'YEAR_HAS_QUARTER_CARDS' });
+  });
+
+  it('does not delete a quarter card with completed scope items', async () => {
+    const tx: any = {
+      quarterCard: { findUnique: vi.fn(async () => ({
+        id: 'card', initiativeYearId: 'year', quarter: 4,
+        initiativeYear: { year: 2099 }, scopeItems: [{ statusCode: 'GREEN' }],
+      })) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canDeleteInitiatives: true })) },
+      $transaction: (callback: (client: any) => unknown) => callback(tx),
+    };
+    await expect(new InitiativesService(prisma).removeCard('card', 1, actor)).rejects.toMatchObject({ code: 'CARD_HAS_COMPLETED_SCOPE' });
   });
 });

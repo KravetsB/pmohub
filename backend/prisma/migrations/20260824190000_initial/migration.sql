@@ -39,8 +39,8 @@ CREATE TABLE [dbo].[refresh_tokens] (
 -- CreateTable
 CREATE TABLE [dbo].[role_permissions] (
     [role] VARCHAR(32) NOT NULL,
-    [can_create_edit_projects] BIT NOT NULL CONSTRAINT [role_permissions_can_create_edit_projects_df] DEFAULT 0,
-    [can_delete_projects] BIT NOT NULL CONSTRAINT [role_permissions_can_delete_projects_df] DEFAULT 0,
+    [can_create_edit_initiatives] BIT NOT NULL CONSTRAINT [role_permissions_can_create_edit_initiatives_df] DEFAULT 0,
+    [can_delete_initiatives] BIT NOT NULL CONSTRAINT [role_permissions_can_delete_initiatives_df] DEFAULT 0,
     [can_access_admin] BIT NOT NULL CONSTRAINT [role_permissions_can_access_admin_df] DEFAULT 0,
     [is_read_only] BIT NOT NULL CONSTRAINT [role_permissions_is_read_only_df] DEFAULT 0,
     [can_edit_archive] BIT NOT NULL CONSTRAINT [role_permissions_can_edit_archive_df] DEFAULT 0,
@@ -154,6 +154,7 @@ CREATE TABLE [dbo].[custom_field_options] (
     [definition_id] UNIQUEIDENTIFIER NOT NULL,
     [value] NVARCHAR(500) NOT NULL,
     [sort_order] INT NOT NULL,
+    [is_active] BIT NOT NULL CONSTRAINT [custom_field_options_is_active_df] DEFAULT 1,
     CONSTRAINT [custom_field_options_pkey] PRIMARY KEY CLUSTERED ([id]),
     CONSTRAINT [UX_custom_field_options_definition_value] UNIQUE NONCLUSTERED ([definition_id],[value]),
     CONSTRAINT [UX_custom_field_options_definition_order] UNIQUE NONCLUSTERED ([definition_id],[sort_order])
@@ -291,6 +292,7 @@ CREATE NONCLUSTERED INDEX [IX_refresh_tokens_user_id] ON [dbo].[refresh_tokens](
 
 -- CreateIndex
 CREATE NONCLUSTERED INDEX [IX_initiatives_kind] ON [dbo].[initiatives]([kind]);
+CREATE UNIQUE NONCLUSTERED INDEX [UX_initiatives_kind_name] ON [dbo].[initiatives]([kind], [name]);
 
 -- CreateIndex
 CREATE NONCLUSTERED INDEX [IX_initiative_years_year] ON [dbo].[initiative_years]([year]);
@@ -384,7 +386,7 @@ ALTER TABLE [dbo].[audit_events] ADD CONSTRAINT [audit_events_actor_user_id_fkey
 
 
 -- Domain invariants not expressible in Prisma schema.
-ALTER TABLE [dbo].[users] ADD CONSTRAINT [CK_users_role] CHECK ([role] IN ('SUPER_ADMIN','ADMIN','USER','PROJECT_MANAGER','VIEWER'));
+ALTER TABLE [dbo].[users] ADD CONSTRAINT [CK_users_role] CHECK ([role] IN ('SUPER_ADMIN','ADMIN','USER'));
 ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_kind] CHECK ([kind] IN ('PROJECT','OPERATIONAL_TASK'));
 ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_revision] CHECK ([revision] >= 1);
 ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [CK_initiative_years_year] CHECK ([year] BETWEEN 2000 AND 2200);
@@ -400,7 +402,7 @@ ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [CK_scope_items_weight_snapshot] 
 ALTER TABLE [dbo].[task_weight_definitions] ADD CONSTRAINT [CK_task_weight_definitions_weight] CHECK ([weight] >= 0);
 ALTER TABLE [dbo].[departments] ADD CONSTRAINT [CK_departments_capacity] CHECK ([capacity_limit_points] >= 0);
 ALTER TABLE [dbo].[initiative_size_definitions] ADD CONSTRAINT [CK_initiative_size_definitions_range] CHECK ([min_score] >= 0 AND [max_score] >= [min_score]);
-ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_field_definitions_type] CHECK ([field_type] IN ('TEXT','NUMBER','SELECT','CHECKBOX','RICHTEXT','BOOLEAN','DATE'));
+ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_field_definitions_type] CHECK ([field_type] IN ('TEXT','NUMBER','SELECT','CHECKBOX','RICHTEXT'));
 ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_field_definitions_entity_type] CHECK ([entity_type] IN ('project','task'));
 ALTER TABLE [dbo].[quarter_card_custom_field_values] ADD CONSTRAINT [CK_quarter_card_custom_field_one_value] CHECK (
     (CASE WHEN [text_value] IS NULL THEN 0 ELSE 1 END) +

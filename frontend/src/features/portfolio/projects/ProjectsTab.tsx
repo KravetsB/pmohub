@@ -10,6 +10,8 @@ import { ProjectCard } from "./ProjectCard";
 import { InitiativeViewModel } from "../../../shared/types";
 import styles from "../components/shared/PortfolioTab.module.css";
 import { PortfolioTable } from "../components/shared/PortfolioTable";
+import { loadInitiativeCardModel, toQuarterCardViewModel } from "../../../api/apiClient";
+import { AppLoader } from "../../../components/ui/AppLoader";
 
 export const ProjectsTab = () => {
   const {
@@ -28,6 +30,7 @@ export const ProjectsTab = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<InitiativeViewModel | null>(null);
+  const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -87,18 +90,22 @@ export const ProjectsTab = () => {
   const canEditArchive =
     userRolePerm?.canEditArchive ?? currentUser?.role === "SUPER_ADMIN";
   const canEditNormal = userRolePerm
-    ? userRolePerm.canCreateEditProjects && !userRolePerm.isReadOnly
+    ? userRolePerm.canCreateEditInitiatives && !userRolePerm.isReadOnly
     : currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
-  const canEdit = isArchive ? canEditArchive : canEditNormal;
+  const canEdit = isArchive ? canEditNormal && canEditArchive : canEditNormal;
 
   const projCustomFields = (customFields || []).filter(
     (cf) => cf.entityType === "project" && cf.showInTable,
   );
 
-  const openEditModal = (proj: InitiativeViewModel) => {
-    setEditingProject(proj);
-    setIsReadOnlyModal(!canEdit);
-    setIsModalOpen(true);
+  const openEditModal = async (proj: InitiativeViewModel) => {
+    setIsLoadingCard(true);
+    try {
+      const response = await loadInitiativeCardModel(proj.id);
+      setEditingProject(toQuarterCardViewModel(response.data));
+      setIsReadOnlyModal(!canEdit);
+      setIsModalOpen(true);
+    } finally { setIsLoadingCard(false); }
   };
   const openCreateModal = () => {
     setEditingProject(null);
@@ -108,6 +115,7 @@ export const ProjectsTab = () => {
 
   return (
     <div className={styles.portfolioTab}>
+      {isLoadingCard && <AppLoader label="Завантаження картки…" />}
       {isArchive && (
         <div className={styles.archiveBanner}>
           <div className={styles.archiveInfo}>
@@ -235,9 +243,7 @@ export const ProjectsTab = () => {
             className={`${styles.filterSelect} ${styles.priorityFilter}`}
           >
             <option value="">Всі пріоритети</option>
-            <option value="High">Високий</option>
-            <option value="Medium">Середній</option>
-            <option value="Low">Низький</option>
+            {(priorities || []).filter((priority) => priority.is_active !== false).map((priority) => <option key={priority.id} value={priority.id}>{priority.name}</option>)}
           </select>
           {(filterManager || filterPriority || searchQuery || searchGoal) && (
             <button

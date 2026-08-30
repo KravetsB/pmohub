@@ -9,9 +9,9 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 const prisma = new PrismaClient({ adapter: new PrismaMssql(databaseUrl, { schema: 'dbo' }) });
 
 const permissions = [
-  { role: 'SUPER_ADMIN', canCreateEditProjects: true, canDeleteProjects: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: false },
-  { role: 'ADMIN', canCreateEditProjects: true, canDeleteProjects: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: false },
-  { role: 'USER', canCreateEditProjects: false, canDeleteProjects: false, canAccessAdmin: false, isReadOnly: true, canEditArchive: false },
+  { role: 'SUPER_ADMIN', canCreateEditInitiatives: true, canDeleteInitiatives: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: true },
+  { role: 'ADMIN', canCreateEditInitiatives: true, canDeleteInitiatives: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: false },
+  { role: 'USER', canCreateEditInitiatives: false, canDeleteInitiatives: false, canAccessAdmin: false, isReadOnly: true, canEditArchive: false },
 ];
 
 async function main() {

@@ -9,6 +9,12 @@ import { AuthUser } from '../../common/auth/auth-user';
 
 const normalizeEmail = (email: string) => email.trim().toLocaleLowerCase('uk-UA');
 const digest = (token: string) => createHash('sha256').update(token).digest('hex');
+const ttlSeconds = (value: string): number => {
+  const match = /^(\d+)(s|m|h|d)?$/.exec(value.trim());
+  if (!match) return 900;
+  const amount = Number(match[1]);
+  return amount * ({ s: 1, m: 60, h: 3600, d: 86400 }[match[2] ?? 's'] ?? 1);
+};
 
 @Injectable()
 export class AuthService {
@@ -27,17 +33,21 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string | undefined, userAgent?: string) {
-    if (!refreshToken) throw new AppError('REFRESH_REQUIRED', 'Refresh token відсутній', HttpStatus.UNAUTHORIZED);
+    if (!refreshToken) throw new AppError('REFRESH_REQUIRED', 'Токен оновлення сесії відсутній', HttpStatus.UNAUTHORIZED);
     let payload: { sub: string; jti: string; type: string };
     try {
       payload = await this.jwt.verifyAsync(refreshToken, { secret: this.config.getOrThrow('JWT_REFRESH_SECRET') });
     } catch {
-      throw new AppError('INVALID_REFRESH_TOKEN', 'Refresh token недійсний', HttpStatus.UNAUTHORIZED);
+      throw new AppError('INVALID_REFRESH_TOKEN', 'Токен оновлення сесії недійсний', HttpStatus.UNAUTHORIZED);
     }
-    if (payload.type !== 'refresh') throw new AppError('INVALID_REFRESH_TOKEN', 'Refresh token недійсний', HttpStatus.UNAUTHORIZED);
+    if (payload.type !== 'refresh') throw new AppError('INVALID_REFRESH_TOKEN', 'Токен оновлення сесії недійсний', HttpStatus.UNAUTHORIZED);
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash: digest(refreshToken) }, include: { user: true } });
-    if (!stored || stored.revokedAt || stored.expiresAt <= new Date() || !stored.user.isActive) {
-      throw new AppError('INVALID_REFRESH_TOKEN', 'Refresh token недійсний', HttpStatus.UNAUTHORIZED);
+    if (stored?.revokedAt) {
+      await this.prisma.refreshToken.updateMany({ where: { userId: stored.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+      throw new AppError('REFRESH_TOKEN_REUSE', 'Сесію відкликано через повторне використання токена оновлення', HttpStatus.UNAUTHORIZED);
+    }
+    if (!stored || stored.expiresAt <= new Date() || !stored.user.isActive) {
+      throw new AppError('INVALID_REFRESH_TOKEN', 'Токен оновлення сесії недійсний', HttpStatus.UNAUTHORIZED);
     }
     return this.issueSession(stored.user, userAgent, stored.id);
   }
@@ -47,21 +57,22 @@ export class AuthService {
     return { success: true, message: 'Вихід виконано' };
   }
 
-  async changePassword(authUser: AuthUser, currentPassword: string, newPassword: string) {
+  async changePassword(authUser: AuthUser, currentPassword: string, newPassword: string, userAgent?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: authUser.id } });
     if (!user?.passwordHash || !(await argon2.verify(user.passwordHash, currentPassword))) {
       throw new AppError('INVALID_CURRENT_PASSWORD', 'Невірний поточний пароль', HttpStatus.UNAUTHORIZED);
     }
-    await this.prisma.$transaction([
+    const updated = await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: await argon2.hash(newPassword, { type: argon2.argon2id }), mustChangePassword: false } }),
       this.prisma.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } }),
     ]);
-    return { success: true, message: 'Пароль успішно змінено' };
+    return this.issueSession(updated[0], userAgent);
   }
 
   private async issueSession(user: { id: string; name: string; email: string; role: string; departmentId: string | null; mustChangePassword: boolean }, userAgent?: string, replacedTokenId?: string) {
-    const accessToken = await this.jwt.signAsync({ sub: user.id, role: user.role, type: 'access' }, {
-      secret: this.config.getOrThrow('JWT_ACCESS_SECRET'), expiresIn: (this.config.get<string>('ACCESS_TOKEN_TTL') ?? '15m') as never,
+    const accessTtl = this.config.get<string>('ACCESS_TOKEN_TTL') ?? '15m';
+    const accessToken = await this.jwt.signAsync({ sub: user.id, role: user.role, must_change_password: user.mustChangePassword, type: 'access' }, {
+      secret: this.config.getOrThrow('JWT_ACCESS_SECRET'), expiresIn: accessTtl as never,
     });
     const refreshId = randomUUID();
     const refreshDays = this.config.get<number>('REFRESH_TOKEN_DAYS', 7);
@@ -76,7 +87,7 @@ export class AuthService {
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
-      expires_in: 900,
+      expires_in: ttlSeconds(accessTtl),
       user: this.toPublicUser(user),
     };
   }

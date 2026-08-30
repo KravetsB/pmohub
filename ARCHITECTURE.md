@@ -77,23 +77,35 @@ mutation -> commit -> canonical GET/refetch -> cache update -> close form
 
 There are no optimistic server-state updates. A failed commit keeps the form and cache unchanged. Abort signals are forwarded to GET requests, access-token refresh is single-flight, and a failed refresh clears authentication plus the full query cache.
 
-Dashboard data is not sourced from the portfolio collections. `GET /analytics/quarterly` and `GET /analytics/annual` apply `kind`, `year`, `quarter`, `department_id`, and `manager_id` on the server and return aggregates plus minimal drill-down records.
+Dashboard data is not sourced from the portfolio collections. `GET /analytics/quarterly/summary` and `GET /analytics/annual/summary` apply `kind`, `year`, `quarter`, `department_id`, and `manager_id` on the server and return aggregates only. Paginated records are loaded separately from `GET /analytics/drilldown`.
 
 ## Analytics aggregation rules
 
 - Quarterly mode includes only the selected quarter. Every widget uses the same type, year, quarter, department and manager filters.
 - Annual card count and total workload include every QuarterCard in the selected year.
 - Annual initiative count is the number of unique `(kind, initiative_id)` values.
-- Annual initiative status, size and average progress use only the latest QuarterCard of each initiative in the year.
+- Annual status, size, weight and progress aggregate every QuarterCard in the selected year. Progress uses `GREEN = 100%`, `YELLOW = 50%`, other scope statuses = `0%`.
 - Annual duration is the average number of existing quarterly cards per unique initiative.
 - Annual department workload is the sum of its four quarterly loads; annual capacity is four times the quarterly department limit.
 - Executor load is task snapshot weight divided equally among its executors.
 - Effective involved load is `(card total snapshot weight / scope item count) / effective involved department count`.
 - Type, department and manager filters are combined with AND. Department-filtered capacity contains only the selected department.
-- Drill-down IDs are produced from the same card set as the aggregate; initiative-level annual drill-down uses the latest card per initiative.
+- Drill-down IDs are produced from the same filtered card set as the aggregate.
+- Annual “current risks” use only the latest quarterly card of each initiative; all other annual widgets aggregate every quarterly card.
+- Analytics pages load `/analytics/quarterly/summary` or `/analytics/annual/summary`; full card records are fetched only from paginated `/analytics/drilldown` after a user action.
+- Portfolio collections return summary records without scope/custom-field payloads. Canonical card detail and audit history are loaded when the modal/history tab opens.
+- Backlog loads full summaries only for its active project/task tab; the inactive tab uses the lightweight `/initiative-years/counts` endpoint.
+
+Archived quarters
+
+- A quarter becomes archived at 00:00 on day 15 of the next quarter in `Europe/Kyiv`.
+- With `canEditArchive`, only card notes, card status and scope-item statuses remain editable. Scope structure, weights, departments, manager, priority, move and delete stay blocked.
+- Card status analytics use the immutable semantic category `DEFAULT | ON_TRACK | AT_RISK | BLOCKED | COMPLETED`; display name and color remain configurable.
 
 ## Security and operations
 
 `isReadOnly` overrides mutation permissions in guards and services. Card and scope archive rules are enforced by backend policy. Audit aggregate IDs are strings rather than UUID-only columns, so dictionary and route identifiers cannot break a completed business mutation.
 
 Production requires an explicit non-local `VITE_API_URL`. Cookie security and origin allowlists are configured through backend environment variables.
+
+Used custom-field options keep stable IDs and historical values. Removing an option already present in a card deactivates it instead of deleting it; inactive options are not offered for new values.

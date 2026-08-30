@@ -35,9 +35,12 @@ describe('analytics filter matrix', () => {
     const records = [
       { id: 'green', status_code: 'GREEN' },
       { id: 'red', status_code: 'RED' },
-    ] as AnalyticsResponse['records'];
-    const data = { records } as AnalyticsResponse;
-    expect(statusCardIds(data, 'GREEN')).toEqual(['green']);
+    ] as NonNullable<AnalyticsResponse['records']>;
+    const data = { records, status_distribution: [
+      { status_id: 'green-status', code: 'GREEN', name: 'Виконано', color: '#10b981', count: 1, card_ids: ['green'] },
+      { status_id: 'red-status', code: 'RED', name: 'Заблоковано', color: '#f43f5e', count: 1, card_ids: ['red'] },
+    ] } as AnalyticsResponse;
+    expect(statusCardIds(data, 'green-status')).toEqual(['green']);
     expect(recordsByIds(data, ['red'])).toEqual([records[1]]);
   });
 
@@ -45,11 +48,14 @@ describe('analytics filter matrix', () => {
     const records = [
       { id: 'q1', initiative_id: 'initiative', kind: 'PROJECT', quarter: 'Q1', status_code: 'YELLOW' },
       { id: 'q2', initiative_id: 'initiative', kind: 'PROJECT', quarter: 'Q2', status_code: 'GREEN' },
-    ] as AnalyticsResponse['records'];
-    const data = { mode: 'ANNUAL', records } as AnalyticsResponse;
+    ] as NonNullable<AnalyticsResponse['records']>;
+    const data = { mode: 'ANNUAL', records, status_distribution: [
+      { status_id: 'yellow-status', code: 'YELLOW', name: 'В процесі', color: '#f59e0b', count: 1, card_ids: ['q1'] },
+      { status_id: 'green-status', code: 'GREEN', name: 'Виконано', color: '#10b981', count: 1, card_ids: ['q2'] },
+    ] } as AnalyticsResponse;
     expect(latestInitiativeRecords(data).map((item) => item.id)).toEqual(['q2']);
-    expect(statusCardIds(data, 'YELLOW')).toEqual(['q1']);
-    expect(statusCardIds(data, 'GREEN')).toEqual(['q2']);
+    expect(statusCardIds(data, 'yellow-status')).toEqual(['q1']);
+    expect(statusCardIds(data, 'green-status')).toEqual(['q2']);
   });
 
   it('returns every active department with its quarterly reserve, including zero-load departments', () => {

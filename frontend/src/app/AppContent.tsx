@@ -145,7 +145,8 @@ export const AppContent = () => {
         )}
       </AppContentArea>
       <PasswordChangeModal
-        isOpen={isPasswordModalOpen}
+        isOpen={isPasswordModalOpen || Boolean(currentUser.must_change_password)}
+        required={Boolean(currentUser.must_change_password)}
         onClose={() => setIsPasswordModalOpen(false)}
       />
     </div>

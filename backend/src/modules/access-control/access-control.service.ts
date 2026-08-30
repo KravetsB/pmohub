@@ -18,8 +18,11 @@ export class AccessControlService {
       throw new AppError('ROLE_FORBIDDEN', 'Лише активний SUPER_ADMIN може змінювати права ролей', HttpStatus.FORBIDDEN);
     }
     if (!['SUPER_ADMIN', 'ADMIN', 'USER'].includes(role)) throw new AppError('INVALID_ROLE', 'Некоректна роль', HttpStatus.BAD_REQUEST);
-    if (role === 'SUPER_ADMIN' && (dto.canAccessAdmin === false || dto.isReadOnly === true)) {
-      throw new AppError('SUPER_ADMIN_INVARIANT', 'SUPER_ADMIN повинен зберігати адміністративний доступ', HttpStatus.CONFLICT);
+    if (role === 'SUPER_ADMIN' && (
+      dto.canAccessAdmin === false || dto.isReadOnly === true || dto.canEditArchive === false
+      || dto.canCreateEditInitiatives === false || dto.canDeleteInitiatives === false
+    )) {
+      throw new AppError('SUPER_ADMIN_INVARIANT', 'Системні права SUPER_ADMIN не можна вимкнути', HttpStatus.CONFLICT);
     }
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.rolePermission.update({ where: { role }, data: dto });

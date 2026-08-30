@@ -4,15 +4,19 @@ import { useAppContext } from "../../../app/store";
 import { InitiativeViewModel } from "../../../shared/types";
 import { getYearSnapshot } from "../../../domain/initiatives";
 import styles from "./BacklogModals.module.css";
+import { notify } from "../../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
 
 export const PreparationStageModal = ({
   item,
   type,
   onClose,
+  isReadOnly = false,
 }: {
   item: InitiativeViewModel;
   type: "project" | "task";
   onClose: () => void;
+  isReadOnly?: boolean;
 }) => {
   const { departments, managers, priorities, updatePreparationStage } =
     useAppContext();
@@ -22,9 +26,9 @@ export const PreparationStageModal = ({
   const [departmentIds, setDepartmentIds] = useState(
     stage?.cross_functional_dept_ids ?? [],
   );
-  const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
+  const [isViewing, setIsViewing] = useState(isReadOnly);
   const toggle = (id: string) =>
     setDepartmentIds((current) =>
       current.includes(id)
@@ -34,7 +38,6 @@ export const PreparationStageModal = ({
   const save = async () => {
     if (isSaving || hasRevisionConflict) return;
     setIsSaving(true);
-    setError("");
     try {
       const result = await updatePreparationStage(type, item.id, {
         manager_id: managerId || undefined,
@@ -42,7 +45,7 @@ export const PreparationStageModal = ({
         cross_functional_dept_ids: departmentIds,
       });
       if (!result.success) {
-        setError(result.message);
+        notify(NOTIFICATION_KINDS.error, result.message);
         if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
         return;
       }
@@ -57,7 +60,7 @@ export const PreparationStageModal = ({
         <div className={styles.preparationHeader}>
           <div>
             <h2 className={styles.preparationTitle}>
-              Підготовчий етап · {item.year}
+              {isViewing ? "Перегляд" : "Редагування"} підготовчого етапу · {item.year}
             </h2>
             <p className={styles.preparationDescription}>
               Нульовий квартал: дані використаються для першої картки року.
@@ -71,15 +74,11 @@ export const PreparationStageModal = ({
           </button>
         </div>
         <div className={styles.preparationBody}>
-          {error && (
-            <div className={styles.error}>
-              {error}
-            </div>
-          )}
           <div className={styles.twoColumnFields}>
             <label className={styles.selectLabel}>
               Менеджер
               <select
+                disabled={isViewing}
                 value={managerId}
                 onChange={(event) => setManagerId(event.target.value)}
                 className={styles.selectField}
@@ -100,6 +99,7 @@ export const PreparationStageModal = ({
             <label className={styles.selectLabel}>
               Пріоритет
               <select
+                disabled={isViewing}
                 value={priority}
                 onChange={(event) => setPriority(event.target.value)}
                 className={styles.selectField}
@@ -132,6 +132,7 @@ export const PreparationStageModal = ({
                 .map((department) => (
                   <button
                     type="button"
+                    disabled={isViewing}
                     key={department.id}
                     onClick={() => toggle(department.id)}
                     className={`${styles.departmentChip} ${departmentIds.includes(department.id) ? styles.departmentChipSelected : ""}`}
@@ -148,15 +149,26 @@ export const PreparationStageModal = ({
             onClick={onClose}
             className={styles.preparationCancel}
           >
-            Скасувати
+            {isViewing ? "Закрити" : "Скасувати"}
           </button>
-          <button
-            onClick={save}
-            disabled={isSaving || hasRevisionConflict}
-            className={styles.preparationSave}
-          >
-            {isSaving ? "Збереження…" : hasRevisionConflict ? "Оновіть запис" : "Зберегти"}
-          </button>
+          {isViewing && !isReadOnly && (
+            <button
+              type="button"
+              onClick={() => setIsViewing(false)}
+              className={styles.preparationSave}
+            >
+              Редагувати
+            </button>
+          )}
+          {!isViewing && (
+            <button
+              onClick={save}
+              disabled={isSaving || hasRevisionConflict}
+              className={styles.preparationSave}
+            >
+              {isSaving ? "Збереження…" : hasRevisionConflict ? "Оновіть запис" : "Зберегти"}
+            </button>
+          )}
         </div>
       </div>
     </div>,

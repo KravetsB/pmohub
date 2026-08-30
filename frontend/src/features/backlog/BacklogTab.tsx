@@ -20,6 +20,8 @@ import { BacklogDeleteDialog } from "./components/BacklogDeleteDialog";
 import { BacklogInitiative as Initiative, BacklogTabKind as Tab, QuarterFilter } from "./backlogTypes";
 import styles from "./BacklogTab.module.css";
 import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
+import { ApiError, loadInitiativeCardModel, toQuarterCardViewModel } from "../../api/apiClient";
+import { useInitiativeYearCountsQuery } from "../../api/hooks";
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -44,6 +46,7 @@ export const BacklogTab = () => {
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<Tab>("PROJECTS");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const countsQuery = useInitiativeYearCountsQuery(selectedYear);
   useEffect(() => {
     setInitiativeDataScope({ mode: "backlog", kind: activeTab === "PROJECTS" ? "project" : "task", year: selectedYear });
   }, [activeTab, selectedYear, setInitiativeDataScope]);
@@ -67,12 +70,20 @@ export const BacklogTab = () => {
   const [editingCard, setEditingCard] = useState<Initiative | null>(null);
   const [masterToDelete, setMasterToDelete] = useState<Initiative | null>(null);
   const pendingCommands = useRef(new Set<string>());
+  const openCard = async (card: Initiative) => {
+    try {
+      const response = await loadInitiativeCardModel(card.id);
+      setEditingCard(toQuarterCardViewModel(response.data));
+    } catch (error) {
+      setNotice({ type: 'error', message: error instanceof ApiError ? error.message : SYSTEM_MESSAGES.api.genericError });
+    }
+  };
 
   const records: Initiative[] = activeTab === "PROJECTS" ? projects : tasks;
   const permission = getPermissions(currentUser, rolePermissions);
   const archive = isBacklogLocked(selectedYear);
   const canEdit = Boolean(
-    permission?.canCreateEditProjects && !permission.isReadOnly && !archive,
+    permission?.canCreateEditInitiatives && !permission.isReadOnly && !archive,
   );
   const targetYear = selectedYear + 1;
   const visibleQuarters = quarterFilter === "ALL" ? quarters : [quarterFilter];
@@ -97,14 +108,8 @@ export const BacklogTab = () => {
     () => materializeVisibleMasters(records),
     [records, selectedYear, currentUser],
   );
-  const projectCount = useMemo(
-    () => materializeVisibleMasters(projects).length,
-    [projects, selectedYear, currentUser],
-  );
-  const taskCount = useMemo(
-    () => materializeVisibleMasters(tasks).length,
-    [tasks, selectedYear, currentUser],
-  );
+  const projectCount = countsQuery.data?.projects ?? (activeTab === "PROJECTS" ? allMasters.length : 0);
+  const taskCount = countsQuery.data?.operational_tasks ?? (activeTab === "TASKS" ? allMasters.length : 0);
 
   const masters = useMemo(
     () =>
@@ -320,7 +325,7 @@ export const BacklogTab = () => {
             setIsModalOpen(true);
           }}
           onDeleteMaster={setMasterToDelete}
-          onOpenCard={setEditingCard}
+          onOpenCard={(card) => { void openCard(card); }}
           onOpenPreparation={setPreparationItem}
         />
       </section>
@@ -338,6 +343,7 @@ export const BacklogTab = () => {
         <PreparationStageModal
           item={preparationItem}
           type={activeTab === "PROJECTS" ? "project" : "task"}
+          isReadOnly={!canEdit}
           onClose={() => setPreparationItem(null)}
         />
       )}
@@ -346,7 +352,7 @@ export const BacklogTab = () => {
           kind={activeTab === "PROJECTS" ? "project" : "task"}
           item={editingCard}
           isReadOnly={!canEdit}
-          openInViewMode={canEdit}
+          openInViewMode
           onClose={() => setEditingCard(null)}
           onSave={async (item) => {
             const result = await (
@@ -376,6 +382,7 @@ export const BacklogTab = () => {
       {masterToDelete && (
         <BacklogDeleteDialog
           item={masterToDelete}
+          hasQuarterCards={cardsFor(masterToDelete.id).length > 0}
           onCancel={() => setMasterToDelete(null)}
           onConfirm={removeMaster}
         />

@@ -7,6 +7,7 @@ describe("DictionariesService bulk commands", () => {
       taskWeight: { findUnique: vi.fn(async () => ({ id: "weight-id", name: "Large", weight: { toNumber: () => 5 } })) },
       quarterCard: { findMany: vi.fn(async () => []) },
       initiativeSize: { findMany: vi.fn(async () => []) },
+      auditEvent: { create: vi.fn(async () => ({})) },
     };
     const prisma = {
       rolePermission: { findUnique: vi.fn(async () => ({ canAccessAdmin: true, isReadOnly: false })) },

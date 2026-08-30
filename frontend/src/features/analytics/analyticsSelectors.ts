@@ -12,19 +12,19 @@ export const analyticsQueryParams = (filters: AnalyticsFilters) => {
 
 export const recordsByIds = (data: AnalyticsResponse | undefined, ids?: string[]): AnalyticsRecord[] => {
   if (!data) return [];
-  if (!ids) return data.records;
+  if (!ids) return data.records ?? [];
   const wanted = new Set(ids);
-  return data.records.filter((record) => wanted.has(record.id));
+  return (data.records ?? []).filter((record) => wanted.has(record.id));
 };
 
-export const statusCardIds = (data: AnalyticsResponse | undefined, status: AnalyticsRecord['status_code']) =>
-  (data?.records ?? []).filter((record) => record.status_code === status).map((record) => record.id);
+export const statusCardIds = (data: AnalyticsResponse | undefined, statusId: string) =>
+  data?.status_distribution?.find((status) => status.status_id === statusId)?.card_ids ?? [];
 
 export const latestInitiativeRecords = (data: AnalyticsResponse | undefined): AnalyticsRecord[] => {
   if (!data) return [];
-  if (data.mode === 'QUARTERLY') return data.records;
+  if (data.mode === 'QUARTERLY') return data.records ?? [];
   const latest = new Map<string, AnalyticsRecord>();
-  data.records.forEach((record) => {
+  (data.records ?? []).forEach((record) => {
     const key = `${record.kind}:${record.initiative_id}`;
     if (!latest.has(key) || latest.get(key)!.quarter < record.quarter) latest.set(key, record);
   });

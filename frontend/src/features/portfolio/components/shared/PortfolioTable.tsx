@@ -41,32 +41,6 @@ const getScopeClasses = (color?: string) => {
   }
 };
 
-const getRowClass = (status?: string) => {
-  switch (status) {
-    case "GREEN":
-      return styles.rowGreen;
-    case "YELLOW":
-      return styles.rowYellow;
-    case "RED":
-      return styles.rowRed;
-    default:
-      return styles.rowDefault;
-  }
-};
-
-const getStickyClass = (status?: string) => {
-  switch (status) {
-    case "GREEN":
-      return styles.stickyGreen;
-    case "YELLOW":
-      return styles.stickyYellow;
-    case "RED":
-      return styles.stickyRed;
-    default:
-      return styles.stickyDefault;
-  }
-};
-
 /** Shared project and operational-task portfolio table. */
 export const PortfolioTable = ({
   kind,
@@ -160,13 +134,11 @@ export const PortfolioTable = ({
             return (
               <tr
                 key={initiative.id}
-                className={`${styles.row} ${getRowClass(status)}`}
+                className={styles.row}
                 style={{
-                  backgroundColor: colorWithAlpha(
-                    statusPresentation.color,
-                    0.07,
-                  ),
-                }}
+                  "--row-background": colorWithAlpha(statusPresentation.color, 0.07),
+                  "--row-hover-background": colorWithAlpha(statusPresentation.color, 0.13),
+                } as React.CSSProperties}
               >
                 <td className={`${styles.cell} ${styles.managerCell}`}>
                   <span className={styles.clampedTwo} title={managerName}>
@@ -321,6 +293,11 @@ export const PortfolioTable = ({
                 </td>
                 {customFields.map((field) => {
                   const value = initiative.custom_fields?.[field.id];
+                  const displayValue = field.type === "CHECKBOX"
+                    ? value === true ? "Так" : "Ні"
+                    : value !== undefined && value !== null && value !== ""
+                      ? String(value)
+                      : "—";
                   return (
                     <td
                       key={field.id}
@@ -328,17 +305,15 @@ export const PortfolioTable = ({
                     >
                       <span
                         className={styles.clampedTwo}
-                        title={String(value ?? "")}
+                        title={displayValue}
                       >
-                        {value !== undefined && value !== null && value !== ""
-                          ? String(value)
-                          : "—"}
+                        {displayValue}
                       </span>
                     </td>
                   );
                 })}
                 <td
-                  className={`${styles.actionsCell} ${getStickyClass(status)} `}
+                  className={styles.actionsCell}
                 >
                   <button
                     onClick={() => onOpen(initiative)}

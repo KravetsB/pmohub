@@ -6,6 +6,7 @@ import { AppError } from '../../common/errors/app-error';
 import { DictionaryDto } from './dictionary.dto';
 import { isPeriodLocked } from '../initiatives/domain/period.policy';
 import { AuthUser } from '../../common/auth/auth-user';
+import { assertPeriodCapacity } from '../initiatives/domain/capacity.policy';
 
 export type DictionaryType = 'departments' | 'managers' | 'priorities' | 'statuses' | 'weights' | 'sizes';
 const normalize = (value: string) => value.trim().toLocaleLowerCase('uk-UA');
@@ -33,14 +34,17 @@ export class DictionariesService {
     this.requireName(dto);
     try {
       const data = await this.prisma.$transaction(async (tx) => {
+        let created: any;
         switch (type) {
-          case 'departments': return tx.department.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), capacityLimitPoints: dto.capacity_limit_points ?? 0, isActive: dto.is_active ?? true } });
-          case 'managers': return tx.manager.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), departmentId: dto.department_id, isActive: dto.is_active ?? true } });
-          case 'priorities': return tx.priority.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), color: dto.color, isActive: dto.is_active ?? true } });
-          case 'statuses': return tx.initiativeStatus.create({ data: { code: dto.code?.trim() || crypto.randomUUID(), name: dto.name!, normalizedName: normalize(dto.name!), color: dto.color ?? '#94a3b8', isActive: dto.is_active ?? true } });
-          case 'weights': return tx.taskWeight.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), weight: dto.weight ?? 0, isActive: dto.is_active ?? true } });
-          case 'sizes': await this.assertSizeRange(tx, dto); return tx.initiativeSize.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), minScore: dto.min_score ?? 0, maxScore: dto.max_score ?? 0, isActive: dto.is_active ?? true } });
+          case 'departments': created = await tx.department.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), capacityLimitPoints: dto.capacity_limit_points ?? 0, isActive: dto.is_active ?? true } }); break;
+          case 'managers': created = await tx.manager.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), departmentId: dto.department_id, isActive: dto.is_active ?? true } }); break;
+          case 'priorities': created = await tx.priority.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), color: dto.color, isActive: dto.is_active ?? true } }); break;
+          case 'statuses': created = await tx.initiativeStatus.create({ data: { code: dto.code?.trim() || crypto.randomUUID(), name: dto.name!, normalizedName: normalize(dto.name!), color: dto.color ?? '#94a3b8', isActive: dto.is_active ?? true } }); break;
+          case 'weights': created = await tx.taskWeight.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), weight: dto.weight ?? 0, isActive: dto.is_active ?? true } }); break;
+          case 'sizes': await this.assertSizeRange(tx, dto); created = await tx.initiativeSize.create({ data: { name: dto.name!, normalizedName: normalize(dto.name!), minScore: dto.min_score ?? 0, maxScore: dto.max_score ?? 0, isActive: dto.is_active ?? true } }); break;
         }
+        await tx.auditEvent.create({ data: { aggregateType: 'DICTIONARY', aggregateId: created.id, actionCode: 'DICTIONARY_CREATED', message: `Створено запис довідника ${type}`, actorUserId: actor.id, actorName: actor.name } });
+        return created;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       return { success: true, message: 'Запис додано', data };
     } catch (error) { this.rethrow(error); }
@@ -77,6 +81,7 @@ export class DictionariesService {
           case 'weights': await tx.taskWeight.update({ where: { id }, data: { ...common, weight: dto.weight, isActive: dto.is_active } }); break;
           case 'sizes': await tx.initiativeSize.update({ where: { id }, data: { ...common, minScore: dto.min_score, maxScore: dto.max_score, isActive: dto.is_active } }); break;
         }
+        await tx.auditEvent.create({ data: { aggregateType: 'DICTIONARY', aggregateId: id, actionCode: 'DICTIONARY_UPDATED', message: `Оновлено запис довідника ${type}`, actorUserId: actor.id, actorName: actor.name } });
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       return { success: true, message: 'Запис оновлено' };
     } catch (error) { this.rethrow(error); }
@@ -87,18 +92,19 @@ export class DictionariesService {
     if (type === 'statuses' && (await this.prisma.initiativeStatus.findUnique({ where: { id } }))?.isSystem) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системний статус не можна видалити', HttpStatus.CONFLICT);
     if (type === 'weights' && (await this.prisma.taskWeight.findUnique({ where: { id } }))?.isSystem) throw new AppError('SYSTEM_DICTIONARY_IMMUTABLE', 'Системну вагу не можна видалити', HttpStatus.CONFLICT);
     const usage = await this.usage(type, id);
-    if (usage.length) {
-      await this.deactivate(type, id);
-      return { success: true, message: `Запис використовується у ${usage.join(', ')}, тому його деактивовано` };
-    }
-    switch (type) {
-      case 'departments': await this.prisma.department.delete({ where: { id } }); break;
-      case 'managers': await this.prisma.manager.delete({ where: { id } }); break;
-      case 'priorities': await this.prisma.priority.delete({ where: { id } }); break;
-      case 'statuses': await this.prisma.initiativeStatus.delete({ where: { id } }); break;
-      case 'weights': await this.prisma.taskWeight.delete({ where: { id } }); break;
-      case 'sizes': await this.prisma.initiativeSize.delete({ where: { id } }); break;
-    }
+    await this.prisma.$transaction(async (tx) => {
+      const active = usage.length > 0;
+      switch (type) {
+        case 'departments': active ? await tx.department.update({ where: { id }, data: { isActive: false } }) : await tx.department.delete({ where: { id } }); break;
+        case 'managers': active ? await tx.manager.update({ where: { id }, data: { isActive: false } }) : await tx.manager.delete({ where: { id } }); break;
+        case 'priorities': active ? await tx.priority.update({ where: { id }, data: { isActive: false } }) : await tx.priority.delete({ where: { id } }); break;
+        case 'statuses': active ? await tx.initiativeStatus.update({ where: { id }, data: { isActive: false } }) : await tx.initiativeStatus.delete({ where: { id } }); break;
+        case 'weights': active ? await tx.taskWeight.update({ where: { id }, data: { isActive: false } }) : await tx.taskWeight.delete({ where: { id } }); break;
+        case 'sizes': active ? await tx.initiativeSize.update({ where: { id }, data: { isActive: false } }) : await tx.initiativeSize.delete({ where: { id } }); break;
+      }
+      await tx.auditEvent.create({ data: { aggregateType: 'DICTIONARY', aggregateId: id, actionCode: active ? 'DICTIONARY_DEACTIVATED' : 'DICTIONARY_DELETED', message: `${active ? 'Деактивовано' : 'Видалено'} запис довідника ${type}`, actorUserId: actor.id, actorName: actor.name } });
+    });
+    if (usage.length) return { success: true, message: `Запис використовується у ${usage.join(', ')}, тому його деактивовано` };
     return { success: true, message: type === 'weights' ? 'Вагу видалено. Знімки у картках збережено' : 'Запис видалено' };
   }
 
@@ -114,6 +120,7 @@ export class DictionariesService {
       const sizes = await this.sizeDefinitions(tx);
       let changedCards = 0;
       let changedTasks = 0;
+      const affectedPeriods = new Set<string>();
       for (const card of cards) {
         if (isPeriodLocked(card.initiativeYear.year, `Q${card.quarter}` as any, this.zone)) continue;
         const affected = card.scopeItems.filter((item) => item.weightDefinitionId === id);
@@ -133,7 +140,13 @@ export class DictionariesService {
         });
         changedCards += 1;
         changedTasks += affected.length;
+        affectedPeriods.add(`${card.initiativeYear.year}:${card.quarter}`);
       }
+      for (const period of affectedPeriods) {
+        const [year, quarter] = period.split(':').map(Number);
+        await assertPeriodCapacity(tx, year, quarter);
+      }
+      await tx.auditEvent.create({ data: { aggregateType: 'TASK_WEIGHT', aggregateId: id, actionCode: 'WEIGHT_APPLIED_TO_OPEN_CARDS', message: `Оновлено задач: ${changedTasks}`, actorUserId: actor.id, actorName: actor.name } });
       return { cards: changedCards, tasks: changedTasks };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return { success: true, message: `Оновлено задач: ${result.tasks}`, data: result };
@@ -155,6 +168,7 @@ export class DictionariesService {
         });
         changedCards += 1;
       }
+      await tx.auditEvent.create({ data: { aggregateType: 'INITIATIVE_SIZE', aggregateId: 'OPEN_CARDS', actionCode: 'OPEN_CARD_SIZES_RECALCULATED', message: `Перераховано карток: ${changedCards}`, actorUserId: actor.id, actorName: actor.name } });
       return { cards: changedCards };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return { success: true, message: `Розмір оновлено в картках: ${result.cards}`, data: result };

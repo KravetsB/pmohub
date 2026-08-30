@@ -6,6 +6,8 @@ import {
   Quarter,
 } from "../../../shared/types";
 import styles from "./BacklogModals.module.css";
+import { notify } from "../../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
 
 interface BacklogModalProps {
   onClose: () => void;
@@ -37,7 +39,6 @@ export const BacklogModal = ({
   const [strategicGoal, setStrategicGoal] = useState(
     editItem?.strategic_goal ?? "",
   );
-  const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
 
@@ -50,18 +51,17 @@ export const BacklogModal = ({
   const handleSave = async () => {
     if (isSaving || hasRevisionConflict) return;
     if (!name.trim()) {
-      setError(`Вкажіть назву ${type === "PROJECTS" ? "проєкту" : "операційної задачі"}`);
+      notify(NOTIFICATION_KINDS.error, `Вкажіть назву ${type === "PROJECTS" ? "проєкту" : "операційної задачі"}`);
       return;
     }
     setIsSaving(true);
-    setError("");
     try {
       if (editItem && master) {
         const result = await (type === "PROJECTS"
           ? updateProject(master.id, metadata())
           : updateTask(master.id, metadata()));
         if (!result.success) {
-          setError(result.message);
+          notify(NOTIFICATION_KINDS.error, result.message);
           if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
           return;
         }
@@ -84,7 +84,7 @@ export const BacklogModal = ({
           [],
         );
         if (!result.success) {
-          setError(result.message);
+          notify(NOTIFICATION_KINDS.error, result.message);
           return;
         }
       }
@@ -114,11 +114,6 @@ export const BacklogModal = ({
           </button>
         </div>
         <div className={styles.modalBody}>
-          {error && (
-            <div className={styles.error}>
-              {error}
-            </div>
-          )}
           <div>
             <label className={styles.fieldLabel}>
               Назва <span className={styles.required}>*</span>

@@ -3,32 +3,31 @@ import { Eye, EyeOff } from "lucide-react";
 import { useAppContext } from "../../app/store";
 import styles from "./PasswordChangeModal.module.css";
 import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
+import { notify } from "../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
 
-type PasswordChangeModalProps = { isOpen: boolean; onClose: () => void };
+type PasswordChangeModalProps = { isOpen: boolean; onClose: () => void; required?: boolean };
 
-export const PasswordChangeModal = ({ isOpen, onClose }: PasswordChangeModalProps) => {
+export const PasswordChangeModal = ({ isOpen, onClose, required = false }: PasswordChangeModalProps) => {
   const { currentUser, changePassword } = useAppContext();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const resetAndClose = () => {
+    if (required) return;
     onClose();
-    setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); setSuccess(""); setError("");
+    setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError(""); setSuccess("");
-    if (!currentUser || !currentPassword || !newPassword || !confirmPassword) return setError(SYSTEM_MESSAGES.auth.allFieldsRequired);
-    if (newPassword.length < 12) return setError(SYSTEM_MESSAGES.auth.passwordTooShort);
-    if (newPassword !== confirmPassword) return setError(SYSTEM_MESSAGES.auth.passwordsDoNotMatch);
+    if (!currentUser || !currentPassword || !newPassword || !confirmPassword) return notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.auth.allFieldsRequired);
+    if (newPassword.length < 12) return notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.auth.passwordTooShort);
+    if (newPassword !== confirmPassword) return notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.auth.passwordsDoNotMatch);
     const result = await changePassword(currentPassword, newPassword);
-    if (!result.success) return setError(result.message);
-    setSuccess(SYSTEM_MESSAGES.auth.passwordChanged);
+    if (!result.success) return;
     window.setTimeout(resetAndClose, 1200);
   };
 
@@ -36,7 +35,7 @@ export const PasswordChangeModal = ({ isOpen, onClose }: PasswordChangeModalProp
   return (
     <div className={`${styles.backdrop} ${styles.profileBackdrop}`}>
       <div className={`${styles.dialog} ${styles.profileDialog}`}>
-        <button onClick={resetAndClose} className={styles.closeButton} aria-label="Закрити">✕</button>
+        {!required && <button onClick={resetAndClose} className={styles.closeButton} aria-label="Закрити">✕</button>}
         <h2 className={styles.title}>Змінити пароль</h2>
         <p className={styles.description}>Підтвердіть поточний пароль та встановіть новий.</p>
         <form onSubmit={handleSubmit} className={styles.form}>
@@ -57,10 +56,8 @@ export const PasswordChangeModal = ({ isOpen, onClose }: PasswordChangeModalProp
             <label className={styles.label}>Підтвердження пароля</label>
             <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className={styles.input} autoComplete="new-password" />
           </div>
-          {error && <div className={styles.error}>{error}</div>}
-          {success && <div className={styles.success}>{success}</div>}
           <div className={styles.actions}>
-            <button type="button" onClick={resetAndClose} className={styles.cancelButton}>Скасувати</button>
+            {!required && <button type="button" onClick={resetAndClose} className={styles.cancelButton}>Скасувати</button>}
             <button type="submit" className={styles.submitButton}>Зберегти пароль</button>
           </div>
         </form>

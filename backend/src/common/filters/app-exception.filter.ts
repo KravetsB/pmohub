@@ -13,11 +13,6 @@ export class AppExceptionFilter implements ExceptionFilter {
       response.status(error.status).json({ success: false, code: error.code, message: error.message, details: error.details });
       return;
     }
-    if (error instanceof HttpException) {
-      const body = error.getResponse();
-      response.status(error.getStatus()).json(typeof body === 'string' ? { success: false, code: 'HTTP_ERROR', message: body } : body);
-      return;
-    }
     if (this.isPayloadTooLarge(error)) {
       const details = this.config.get<boolean>('EXPOSE_ERROR_DETAILS') ? this.serializeError(error) : undefined;
       response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
@@ -25,6 +20,20 @@ export class AppExceptionFilter implements ExceptionFilter {
         code: 'PAYLOAD_TOO_LARGE',
         message: 'Розмір запиту перевищує допустимий ліміт',
         ...(details ? { details } : {}),
+      });
+      return;
+    }
+    if (error instanceof HttpException) {
+      const status = error.getStatus();
+      const body = error.getResponse();
+      if (typeof body === 'object' && body !== null && 'success' in body && body.success === false) {
+        response.status(status).json(body);
+        return;
+      }
+      response.status(status).json({
+        success: false,
+        code: 'HTTP_ERROR',
+        message: this.httpMessage(status),
       });
       return;
     }
@@ -54,5 +63,18 @@ export class AppExceptionFilter implements ExceptionFilter {
     return typeof error === 'object' && error !== null
       && ('status' in error && (error as { status?: number }).status === HttpStatus.PAYLOAD_TOO_LARGE
         || 'type' in error && (error as { type?: string }).type === 'entity.too.large');
+  }
+
+  private httpMessage(status: number) {
+    const messages: Record<number, string> = {
+      [HttpStatus.BAD_REQUEST]: 'Некоректний запит',
+      [HttpStatus.UNAUTHORIZED]: 'Потрібна авторизація',
+      [HttpStatus.FORBIDDEN]: 'Недостатньо прав',
+      [HttpStatus.NOT_FOUND]: 'Запитаний ресурс не знайдено',
+      [HttpStatus.CONFLICT]: 'Операція конфліктує з актуальним станом даних',
+      [HttpStatus.UNPROCESSABLE_ENTITY]: 'Не вдалося опрацювати передані дані',
+      [HttpStatus.TOO_MANY_REQUESTS]: 'Забагато запитів. Спробуйте пізніше',
+    };
+    return messages[status] ?? 'Не вдалося виконати запит';
   }
 }

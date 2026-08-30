@@ -3,7 +3,7 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { AppError } from '../../../common/errors/app-error';
 import { HttpStatus } from '@nestjs/common';
 import { QuarterDto } from '../api/initiative.dto';
-import { analyticsCardInclude, cardInclude, mapAnalyticsCard, mapCard, mapYear, yearInclude } from '../infrastructure/initiative.mapper';
+import { cardInclude, cardSummaryInclude, mapCard, mapCardSummary, mapYear, yearInclude } from '../infrastructure/initiative.mapper';
 
 const ok = <T>(message: string, data: T) => ({ success: true as const, message, data });
 
@@ -24,12 +24,23 @@ export class InitiativeQueryService {
     return ok('Роки ініціатив завантажено', years.map(mapYear));
   }
 
-  async listCards(query: { kind?: string; year?: number; quarter?: QuarterDto; view?: string }) {
+  async countYears(year: number) {
+    this.validateYear(year);
+    const [projects, operationalTasks] = await Promise.all([
+      this.prisma.initiativeYear.count({ where: { year, initiative: { kind: 'PROJECT' } } }),
+      this.prisma.initiativeYear.count({ where: { year, initiative: { kind: 'OPERATIONAL_TASK' } } }),
+    ]);
+    return ok('Лічильники беклогу завантажено', {
+      projects,
+      operational_tasks: operationalTasks,
+    });
+  }
+
+  async listCards(query: { kind?: string; year?: number; quarter?: QuarterDto }) {
     this.validateYear(query.year);
     if (query.quarter && !['Q1', 'Q2', 'Q3', 'Q4'].includes(query.quarter)) {
       throw new AppError('INVALID_QUARTER', 'Невідомий квартал.', HttpStatus.BAD_REQUEST);
     }
-    if (query.view && query.view !== 'analytics') throw new AppError('INVALID_VIEW', 'Невідомий формат колекції.', HttpStatus.BAD_REQUEST);
     const cards = await this.prisma.quarterCard.findMany({
       where: {
         quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
@@ -38,10 +49,10 @@ export class InitiativeQueryService {
           initiative: query.kind ? { kind: this.kind(query.kind) } : undefined,
         },
       },
-      include: query.view === 'analytics' ? analyticsCardInclude : cardInclude,
+      include: cardSummaryInclude,
       orderBy: [{ initiativeYear: { year: 'desc' } }, { quarter: 'asc' }, { createdAt: 'desc' }],
     });
-    return ok('Квартальні картки завантажено', cards.map((card) => query.view === 'analytics' ? mapAnalyticsCard(card) : mapCard(card)));
+    return ok('Квартальні картки завантажено', cards.map(mapCardSummary));
   }
 
   async getYear(id: string) {

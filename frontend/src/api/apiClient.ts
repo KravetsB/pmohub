@@ -6,7 +6,7 @@ import {
   QuarterCardReadModel,
   User,
 } from "../shared/types";
-import type { AnalyticsMode, AnalyticsResponse } from "../features/analytics/analyticsTypes";
+import type { AnalyticsDrilldownResponse, AnalyticsMode, AnalyticsResponse } from "../features/analytics/analyticsTypes";
 import { SYSTEM_MESSAGES } from "../shared/constants/systemMessages";
 import { NOTIFICATION_KINDS, NOTIFICATION_MESSAGES } from "../shared/constants/notificationConstants";
 
@@ -134,12 +134,11 @@ export async function logoutSession() {
 export const changePassword = (
   current_password: string,
   new_password: string,
-) =>
-  apiRequest("/auth/change-password", {
+) => apiRequest<SessionResponse>("/auth/change-password", {
     method: "POST",
     body: JSON.stringify({ current_password, new_password }),
     notify: false,
-  });
+  }).then((session) => { setAccessToken(session.access_token); return session; });
 
 export async function loadBootstrap(signal?: AbortSignal) {
   const bootstrap = await apiRequest<ApiResponse<BootstrapResponse>>("/bootstrap", { signal });
@@ -162,10 +161,14 @@ export const loadPermissions = (signal?: AbortSignal) =>
 const wireKind = (kind: "project" | "task") => kind === "project" ? "PROJECT" : "OPERATIONAL_TASK";
 export const loadInitiativeYears = (kind: "project" | "task", signal?: AbortSignal, year?: number) =>
   apiRequest<ApiResponse<InitiativeYearReadModel[]>>(`/initiative-years?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}`, { signal }).then((response) => response.data);
-export const loadQuarterCards = (kind: "project" | "task", signal?: AbortSignal, year?: number, quarter?: string, view?: "analytics") =>
-  apiRequest<ApiResponse<QuarterCardReadModel[]>>(`/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}${view ? `&view=${view}` : ""}`, { signal }).then((response) => response.data);
+export const loadInitiativeYearCounts = (year: number, signal?: AbortSignal) =>
+  apiRequest<ApiResponse<{ projects: number; operational_tasks: number }>>(`/initiative-years/counts?year=${year}`, { signal }).then((response) => response.data);
+export const loadQuarterCards = (kind: "project" | "task", signal?: AbortSignal, year?: number, quarter?: string) =>
+  apiRequest<ApiResponse<QuarterCardReadModel[]>>(`/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}`, { signal }).then((response) => response.data);
 export const loadAnalytics = (mode: AnalyticsMode, params: URLSearchParams, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<AnalyticsResponse>>(`/analytics/${mode}?${params.toString()}`, { signal }).then((response) => response.data);
+  apiRequest<ApiResponse<AnalyticsResponse>>(`/analytics/${mode}/summary?${params.toString()}`, { signal }).then((response) => response.data);
+export const loadAnalyticsDrilldown = (params: URLSearchParams, signal?: AbortSignal) =>
+  apiRequest<ApiResponse<AnalyticsDrilldownResponse>>(`/analytics/drilldown?${params.toString()}`, { signal }).then((response) => response.data);
 
 export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): InitiativeViewModel => ({
   id: year.id,
@@ -205,7 +208,7 @@ export const toQuarterCardViewModel = (card: QuarterCardReadModel): InitiativeVi
   priority: card.priority_id ?? undefined,
   notes: card.notes ?? undefined,
   implementer_dept_ids: [],
-  cross_functional_dept_ids: card.department_ids,
+  cross_functional_dept_ids: card.effective_involved_department_ids,
   custom_fields: card.custom_fields,
   year: card.year,
   quarter: card.quarter,
@@ -227,6 +230,8 @@ export const toQuarterCardViewModel = (card: QuarterCardReadModel): InitiativeVi
   moved_from: card.moved_from ? `${card.moved_from.quarter} ${card.moved_from.year}` : undefined,
   history: [],
   sizeSnapshot: { definitionId: card.size_snapshot.definition_id ?? undefined, name: card.size_snapshot.name, totalWeight: card.total_weight },
+  is_locked: card.is_locked,
+  locked_at: card.locked_at,
 });
 
 

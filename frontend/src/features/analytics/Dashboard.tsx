@@ -6,17 +6,19 @@ import {
 } from 'recharts';
 import { X } from 'lucide-react';
 import { useAppContext } from '../../app/store';
-import { useAnalyticsQuery } from '../../api/hooks';
+import { useAnalyticsDrilldownQuery, useAnalyticsQuery } from '../../api/hooks';
 import { getCurrentQuarter } from '../../shared/utils';
 import { Quarter } from '../../shared/types';
 import {
   analyticsKindLabels, analyticsQueryParams, analyticsStatusLabel,
-  latestInitiativeRecords, quarterlyDepartmentReserve, recordsByIds, statusCardIds,
+  quarterlyDepartmentReserve,
 } from './analyticsSelectors';
-import { AnalyticsFilters, AnalyticsMode, AnalyticsRecord, AnalyticsResponse, StatusCounts } from './analyticsTypes';
+import { AnalyticsFilters, AnalyticsMode, AnalyticsRecord, AnalyticsResponse, CardStatusMetric, StatusCounts } from './analyticsTypes';
 import styles from './Dashboard.module.css';
 import { SYSTEM_MESSAGES } from '../../shared/constants/systemMessages';
 import { AppLoader } from '../../components/ui/AppLoader';
+import { notify } from '../../components/ui/ToastNotifications';
+import { NOTIFICATION_KINDS } from '../../shared/constants/notificationConstants';
 
 const statusOrder = ['DEFAULT', 'YELLOW', 'GREEN', 'RED'] as const;
 const statusColors: Record<keyof StatusCounts, string> = {
@@ -30,12 +32,12 @@ const riskLabels: Record<string, string> = {
 
 type DepartmentCapacity = AnalyticsResponse['department_capacity'][number];
 type Drilldown =
-  | { type: 'records'; title: string; records: AnalyticsRecord[] }
+  | { type: 'records'; title: string; ids?: string[]; statusId?: string; localRecords?: AnalyticsRecord[] }
   | { type: 'departments'; title: string; departments: DepartmentCapacity[] }
   | null;
 
 export const Dashboard = () => {
-  const { departments, managers, initiativeStatuses, setInitiativeDataScope } = useAppContext();
+  const { departments, managers, setInitiativeDataScope } = useAppContext();
   useEffect(() => { setInitiativeDataScope({ mode: 'dashboard' }); }, [setInitiativeDataScope]);
   const now = new Date();
   const [mode, setMode] = useState<AnalyticsMode>('quarterly');
@@ -47,23 +49,35 @@ export const Dashboard = () => {
     return result;
   }, [filters, mode]);
   const analytics = useAnalyticsQuery(mode, params);
+  useEffect(() => {
+    if (analytics.isError) notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.loading.analyticsFailed);
+  }, [analytics.isError]);
   const data = analytics.data;
   const kindLabels = analyticsKindLabels(filters.kind);
-  const statusDefinition = (code: string) => initiativeStatuses.find((item) => item.code === code);
-  const statusColor = (code: keyof StatusCounts) => statusDefinition(code)?.color ?? statusColors[code];
-  const openRecords = (title: string, ids?: string[]) => setDrilldown({ type: 'records', title, records: recordsByIds(data, ids) });
+  const statusColor = (code: keyof StatusCounts) => statusColors[code];
+  const openRecords = (title: string, ids?: string[], statusId?: string) => setDrilldown({ type: 'records', title, ids, statusId });
+  const drilldownParams = useMemo(() => {
+    const value = analyticsQueryParams(filters);
+    value.set('mode', mode); value.set('page', '1'); value.set('page_size', '100');
+    if (mode === 'quarterly') value.set('quarter', filters.quarter);
+    if (drilldown?.type === 'records' && drilldown.ids?.length) value.set('card_ids', drilldown.ids.join(','));
+    if (drilldown?.type === 'records' && drilldown.statusId) value.set('status_id', drilldown.statusId);
+    return value;
+  }, [drilldown, filters, mode]);
+  const drilldownQuery = useAnalyticsDrilldownQuery(drilldownParams, drilldown?.type === 'records' && !drilldown.localRecords);
   const update = <K extends keyof AnalyticsFilters>(key: K, value: AnalyticsFilters[K]) => setFilters((current) => ({ ...current, [key]: value }));
   const years = Array.from(new Set([...(data?.available_years ?? []), filters.year, now.getFullYear()])).sort((a, b) => a - b);
-  const statusData = statusOrder.map((code) => ({ code, name: analyticsStatusLabel(code), value: data?.status_counts[code] ?? 0, color: statusColor(code) })).filter((item) => item.value > 0);
+  const statusData = data?.status_distribution ?? [];
   const summary = data?.summary ?? { cards: 0, initiatives: 0, total_weight: 0, average_progress: 0, average_duration: 0, overloaded_departments: 0 };
   const activeDepartments = departments.filter((department) => department.is_active !== false && (!filters.departmentId || department.id === filters.departmentId));
   const overloadedDepartments = data?.department_capacity.filter((item) => item.is_over_capacity) ?? [];
   const preparationDrilldown = () => data && setDrilldown({
     type: 'records', title: 'Підготовчі етапи без квартальної картки',
-    records: data.preparation.records.map((item) => ({
+    localRecords: data.preparation.records.map((item) => ({
       id: item.id, initiative_id: item.initiative_id, kind: item.kind as AnalyticsRecord['kind'], name: item.name,
       year: item.year, quarter: 'Q1', manager_id: item.manager_id, manager_name: managers.find((manager) => manager.id === item.manager_id)?.name ?? null,
-      priority_id: item.priority_id, priority_name: null, department_ids: item.department_ids, status_code: 'DEFAULT', total_weight: 0,
+      priority_id: item.priority_id, priority_name: null, department_ids: item.department_ids,
+      status_id: 'PREPARATION', status_code: 'DEFAULT', status_name: 'Підготовчий етап', status_color: '#94a3b8', total_weight: 0,
       size_name: 'Підготовчий етап', progress: item.ready ? 100 : 0, scope_items: 0, risks: item.ready ? [] : ['INCOMPLETE_PREPARATION'],
     })),
   });
@@ -84,11 +98,10 @@ export const Dashboard = () => {
     </section>
 
     {analytics.isPending && <AppLoader label="Завантаження аналітики…" />}
-    {analytics.isError && <div className={styles.error}>{SYSTEM_MESSAGES.loading.analyticsFailed}</div>}
     {data && <>
       <div className={styles.kpiGrid}>
         <Kpi title={`Карток ${kindLabels.genitive} у вибраному періоді`} value={summary.cards} accent="#0f766e" onClick={() => openRecords('Картки у вибраному періоді')} />
-        <Kpi title={`Унікальних ${kindLabels.genitive}`} value={summary.initiatives} accent="#4f46e5" onClick={() => setDrilldown({ type: 'records', title: kindLabels.nominativeTitle, records: latestInitiativeRecords(data) })} />
+        <Kpi title={`Унікальних ${kindLabels.genitive}`} value={summary.initiatives} accent="#4f46e5" onClick={() => openRecords(kindLabels.nominativeTitle)} />
         <Kpi title={`Сумарна вага ${kindLabels.genitive}`} value={`${summary.total_weight} бал.`} accent="#7c3aed" onClick={() => openRecords('Картки, що формують сумарну вагу')} />
         <Kpi title={`${mode === 'annual' ? 'Загальне виконання scope' : 'Середній прогрес'} ${kindLabels.genitive}`} value={`${summary.average_progress}%`} accent="#6366f1" progress={summary.average_progress} onClick={() => openRecords(mode === 'annual' ? 'Картки, що формують загальне виконання scope' : 'Картки, що формують середній прогрес')} />
         {mode === 'annual' && <Kpi title={`Середня тривалість ${kindLabels.genitive}`} value={`${summary.average_duration} кв.`} accent="#8b5cf6" />}
@@ -97,11 +110,11 @@ export const Dashboard = () => {
 
       {mode === 'quarterly' ? <>
         <div className={styles.grid2}>
-          <Chart title={`Статус ${kindLabels.genitive}`}>{statusData.length ? <StatusDonut data={statusData} onSelect={(item) => openRecords(`Статус: ${item.name}`, statusCardIds(data, item.code))} /> : <Empty />}</Chart>
-          <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}><PriorityStatusChart data={data} statusColor={statusColor} onOpen={openRecords} /></Chart>
+          <Chart title={`Статус ${kindLabels.genitive}`}>{statusData.length ? <StatusDonut data={statusData} onSelect={(item) => openRecords(`Статус: ${item.name}`, item.card_ids, item.status_id)} /> : <Empty />}</Chart>
+          <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}><PriorityStatusChart data={data} onOpen={openRecords} /></Chart>
         </div>
         <div className={styles.grid2}>
-          <Chart title="Виконання scope-завдань"><ScopeProgressChart data={data} statusColor={statusColor} /></Chart>
+          <Chart title="Виконання скоупу"><ScopeProgressChart data={data} statusColor={statusColor} /></Chart>
           <Chart title={`Структура ${kindLabels.genitive} за розміром`} description="Розмір визначено діапазоном сумарної ваги."><SizeChart data={data} onOpen={openRecords} /></Chart>
         </div>
         <div className={styles.grid2}>
@@ -114,16 +127,16 @@ export const Dashboard = () => {
         </div>
       </> : <>
         <div className={styles.grid12}>
-          <Chart title={`Статуси квартальних карток ${kindLabels.genitive} за рік`} className={styles.span5}>{statusData.length ? <StatusDonut data={statusData} onSelect={(item) => openRecords(`Статус: ${item.name}`, statusCardIds(data, item.code))} /> : <Empty />}</Chart>
+          <Chart title={`Статуси квартальних карток ${kindLabels.genitive} за рік`} className={styles.span5}>{statusData.length ? <StatusDonut data={statusData} onSelect={(item) => openRecords(`Статус: ${item.name}`, item.card_ids, item.status_id)} /> : <Empty />}</Chart>
           <Chart title={`Структура ${kindLabels.genitive} за розміром`} description="Розмір визначено діапазоном сумарної ваги." className={styles.span7}><SizeChart data={data} onOpen={openRecords} /></Chart>
         </div>
         <div className={styles.grid2}>
-          <Chart title={`Історична динаміка статусів ${kindLabels.genitive}`}><HistoryChart data={data} statusColor={statusColor} /></Chart>
+          <Chart title={`Історична динаміка статусів ${kindLabels.genitive}`}><HistoryChart data={data} /></Chart>
           <Chart title={`Динаміка обсягу ${kindLabels.genitive}: ${filters.year} порівняно з ${filters.year - 1}`}><AnnualVolumeChart data={data} year={filters.year} /></Chart>
         </div>
         <div className={styles.grid2}>
           <Chart title={`Завантаженість підрозділів за вагою ${kindLabels.genitive}`}><DepartmentLoadChart data={data} /></Chart>
-          <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}><PriorityStatusChart data={data} statusColor={statusColor} onOpen={openRecords} /></Chart>
+          <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}><PriorityStatusChart data={data} onOpen={openRecords} /></Chart>
         </div>
         <div className={styles.grid2}>
           <Chart title="Теплова карта завантаження за кварталами" description="Зелений — норма, жовтий — від 80%, червоний — перевищення." badge="вага / ліміт"><CapacityTable data={data.capacity_by_quarter} departments={activeDepartments} /></Chart>
@@ -134,7 +147,7 @@ export const Dashboard = () => {
 
       {mode === 'annual' && <div className={styles.grid12}><Chart title="Готовність підготовчого етапу" className={styles.span4}><button type="button" onClick={preparationDrilldown} className={styles.preparation}><div className={styles.preparationValue}>{data.preparation.ready}/{data.preparation.total}</div><p className={styles.preparationText}>готових етапів без квартальної картки</p><span className={styles.link}>Переглянути записи →</span></button></Chart><Chart title="Контроль плану" badge={String(data.risks.length)} className={styles.span8}><RiskList data={data} onOpen={openRecords} /></Chart></div>}
     </>}
-    {drilldown && <DrilldownModal value={drilldown} onClose={() => setDrilldown(null)} />}
+    {drilldown && <DrilldownModal value={drilldown} records={drilldown.type === 'records' ? drilldown.localRecords ?? drilldownQuery.data?.records ?? [] : []} loading={drilldown.type === 'records' && !drilldown.localRecords && drilldownQuery.isPending} onClose={() => setDrilldown(null)} />}
   </div>;
 };
 
@@ -155,9 +168,9 @@ const DepartmentLoadChart = ({ data }: { data: AnalyticsResponse }) => {
   return <div className={styles.chartScroll}><div style={{ width, height: 315 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={data.department_capacity} margin={{ top: 8, right: 20, left: 2, bottom: 76 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#dbe5f0" /><XAxis dataKey="name" angle={-34} textAnchor="end" interval={0} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#61738f' }} /><Tooltip content={<SimpleTooltip valueLabel="Сумарна вага" />} cursor={{ fill: '#f6f8fb' }} /><Bar dataKey="load" name="Сумарна вага" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={54} /></BarChart></ResponsiveContainer></div></div>;
 };
 
-const PriorityStatusChart = ({ data, statusColor, onOpen }: { data: AnalyticsResponse; statusColor: (code: keyof StatusCounts) => string; onOpen: (title: string, ids?: string[]) => void }) => {
+const PriorityStatusChart = ({ data, onOpen }: { data: AnalyticsResponse; onOpen: (title: string, ids?: string[]) => void }) => {
   const height = Math.max(265, data.priority_status_breakdown.length * 54);
-  return <><div className={styles.verticalChartScroll}><div style={{ height }}><ResponsiveContainer width="100%" height="100%"><BarChart data={data.priority_status_breakdown} layout="vertical" margin={{ top: 6, right: 22, left: 4, bottom: 2 }}><CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#dbe5f0" /><XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#71829d' }} axisLine={false} tickLine={false} /><YAxis dataKey="name" type="category" width={105} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><Tooltip content={<StatusTooltip />} cursor={{ fill: '#f6f8fb' }} />{statusOrder.map((code) => <Bar key={code} dataKey={`status_counts.${code}`} name={analyticsStatusLabel(code)} stackId="priority" fill={statusColor(code)} onClick={(entry: any) => onOpen(`Пріоритет: ${entry.name ?? entry.payload?.name}`, entry.card_ids ?? entry.payload?.card_ids)} />)}</BarChart></ResponsiveContainer></div></div><StatusKey /></>;
+  return <><div className={styles.verticalChartScroll}><div style={{ height }}><ResponsiveContainer width="100%" height="100%"><BarChart data={data.priority_status_breakdown} layout="vertical" margin={{ top: 6, right: 22, left: 4, bottom: 2 }}><CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#dbe5f0" /><XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#71829d' }} axisLine={false} tickLine={false} /><YAxis dataKey="name" type="category" width={105} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><Tooltip content={<StatusTooltip />} cursor={{ fill: '#f6f8fb' }} />{data.status_distribution.map((status) => <Bar key={status.status_id} dataKey={(entry) => entry.status_counts[status.status_id] ?? 0} name={status.name} stackId="priority" fill={status.color} onClick={(entry: any) => onOpen(`Пріоритет: ${entry.name ?? entry.payload?.name}`, entry.card_ids ?? entry.payload?.card_ids)} />)}</BarChart></ResponsiveContainer></div></div><CardStatusKey statuses={data.status_distribution} /></>;
 };
 
 const ScopeProgressChart = ({ data, statusColor }: { data: AnalyticsResponse; statusColor: (code: keyof StatusCounts) => string }) => {
@@ -165,21 +178,24 @@ const ScopeProgressChart = ({ data, statusColor }: { data: AnalyticsResponse; st
   return <><ResponsiveContainer width="100%" height={265}><BarChart data={rows} layout="vertical" margin={{ top: 6, right: 20, left: 2, bottom: 2 }}><CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#dbe5f0" /><XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#71829d' }} axisLine={false} tickLine={false} /><YAxis dataKey="name" type="category" width={112} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><Tooltip content={<SimpleTooltip valueLabel="Завдань" />} cursor={{ fill: '#f6f8fb' }} /><Bar dataKey="value" name="Завдань" radius={[0, 5, 5, 0]}>{rows.map((item) => <Cell key={item.code} fill={item.color} />)}</Bar></BarChart></ResponsiveContainer><StatusKey /></>;
 };
 
-const HistoryChart = ({ data, statusColor }: { data: AnalyticsResponse; statusColor: (code: keyof StatusCounts) => string }) => {
+const HistoryChart = ({ data }: { data: AnalyticsResponse }) => {
   const width = Math.max(600, data.history.length * 130);
-  return <><div className={styles.chartScroll}><div style={{ width, height: 285 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={data.history} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#dbe5f0" /><XAxis dataKey="year" tick={{ fontSize: 12, fill: '#61738f', fontWeight: 700 }} axisLine={false} tickLine={false} /><YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><Tooltip content={<StatusTooltip />} cursor={{ fill: '#f6f8fb' }} />{statusOrder.map((code) => <Bar key={code} dataKey={`status_counts.${code}`} name={analyticsStatusLabel(code)} stackId="status" fill={statusColor(code)} />)}</BarChart></ResponsiveContainer></div></div><StatusKey /></>;
+  const statuses = Array.from(new Map(data.history.flatMap((period) => period.status_distribution).map((status) => [status.status_id, status])).values());
+  const chartData = data.history.map((period) => ({ ...period, status_counts: Object.fromEntries(period.status_distribution.map((status) => [status.status_id, status.count])) }));
+  return <><div className={styles.chartScroll}><div style={{ width, height: 285 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#dbe5f0" /><XAxis dataKey="year" tick={{ fontSize: 12, fill: '#61738f', fontWeight: 700 }} axisLine={false} tickLine={false} /><YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><Tooltip content={<StatusTooltip />} cursor={{ fill: '#f6f8fb' }} />{statuses.map((status) => <Bar key={status.status_id} dataKey={(entry) => entry.status_counts[status.status_id] ?? 0} name={status.name} stackId="status" fill={status.color} />)}</BarChart></ResponsiveContainer></div></div><CardStatusKey statuses={statuses} /></>;
 };
 
 const AnnualVolumeChart = ({ data, year }: { data: AnalyticsResponse; year: number }) => <><ResponsiveContainer width="100%" height={285}><LineChart data={data.volume_trend} margin={{ top: 8, right: 20, left: 2, bottom: 4 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#dbe5f0" /><XAxis dataKey="quarter" tick={{ fontSize: 12, fill: '#61738f' }} axisLine={false} tickLine={false} /><YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><Tooltip content={<VolumeTooltip currentYear={year} />} /><Line type="monotone" dataKey="previous" name={`Рік ${year - 1}`} stroke="#94a3b8" strokeWidth={2.5} strokeDasharray="7 6" dot={{ r: 4, fill: '#94a3b8', stroke: '#fff', strokeWidth: 2 }} /><Line type="monotone" dataKey="current" name={`Рік ${year}`} stroke="#6366f1" strokeWidth={3.5} dot={{ r: 5, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }} /></LineChart></ResponsiveContainer><div className={styles.chartLegend}><LegendItem color="#94a3b8" label={`Рік ${year - 1}`} line dashed /><LegendItem color="#6366f1" label={`Рік ${year}`} line /></div></>;
 
 const QuarterComparisonChart = ({ data }: { data: AnalyticsResponse }) => <ResponsiveContainer width="100%" height={285}><LineChart data={data.period_comparison} margin={{ top: 12, right: 26, left: 2, bottom: 8 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#dbe5f0" /><XAxis dataKey="label" tick={{ fontSize: 12, fill: '#61738f', fontWeight: 700 }} axisLine={false} tickLine={false} /><YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#61738f' }} axisLine={false} tickLine={false} /><Tooltip content={<SimpleTooltip valueLabel="Кількість карток" />} /><Line type="monotone" dataKey="cards" name="Кількість карток" stroke="#6366f1" strokeWidth={3.5} dot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }} /></LineChart></ResponsiveContainer>;
 
-const StatusDonut = ({ data, onSelect }: { data: Array<{ code: keyof StatusCounts; name: string; value: number; color: string }>; onSelect: (item: { code: keyof StatusCounts; name: string }) => void }) => {
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  return <div className={styles.donutLayout}><ResponsiveContainer width="100%" height={235}><PieChart><Pie data={data} dataKey="value" nameKey="name" innerRadius={70} outerRadius={103} paddingAngle={3} stroke="#fff" strokeWidth={3} onClick={(entry: any) => onSelect(entry.payload ?? entry)}>{data.map((item) => <Cell key={item.code} fill={item.color} />)}</Pie><Tooltip content={<SimpleTooltip valueLabel="Кількість" />} /></PieChart></ResponsiveContainer><div className={styles.statusLegend}>{data.map((item) => <button type="button" key={item.code} className={styles.statusLegendRow} onClick={() => onSelect(item)}><span className={styles.legendDot} style={{ background: item.color }} /><span className={styles.legendLabel}>{item.name}</span><strong>{total ? Math.round(item.value / total * 100) : 0}%</strong><span className={styles.legendCount}>({item.value})</span></button>)}</div></div>;
+const StatusDonut = ({ data, onSelect }: { data: CardStatusMetric[]; onSelect: (item: CardStatusMetric) => void }) => {
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  return <div className={styles.donutLayout}><ResponsiveContainer width="100%" height={235}><PieChart><Pie data={data} dataKey="count" nameKey="name" innerRadius={70} outerRadius={103} paddingAngle={3} stroke="#fff" strokeWidth={3} onClick={(entry: any) => onSelect(entry.payload ?? entry)}>{data.map((item) => <Cell key={item.status_id} fill={item.color} />)}</Pie><Tooltip content={<SimpleTooltip valueLabel="Кількість" />} /></PieChart></ResponsiveContainer><div className={styles.statusLegend}>{data.map((item) => <button type="button" key={item.status_id} className={styles.statusLegendRow} onClick={() => onSelect(item)}><span className={styles.legendDot} style={{ background: item.color }} /><span className={styles.legendLabel}>{item.name}</span><strong>{total ? Math.round(item.count / total * 100) : 0}%</strong><span className={styles.legendCount}>({item.count})</span></button>)}</div></div>;
 };
 
 const StatusKey = () => <div className={styles.chartLegend}>{statusOrder.map((code) => <LegendItem key={code} color={statusColors[code]} label={analyticsStatusLabel(code)} />)}</div>;
+const CardStatusKey = ({ statuses }: { statuses: CardStatusMetric[] }) => <div className={styles.chartLegend}>{statuses.map((status) => <LegendItem key={status.status_id} color={status.color} label={status.name} />)}</div>;
 const LegendItem = ({ color, label, line = false, dashed = false }: { color: string; label: string; line?: boolean; dashed?: boolean }) => <span className={styles.legendItem}><i className={`${line ? styles.legendLine : styles.legendSquare} ${dashed ? styles.legendDashed : ''}`} style={{ '--legend-color': color } as CSSProperties} />{label}</span>;
 const SimpleTooltip = ({ active, payload, label, valueLabel }: any) => active && payload?.length ? <div className={styles.tooltip}><strong>{label ?? payload[0]?.payload?.name}</strong><span className={styles.tooltipValue}>{valueLabel}: {payload[0]?.value}</span></div> : null;
 const StatusTooltip = ({ active, payload, label }: any) => active && payload?.length ? <div className={styles.tooltip}><strong>{label ?? payload[0]?.payload?.name}</strong>{payload.map((item: any) => <span key={item.name} style={{ color: item.color }}>{item.name}: {item.value ?? 0}</span>)}</div> : null;
@@ -197,4 +213,4 @@ const ReserveWidget = ({ data, mode, quarter, departments }: { data: AnalyticsRe
 const CapacityTable = ({ data, departments }: { data: AnalyticsResponse['capacity_by_quarter']; departments: Array<{ id: string; name: string }> }) => <div className={styles.heatmapScroll}><div className={styles.heatmapGrid}><span className={styles.heatmapHeading}>Підрозділ</span>{data.map((item) => <span key={item.quarter} className={styles.quarterHeader}>{item.quarter}</span>)}{departments.flatMap((department) => [<span key={`${department.id}-name`} className={styles.departmentName}>{department.name}</span>, ...data.map((period) => { const item = period.departments.find((entry) => entry.department_id === department.id); const load = item?.load ?? 0; const limit = item?.limit ?? 0; return <span key={`${department.id}-${period.quarter}`} className={`${styles.heatmapCell} ${reserveTone(load, limit)}`}>{load}/{limit}</span>; })])}</div></div>;
 const RiskList = ({ data, onOpen }: { data: AnalyticsResponse; onOpen: (title: string, ids?: string[]) => void }) => <div className={styles.riskList}>{data.risks.length ? data.risks.map((risk) => <button type="button" key={risk.id} onClick={() => onOpen('Планувальний ризик', [risk.id])} className={styles.risk}><span className={styles.riskName}>{risk.name}</span><span className={styles.riskText}>{risk.risks.map((item) => riskLabels[item] ?? item).join(' · ')}</span></button>) : <Empty />}</div>;
 
-const DrilldownModal = ({ value, onClose }: { value: NonNullable<Drilldown>; onClose: () => void }) => createPortal(<div className={styles.modalBackdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className={styles.modal}><header className={styles.modalHeader}><div><h2 className={styles.modalTitle}>{value.title}</h2><p className={styles.modalCount}>{value.type === 'records' ? `Записів: ${value.records.length}` : `Підрозділів: ${value.departments.length}`}</p></div><button type="button" onClick={onClose} className={styles.close} aria-label="Закрити"><X /></button></header><div className={styles.modalBody}>{value.type === 'records' ? <div className={styles.recordList}>{value.records.map((record) => <article key={record.id} className={styles.record}><div className={styles.recordTop}><div><div className={styles.recordName}>{record.name}</div><div className={styles.recordMeta}>{record.kind === 'PROJECT' ? 'Проєкт' : 'Операційна задача'} · {record.year} · {record.quarter} · {record.manager_name ?? 'Без менеджера'}</div></div><div><div className={styles.recordWeight}>{record.total_weight} бал.</div><div className={styles.recordDetail}>{record.size_name} · прогрес {record.progress}%</div></div></div>{record.risks.length > 0 && <div className={styles.recordRisk}>{record.risks.map((item) => riskLabels[item] ?? item).join(' · ')}</div>}</article>)}{!value.records.length && <Empty />}</div> : <div className={styles.recordList}>{value.departments.map((department) => <article key={department.department_id} className={`${styles.record} ${styles.overloadRecord}`}><div><div className={styles.recordName}>{department.name}</div><div className={styles.recordMeta}>Навантаження {department.load} · ліміт {department.limit}</div></div><div className={styles.overloadValue}>+{Math.abs(department.reserve)} бал.</div></article>)}{!value.departments.length && <Empty />}</div>}</div></div></div>, document.body);
+const DrilldownModal = ({ value, records, loading, onClose }: { value: NonNullable<Drilldown>; records: AnalyticsRecord[]; loading: boolean; onClose: () => void }) => createPortal(<div className={styles.modalBackdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className={styles.modal}><header className={styles.modalHeader}><div><h2 className={styles.modalTitle}>{value.title}</h2><p className={styles.modalCount}>{value.type === 'records' ? `Записів: ${records.length}` : `Підрозділів: ${value.departments.length}`}</p></div><button type="button" onClick={onClose} className={styles.close} aria-label="Закрити"><X /></button></header><div className={styles.modalBody}>{value.type === 'records' ? loading ? <AppLoader label="Завантаження записів…" /> : <div className={styles.recordList}>{records.map((record) => <article key={record.id} className={styles.record}><div className={styles.recordTop}><div><div className={styles.recordName}>{record.name}</div><div className={styles.recordMeta}>{record.kind === 'PROJECT' ? 'Проєкт' : 'Операційна задача'} · {record.year} · {record.quarter} · {record.manager_name ?? 'Без менеджера'}</div></div><div><div className={styles.recordWeight}>{record.total_weight} бал.</div><div className={styles.recordDetail}>{record.size_name} · прогрес {record.progress}%</div></div></div>{record.risks.length > 0 && <div className={styles.recordRisk}>{record.risks.map((item) => riskLabels[item] ?? item).join(' · ')}</div>}</article>)}{!records.length && <Empty />}</div> : <div className={styles.recordList}>{value.departments.map((department) => <article key={department.department_id} className={`${styles.record} ${styles.overloadRecord}`}><div><div className={styles.recordName}>{department.name}</div><div className={styles.recordMeta}>Навантаження {department.load} · ліміт {department.limit}</div></div><div className={styles.overloadValue}>+{Math.abs(department.reserve)} бал.</div></article>)}{!value.departments.length && <Empty />}</div>}</div></div></div>, document.body);

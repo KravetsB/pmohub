@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Check, Copy, KeyRound, Power, PowerOff, Trash2, X } from "lucide-react";
+import { Check, Copy, KeyRound, Power, PowerOff, Trash2 } from "lucide-react";
 import { useAppContext } from "../../../../app/store";
 import { UserRole } from "../../../../shared/types";
 import { truncateText } from "../../../../shared/utils";
 import styles from "./RbacSection.module.css";
 import { SYSTEM_MESSAGES } from "../../../../shared/constants/systemMessages";
+import { notify } from "../../../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../../../shared/constants/notificationConstants";
 
 export const RbacSection = () => {
   const {
@@ -35,16 +37,13 @@ export const RbacSection = () => {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserDept, setNewUserDept] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("USER");
-  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState<{ name: string; value: string } | null>(null);
-  const [resetError, setResetError] = useState("");
 
   const handleResetPassword = async (user: { id: string; name: string; role: UserRole }) => {
-    setResetError("");
     const result = await resetUserPassword(user.id);
     if (!result.success || !result.data) {
-      setResetError(result.message);
+      notify(NOTIFICATION_KINDS.error, result.message);
       return;
     }
     setCopied(false);
@@ -53,13 +52,13 @@ export const RbacSection = () => {
 
   const handleAddUser = async () => {
     if (!newUserName.trim() || !newUserEmail.trim() || !newUserDept) {
-      setError(SYSTEM_MESSAGES.entities.fillAllFields);
+      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.entities.fillAllFields);
       return;
     }
     if (
       users.some((u) => u.email.toLowerCase() === newUserEmail.toLowerCase())
     ) {
-      setError(SYSTEM_MESSAGES.auth.duplicateEmail);
+      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.auth.duplicateEmail);
       return;
     }
 
@@ -73,7 +72,7 @@ export const RbacSection = () => {
       password: "",
     });
     if (!result.success || !result.data) {
-      setError(result.message);
+      notify(NOTIFICATION_KINDS.error, result.message);
       return;
     }
     setGeneratedPassword(result.data.temporary_password);
@@ -120,10 +119,10 @@ export const RbacSection = () => {
                   <td className={styles.center}>
                     <input
                       type="checkbox"
-                      checked={rp.canCreateEditProjects}
+                      checked={rp.canCreateEditInitiatives}
                       onChange={(e) =>
                         updateRolePermission(rp.role, {
-                          canCreateEditProjects: e.target.checked,
+                          canCreateEditInitiatives: e.target.checked,
                         })
                       }
                       className={styles.checkbox}
@@ -132,10 +131,10 @@ export const RbacSection = () => {
                   <td className={styles.center}>
                     <input
                       type="checkbox"
-                      checked={rp.canDeleteProjects}
+                      checked={rp.canDeleteInitiatives}
                       onChange={(e) =>
                         updateRolePermission(rp.role, {
-                          canDeleteProjects: e.target.checked,
+                          canDeleteInitiatives: e.target.checked,
                         })
                       }
                       className={styles.checkbox}
@@ -277,7 +276,7 @@ export const RbacSection = () => {
                 onClick={async () => {
                   const result = await deleteConfirm.onConfirm();
                   if (!result.success) {
-                    setResetError(result.message);
+                    notify(NOTIFICATION_KINDS.error, result.message);
                     return;
                   }
                   setDeleteConfirm(null);
@@ -310,16 +309,6 @@ export const RbacSection = () => {
             <div className={styles.dialogActions}>
               <button onClick={() => setTemporaryPassword(null)} className={styles.closeButton}>Готово</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {resetError && (
-        <div className={styles.backdrop}>
-          <div className={styles.dialog}>
-            <div className={styles.dialogLead}><div className={styles.dangerIcon}><X size={22} /></div><h3 className={styles.dialogTitle}>Не вдалося видати пароль</h3></div>
-            <p className={styles.dialogDescription}>{resetError}</p>
-            <div className={styles.dialogActions}><button onClick={() => setResetError("")} className={styles.closeButton}>Закрити</button></div>
           </div>
         </div>
       )}
@@ -390,7 +379,6 @@ export const RbacSection = () => {
                       value={newUserName}
                       onChange={(e) => {
                         setNewUserName(e.target.value);
-                        setError("");
                       }}
                       className={styles.input}
                     />
@@ -402,7 +390,6 @@ export const RbacSection = () => {
                       value={newUserEmail}
                       onChange={(e) => {
                         setNewUserEmail(e.target.value);
-                        setError("");
                       }}
                       className={styles.input}
                     />
@@ -413,7 +400,6 @@ export const RbacSection = () => {
                       value={newUserDept}
                       onChange={(e) => {
                         setNewUserDept(e.target.value);
-                        setError("");
                       }}
                       className={styles.select}
                     >
@@ -443,13 +429,10 @@ export const RbacSection = () => {
                   </div>
                 </div>
 
-                {error && <p className={styles.formError}>{error}</p>}
-
                 <div className={styles.dialogActions}>
                   <button
                     onClick={() => {
                       setIsAddUserModalOpen(false);
-                      setError("");
                       setNewUserName("");
                       setNewUserEmail("");
                       setNewUserDept("");

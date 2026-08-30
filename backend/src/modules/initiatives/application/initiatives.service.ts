@@ -12,12 +12,14 @@ import {
   PeriodCommandDto,
   QuarterDto,
   UpdateCardDto,
+  UpdateArchivedCardDto,
   UpdateBacklogDto,
   UpdateInitiativeDto,
   UpdateInitiativeYearDto,
   UpdatePreparationDto,
 } from '../api/initiative.dto';
 import { currentPeriod, isPeriodLocked } from '../domain/period.policy';
+import { assertPeriodCapacity } from '../domain/capacity.policy';
 
 type Tx = Prisma.TransactionClient;
 type Defaults = { managerId: string | null; priorityId: string | null; departmentIds: string[] };
@@ -33,6 +35,19 @@ export class InitiativesService {
   async create(dto: CreateInitiativeDto, actor: AuthUser) {
     await this.assertCanEdit(actor);
     const result = await this.prisma.$transaction(async (tx) => {
+      const name = dto.name.trim();
+      const existing = await tx.initiative.findFirst({
+        where: { kind: dto.kind, name },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new AppError(
+          'INITIATIVE_NAME_CONFLICT',
+          'Ініціатива з такою назвою вже існує в беклозі.',
+          HttpStatus.CONFLICT,
+          { initiative_id: existing.id },
+        );
+      }
       const initial = dto.initial_card;
       await this.assertReferences(tx, dto.preparation.manager_id, dto.preparation.priority_id, dto.preparation.department_ids);
       if (initial) {
@@ -51,7 +66,7 @@ export class InitiativesService {
       const initiative = await tx.initiative.create({
         data: {
           kind: dto.kind,
-          name: dto.name.trim(),
+          name,
           years: {
             create: {
               year: dto.year,
@@ -99,7 +114,7 @@ export class InitiativesService {
         await this.replaceCardDepartments(tx, card.id, unique([...initial.department_ids, ...executorIds]));
         await this.replaceCustomFields(tx, card.id, dto.kind, initial.custom_fields ?? {});
         await this.recalculateCard(tx, card.id);
-        await this.assertPeriodCapacity(tx, dto.year, qn(initial.quarter));
+        await assertPeriodCapacity(tx, dto.year, qn(initial.quarter));
         await this.audit(tx, 'QuarterCard', card.id, 'CARD_CREATED', 'Створено початкову квартальну картку', actor, dto.year, initial.quarter);
         cardId = card.id;
       }
@@ -286,11 +301,44 @@ export class InitiativesService {
       await this.replaceCardDepartments(tx, id, unique([...dto.department_ids, ...executorIds]));
       await this.replaceCustomFields(tx, id, current.initiativeYear.initiative.kind, dto.custom_fields ?? {});
       await this.recalculateCard(tx, id);
-      await this.assertPeriodCapacity(tx, current.initiativeYear.year, current.quarter);
+      await assertPeriodCapacity(tx, current.initiativeYear.year, current.quarter);
       await this.audit(tx, 'QuarterCard', id, 'CARD_UPDATED', 'Оновлено квартальну картку', actor);
       return { card_id: id, card_revision: dto.revision + 1 };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return ok('Картку збережено', result);
+  }
+
+  async updateArchivedCard(id: string, dto: UpdateArchivedCardDto, actor: AuthUser) {
+    await this.assertCanEditArchive(actor);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.quarterCard.findUnique({ where: { id }, include: { initiativeYear: true, scopeItems: true } });
+      if (!current) throw this.notFound('Картку');
+      if (!isPeriodLocked(current.initiativeYear.year, qs(current.quarter))) {
+        throw new AppError('PERIOD_NOT_ARCHIVED', 'Для відкритого періоду використовуйте звичайне редагування.', HttpStatus.BAD_REQUEST);
+      }
+      if (dto.status_id) await this.assertCardStatus(tx, dto.status_id);
+      const changed = await tx.quarterCard.updateMany({
+        where: { id, revision: dto.revision },
+        data: {
+          ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
+          ...(dto.status_id ? { statusId: dto.status_id } : {}),
+          revision: { increment: 1 },
+        },
+      });
+      if (!changed.count) await this.throwConflict(tx, 'QuarterCard', id);
+      const currentIds = new Set(current.scopeItems.map((item) => item.id));
+      for (const item of dto.scope_status_updates) {
+        if (!currentIds.has(item.id)) throw this.notFound('Завдання scope');
+        const updated = await tx.scopeItem.updateMany({
+          where: { id: item.id, quarterCardId: id, revision: item.revision },
+          data: { statusCode: item.status_code, revision: { increment: 1 } },
+        });
+        if (!updated.count) await this.throwConflict(tx, 'ScopeItem', item.id);
+      }
+      await this.audit(tx, 'QuarterCard', id, 'ARCHIVED_CARD_STATUS_UPDATED', 'Оновлено дозволені поля архівної картки', actor);
+      return { card_id: id, card_revision: dto.revision + 1 };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return ok('Архівну картку оновлено', result);
   }
 
   async extendYears(dto: ExtendYearsDto, actor: AuthUser) {
@@ -358,7 +406,7 @@ export class InitiativesService {
         },
       });
       if (!changed.count) await this.throwConflict(tx, 'QuarterCard', id);
-      await this.assertPeriodCapacity(tx, dto.to_year, qn(dto.to_quarter));
+      await assertPeriodCapacity(tx, dto.to_year, qn(dto.to_quarter));
       await this.audit(tx, 'QuarterCard', id, 'CARD_MOVED', 'Квартальну картку перенесено', actor, source.initiativeYear.year, qs(source.quarter), dto.to_year, dto.to_quarter);
       return { card_id: id, card_revision: dto.revision + 1, source_year_id: source.initiativeYearId, target_year_id: targetYear.id };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -421,33 +469,47 @@ export class InitiativesService {
   async removeCard(id: string, revision: number, actor: AuthUser) {
     await this.assertCanDelete(actor);
     const result = await this.prisma.$transaction(async (tx) => {
-      const card = await tx.quarterCard.findUnique({ where: { id }, include: { initiativeYear: true } });
+      const card = await tx.quarterCard.findUnique({
+        where: { id },
+        include: { initiativeYear: true, scopeItems: { select: { statusCode: true } } },
+      });
       if (!card) throw this.notFound('Картку');
       if (isPeriodLocked(card.initiativeYear.year, qs(card.quarter))) throw this.archived();
+      if (card.scopeItems.some((item) => item.statusCode === 'GREEN')) {
+        throw new AppError(
+          'CARD_HAS_COMPLETED_SCOPE',
+          'Квартальну картку не можна видалити, оскільки вона містить завершені завдання.',
+          HttpStatus.CONFLICT,
+        );
+      }
       await this.detachCardMetadata(tx, [id]);
       const deleted = await tx.quarterCard.deleteMany({ where: { id, revision } });
       if (!deleted.count) await this.throwConflict(tx, 'QuarterCard', id);
       await this.audit(tx, 'QuarterCard', id, 'CARD_DELETED', 'Квартальну картку видалено', actor);
       return { card_id: id, year_id: card.initiativeYearId };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return ok('Картку видалено', result);
   }
 
   async removeYear(id: string, revision: number, actor: AuthUser) {
     await this.assertCanDelete(actor);
     const result = await this.prisma.$transaction(async (tx) => {
-      const year = await tx.initiativeYear.findUnique({ where: { id } });
+      const year = await tx.initiativeYear.findUnique({ where: { id }, include: { quarterCards: { select: { id: true, quarter: true } } } });
       if (!year) throw this.notFound('Рік ініціативи');
-      if (this.yearLocked(year.year)) throw this.archived();
-      const cardIds = (await tx.quarterCard.findMany({ where: { initiativeYearId: id }, select: { id: true } })).map((card) => card.id);
-      await this.detachCardMetadata(tx, cardIds);
+      if (year.quarterCards.length) {
+        throw new AppError(
+          'YEAR_HAS_QUARTER_CARDS',
+          'Запис беклогу не можна видалити, доки для нього існують квартальні картки.',
+          HttpStatus.CONFLICT,
+        );
+      }
       const deleted = await tx.initiativeYear.deleteMany({ where: { id, revision } });
       if (!deleted.count) await this.throwConflict(tx, 'InitiativeYear', id);
       const remaining = await tx.initiativeYear.count({ where: { initiativeId: year.initiativeId } });
       if (!remaining) await tx.initiative.delete({ where: { id: year.initiativeId } });
       await this.audit(tx, 'InitiativeYear', id, 'YEAR_DELETED', 'Рік ініціативи видалено', actor);
       return { year_id: id, initiative_id: year.initiativeId, initiative_deleted: remaining === 0 };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return ok('Рік ініціативи видалено', result);
   }
 
@@ -539,9 +601,11 @@ export class InitiativesService {
       await this.replaceCardDepartments(tx, target.id, unique([...target.departments.map((link) => link.departmentId), ...item.executors.map((link) => link.departmentId)]));
       if (mode === 'MOVE') await this.recalculateCard(tx, source.id);
       await this.recalculateCard(tx, target.id);
-      if (mode === 'MOVE') await this.assertPeriodCapacity(tx, source.initiativeYear.year, source.quarter);
-      await this.assertPeriodCapacity(tx, dto.to_year, qn(dto.to_quarter));
+      if (mode === 'MOVE') await assertPeriodCapacity(tx, source.initiativeYear.year, source.quarter);
+      await assertPeriodCapacity(tx, dto.to_year, qn(dto.to_quarter));
       await this.audit(tx, 'ScopeItem', item.id, mode === 'MOVE' ? 'SCOPE_MOVED' : 'SCOPE_COPIED', mode === 'MOVE' ? 'Завдання скоупу перенесено' : 'Завдання скоупу скопійовано', actor, source.initiativeYear.year, qs(source.quarter), dto.to_year, dto.to_quarter);
+      await this.audit(tx, 'QuarterCard', source.id, mode === 'MOVE' ? 'SCOPE_MOVED_OUT' : 'SCOPE_COPIED_OUT', mode === 'MOVE' ? 'Із картки перенесено завдання scope' : 'Із картки скопійовано завдання scope', actor, source.initiativeYear.year, qs(source.quarter), dto.to_year, dto.to_quarter);
+      if (target.id !== source.id) await this.audit(tx, 'QuarterCard', target.id, mode === 'MOVE' ? 'SCOPE_MOVED_IN' : 'SCOPE_COPIED_IN', mode === 'MOVE' ? 'До картки перенесено завдання scope' : 'До картки скопійовано завдання scope', actor, source.initiativeYear.year, qs(source.quarter), dto.to_year, dto.to_quarter);
       return {
         source_card_id: source.id,
         target_card_id: target.id,
@@ -640,34 +704,6 @@ export class InitiativesService {
     });
   }
 
-  private async assertPeriodCapacity(tx: Tx, year: number, quarter: number) {
-    const cards = await tx.quarterCard.findMany({
-      where: { quarter, initiativeYear: { year } },
-      include: { departments: true, scopeItems: { include: { executors: true } } },
-    });
-    const loads = new Map<string, number>();
-    for (const card of cards) {
-      const allExecutors = new Set(card.scopeItems.flatMap((item) => item.executors.map((link) => link.departmentId)));
-      for (const item of card.scopeItems) {
-        const executors = unique(item.executors.map((link) => link.departmentId));
-        const share = executors.length ? item.weightSnapshotValue.toNumber() / executors.length : 0;
-        executors.forEach((id) => loads.set(id, (loads.get(id) ?? 0) + share));
-      }
-      const involved = card.departments.map((link) => link.departmentId).filter((id) => !allExecutors.has(id));
-      if (card.scopeItems.length && involved.length) {
-        const total = card.scopeItems.reduce((sum, item) => sum + item.weightSnapshotValue.toNumber(), 0);
-        const share = total / card.scopeItems.length / involved.length;
-        involved.forEach((id) => loads.set(id, (loads.get(id) ?? 0) + share));
-      }
-    }
-    if (!loads.size) return;
-    const departments = await tx.department.findMany({ where: { id: { in: [...loads.keys()] } } });
-    const exceeded = departments
-      .filter((department) => (loads.get(department.id) ?? 0) > department.capacityLimitPoints.toNumber())
-      .map((department) => ({ department_id: department.id, name: department.name, load: Math.round((loads.get(department.id) ?? 0) * 100) / 100, limit: department.capacityLimitPoints.toNumber() }));
-    if (exceeded.length) throw new AppError('DEPARTMENT_CAPACITY_EXCEEDED', 'Навантаження підрозділів перевищує встановлений ліміт.', HttpStatus.UNPROCESSABLE_ENTITY, { departments: exceeded });
-  }
-
   private async replacePreparationDepartments(tx: Tx, yearId: string, departmentIds: string[]) {
     const ids = unique(departmentIds);
     await tx.preparationStageDepartment.deleteMany({ where: { initiativeYearId: yearId, departmentId: { notIn: ids } } });
@@ -702,13 +738,13 @@ export class InitiativesService {
           include: { options: true },
         })
       : [];
-    if (definitions.length !== definitionIds.length) throw new AppError('INVALID_CUSTOM_FIELD', 'Одне або кілька custom fields недоступні для цього типу ініціативи.');
+    if (definitions.length !== definitionIds.length) throw new AppError('INVALID_CUSTOM_FIELD', 'Одне або кілька додаткових полів недоступні для цього типу ініціативи.');
     const required = await tx.customFieldDefinition.findMany({
       where: { entityType, isActive: true, isRequired: true },
       select: { id: true },
     });
     const missingRequired = required.some(({ id }) => !Object.prototype.hasOwnProperty.call(presentValues, id));
-    if (missingRequired) throw new AppError('REQUIRED_CUSTOM_FIELD', 'Заповніть усі обов’язкові custom fields.');
+    if (missingRequired) throw new AppError('REQUIRED_CUSTOM_FIELD', 'Заповніть усі обов’язкові додаткові поля.');
     await tx.customFieldValue.deleteMany({ where: { quarterCardId: cardId, definitionId: { notIn: definitionIds } } });
     for (const definition of definitions) {
       const raw = presentValues[definition.id];
@@ -729,18 +765,12 @@ export class InitiativesService {
     switch (type) {
       case 'NUMBER': {
         const parsed = Number(value);
-        if (!Number.isFinite(parsed)) throw new AppError('INVALID_CUSTOM_FIELD', 'Custom field має містити число.');
+        if (!Number.isFinite(parsed)) throw new AppError('INVALID_CUSTOM_FIELD', 'Додаткове поле має містити число.');
         return { ...empty, numberValue: parsed };
       }
-      case 'BOOLEAN':
       case 'CHECKBOX':
-        if (typeof value !== 'boolean') throw new AppError('INVALID_CUSTOM_FIELD', 'Custom field має містити true або false.');
+        if (typeof value !== 'boolean') throw new AppError('INVALID_CUSTOM_FIELD', 'Додаткове поле має містити логічне значення.');
         return { ...empty, booleanValue: value };
-      case 'DATE': {
-        const date = new Date(String(value));
-        if (Number.isNaN(date.getTime())) throw new AppError('INVALID_CUSTOM_FIELD', 'Custom field має містити коректну дату.');
-        return { ...empty, dateValue: date };
-      }
       case 'SELECT':
         return { ...empty, optionValue: String(value) };
       default:
@@ -761,7 +791,7 @@ export class InitiativesService {
     if (new Set(ids).size !== ids.length) throw new AppError('DUPLICATE_SCOPE_ITEM', 'Завдання скоупу дублюється у запиті.');
     for (const item of incoming) {
       if (item.id && !current.has(item.id)) throw new AppError('INVALID_SCOPE_ITEM', 'Завдання не належить цій картці.');
-      if (item.id && !item.revision) throw new AppError('REVISION_REQUIRED', 'Для існуючого завдання потрібна revision.');
+      if (item.id && !item.revision) throw new AppError('REVISION_REQUIRED', 'Для існуючого завдання потрібна актуальна версія.');
       if (!item.text.trim()) throw new AppError('VALIDATION_ERROR', 'Текст завдання не може бути порожнім.');
       if (!item.executor_department_ids.length) throw new AppError('VALIDATION_ERROR', 'Оберіть хоча б один підрозділ-виконавець.');
     }
@@ -813,12 +843,19 @@ export class InitiativesService {
 
   private async assertCanEdit(actor: AuthUser) {
     const permissions = await this.prisma.rolePermission.findUnique({ where: { role: actor.role } });
-    if (!permissions || permissions.isReadOnly || !permissions.canCreateEditProjects) throw new AppError('FORBIDDEN', 'Недостатньо прав для зміни ініціатив.', HttpStatus.FORBIDDEN);
+    if (!permissions || permissions.isReadOnly || !permissions.canCreateEditInitiatives) throw new AppError('FORBIDDEN', 'Недостатньо прав для зміни ініціатив.', HttpStatus.FORBIDDEN);
   }
 
   private async assertCanDelete(actor: AuthUser) {
     const permissions = await this.prisma.rolePermission.findUnique({ where: { role: actor.role } });
-    if (!permissions || permissions.isReadOnly || !permissions.canDeleteProjects) throw new AppError('FORBIDDEN', 'Недостатньо прав для видалення ініціатив.', HttpStatus.FORBIDDEN);
+    if (!permissions || permissions.isReadOnly || !permissions.canDeleteInitiatives) throw new AppError('FORBIDDEN', 'Недостатньо прав для видалення ініціатив.', HttpStatus.FORBIDDEN);
+  }
+
+  private async assertCanEditArchive(actor: AuthUser) {
+    const permissions = await this.prisma.rolePermission.findUnique({ where: { role: actor.role } });
+    if (!permissions || permissions.isReadOnly || !permissions.canCreateEditInitiatives || !permissions.canEditArchive) {
+      throw new AppError('ARCHIVE_FORBIDDEN', 'Недостатньо прав для редагування архівного періоду.', HttpStatus.FORBIDDEN);
+    }
   }
 
   private assertOpen(year: number, quarter: QuarterDto) {

@@ -55,14 +55,22 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError('NOT_FOUND', 'Користувача не знайдено', HttpStatus.NOT_FOUND);
     if (id === actor.id && dto.role && dto.role !== user.role) throw new AppError('ACTIVE_USER_ROLE', 'Не можна змінити власну роль', HttpStatus.CONFLICT);
+    if (id === actor.id && dto.is_active === false) throw new AppError('ACTIVE_USER_DEACTIVATE', 'Не можна деактивувати власний обліковий запис', HttpStatus.CONFLICT);
     this.assertMayManageRole(actor.role, user.role);
     if (dto.role) this.assertMayManageRole(actor.role, dto.role);
+    try {
     const updated = await this.prisma.$transaction(async (tx) => {
+      if (user.role === 'SUPER_ADMIN' && (dto.role && dto.role !== 'SUPER_ADMIN' || dto.is_active === false)) await this.assertAnotherActiveSuperAdmin(id, tx);
       const result = await tx.user.update({ where: { id }, data: { name: dto.name?.trim(), email: dto.email?.trim(), normalizedEmail: dto.email ? normalized(dto.email) : undefined, role: dto.role, departmentId: dto.department_id, isActive: dto.is_active } });
+      if (dto.is_active === false || dto.role && dto.role !== user.role) await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.auditEvent.create({ data: { aggregateType: 'USER', aggregateId: id, actionCode: 'USER_UPDATED', message: 'Користувача оновлено', actorUserId: actor.id, actorName: actor.name } });
       return result;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return { success: true, message: 'Користувача оновлено', data: publicUser(updated) };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new AppError('USER_EXISTS', 'Користувач із таким email уже існує', HttpStatus.CONFLICT);
+      throw error;
+    }
   }
 
   async deactivate(id: string, actor: { id: string; name: string; role: string }) {
@@ -72,11 +80,12 @@ export class UsersService {
     if (!user) throw new AppError('NOT_FOUND', 'Користувача не знайдено', HttpStatus.NOT_FOUND);
     this.assertMayManageRole(actor.role, user.role);
     const result = await this.prisma.$transaction(async (tx) => {
+      if (user.role === 'SUPER_ADMIN') await this.assertAnotherActiveSuperAdmin(id, tx);
       const changed = await tx.user.updateMany({ where: { id }, data: { isActive: false } });
       await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.auditEvent.create({ data: { aggregateType: 'USER', aggregateId: id, actionCode: 'USER_DEACTIVATED', message: 'Користувача деактивовано', actorUserId: actor.id, actorName: actor.name } });
       return changed;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     if (!result.count) throw new AppError('NOT_FOUND', 'Користувача не знайдено', HttpStatus.NOT_FOUND);
     return { success: true, message: 'Користувача деактивовано' };
   }
@@ -97,5 +106,10 @@ export class UsersService {
     if (!permission?.canAccessAdmin || permission.isReadOnly) {
       throw new AppError('FORBIDDEN', 'Недостатньо прав адміністратора', HttpStatus.FORBIDDEN);
     }
+  }
+
+  private async assertAnotherActiveSuperAdmin(excludedId: string, client: Pick<Prisma.TransactionClient, 'user'> = this.prisma) {
+    const count = await client.user.count({ where: { role: 'SUPER_ADMIN', isActive: true, id: { not: excludedId } } });
+    if (!count) throw new AppError('LAST_SUPER_ADMIN', 'Не можна деактивувати або понизити останнього активного SUPER_ADMIN', HttpStatus.CONFLICT);
   }
 }

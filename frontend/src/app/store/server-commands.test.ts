@@ -151,6 +151,6 @@ describe("server command routing", () => {
     vi.stubGlobal('fetch', fetchMock);
     await loadAnalytics('quarterly', new URLSearchParams({ year: '2027', quarter: 'Q2', kind: 'PROJECT' }));
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/analytics/quarterly?year=2027&quarter=Q2&kind=PROJECT');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/analytics/quarterly/summary?year=2027&quarter=Q2&kind=PROJECT');
   });
 });
