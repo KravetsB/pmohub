@@ -22,6 +22,7 @@ export class UsersService {
     try {
       const passwordHash = await argon2.hash(temporaryPassword, { type: argon2.argon2id });
       const user = await this.prisma.$transaction(async (tx) => {
+        await this.assertRoleConfigured(dto.role, tx);
         const created = await tx.user.create({ data: { name: dto.name.trim(), email: dto.email.trim(), normalizedEmail: normalized(dto.email), role: dto.role, departmentId: dto.department_id, passwordHash, mustChangePassword: true } });
         await tx.auditEvent.create({ data: { aggregateType: 'USER', aggregateId: created.id, actionCode: 'USER_CREATED', message: 'Користувача створено', actorUserId: actor.id, actorName: actor.name } });
         return created;
@@ -61,6 +62,7 @@ export class UsersService {
     try {
     const updated = await this.prisma.$transaction(async (tx) => {
       if (user.role === 'SUPER_ADMIN' && (dto.role && dto.role !== 'SUPER_ADMIN' || dto.is_active === false)) await this.assertAnotherActiveSuperAdmin(id, tx);
+      if (dto.role) await this.assertRoleConfigured(dto.role, tx);
       const result = await tx.user.update({ where: { id }, data: { name: dto.name?.trim(), email: dto.email?.trim(), normalizedEmail: dto.email ? normalized(dto.email) : undefined, role: dto.role, departmentId: dto.department_id, isActive: dto.is_active } });
       if (dto.is_active === false || dto.role && dto.role !== user.role) await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.auditEvent.create({ data: { aggregateType: 'USER', aggregateId: id, actionCode: 'USER_UPDATED', message: 'Користувача оновлено', actorUserId: actor.id, actorName: actor.name } });
@@ -105,6 +107,21 @@ export class UsersService {
     const permission = await this.prisma.rolePermission.findUnique({ where: { role } });
     if (!permission?.canAccessAdmin || permission.isReadOnly) {
       throw new AppError('FORBIDDEN', 'Недостатньо прав адміністратора', HttpStatus.FORBIDDEN);
+    }
+  }
+
+  private async assertRoleConfigured(
+    role: string,
+    client: Pick<Prisma.TransactionClient, 'rolePermission'> = this.prisma,
+  ) {
+    const permission = await client.rolePermission.findUnique({ where: { role }, select: { role: true } });
+    if (!permission) {
+      throw new AppError(
+        'ROLE_NOT_CONFIGURED',
+        'Для обраної ролі не налаштовано права доступу',
+        HttpStatus.CONFLICT,
+        { role },
+      );
     }
   }
 

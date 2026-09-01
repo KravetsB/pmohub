@@ -307,6 +307,9 @@ CREATE NONCLUSTERED INDEX [IX_scope_items_lineage] ON [dbo].[scope_items]([linea
 CREATE NONCLUSTERED INDEX [IX_audit_events_aggregate] ON [dbo].[audit_events]([aggregate_type], [aggregate_id], [occurred_at]);
 
 -- AddForeignKey
+ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_role_fkey] FOREIGN KEY ([role]) REFERENCES [dbo].[role_permissions]([role]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
 ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey

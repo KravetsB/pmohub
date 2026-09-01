@@ -20,6 +20,7 @@ model User {
   createdAt          DateTime       @default(now()) @map("created_at") @db.DateTime2
   updatedAt          DateTime       @updatedAt @map("updated_at") @db.DateTime2
   department         Department?    @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rolePermission     RolePermission @relation(fields: [role], references: [role], onDelete: NoAction, onUpdate: NoAction)
   refreshTokens      RefreshToken[]
   auditEvents        AuditEvent[]
 
@@ -48,6 +49,7 @@ model RolePermission {
   canAccessAdmin        Boolean @default(false) @map("can_access_admin")
   isReadOnly            Boolean @default(false) @map("is_read_only")
   canEditArchive        Boolean @default(false) @map("can_edit_archive")
+  users                 User[]
 
   @@map("role_permissions")
 }
