@@ -6,9 +6,16 @@ import {
   QuarterCardReadModel,
   User,
 } from "../shared/types";
-import type { AnalyticsDrilldownResponse, AnalyticsMode, AnalyticsResponse } from "../features/analytics/analyticsTypes";
+import type {
+  AnalyticsDrilldownResponse,
+  AnalyticsMode,
+  AnalyticsResponse,
+} from "../features/analytics/analyticsTypes";
 import { SYSTEM_MESSAGES } from "../shared/constants/systemMessages";
-import { NOTIFICATION_KINDS, NOTIFICATION_MESSAGES } from "../shared/constants/notificationConstants";
+import {
+  NOTIFICATION_KINDS,
+  NOTIFICATION_MESSAGES,
+} from "../shared/constants/notificationConstants";
 
 const configuredBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
 export const backendEnabled = true;
@@ -21,7 +28,9 @@ export const setAccessToken = (token: string | null) => {
 
 let refreshPromise: Promise<SessionResponse> | null = null;
 let authFailureHandler: (() => void) | null = null;
-export const setAuthFailureHandler = (handler: (() => void) | null) => { authFailureHandler = handler; };
+export const setAuthFailureHandler = (handler: (() => void) | null) => {
+  authFailureHandler = handler;
+};
 
 export class ApiError extends Error {
   constructor(
@@ -38,7 +47,10 @@ type RequestOptions = RequestInit & { retryAuth?: boolean; notify?: boolean };
 const apiMessage = (value: unknown, fallback: string) => {
   if (typeof value === "string" && value.trim()) return value;
   if (Array.isArray(value)) {
-    const messages = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()));
+    const messages = value.filter(
+      (item): item is string =>
+        typeof item === "string" && Boolean(item.trim()),
+    );
     if (messages.length) return messages.join(". ");
   }
   return fallback;
@@ -82,8 +94,73 @@ export async function apiRequest<T>(
     throw error;
   }
   if (options.notify)
-    notify(NOTIFICATION_KINDS.success, body.message ?? NOTIFICATION_MESSAGES.changesSaved);
+    notify(
+      NOTIFICATION_KINDS.success,
+      body.message ?? NOTIFICATION_MESSAGES.changesSaved,
+    );
   return body as T;
+}
+
+export interface DownloadedFile {
+  blob: Blob;
+  filename: string;
+}
+
+const filenameFromDisposition = (header: string | null, fallback: string) => {
+  if (!header) return fallback;
+  const encoded = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return fallback;
+    }
+  }
+  return header.match(/filename="?([^";]+)"?/i)?.[1] ?? fallback;
+};
+
+/** Binary counterpart of apiRequest with the same single-flight auth refresh. */
+export async function apiDownload(
+  path: string,
+  body: unknown,
+  fallbackFilename: string,
+  signal?: AbortSignal,
+  retryAuth = true,
+): Promise<DownloadedFile> {
+  const headers = new Headers({ "content-type": "application/json" });
+  if (accessToken) headers.set("authorization", `Bearer ${accessToken}`);
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers,
+    credentials: "include",
+    signal,
+  });
+  if (response.status === 401 && retryAuth) {
+    try {
+      await refreshSession();
+      return apiDownload(path, body, fallbackFilename, signal, false);
+    } catch {
+      setAccessToken(null);
+      authFailureHandler?.();
+    }
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new ApiError(
+      payload.code ?? "HTTP_ERROR",
+      apiMessage(payload.message, SYSTEM_MESSAGES.api.genericError),
+      response.status,
+      payload.details,
+    );
+  }
+  return {
+    blob: await response.blob(),
+    filename: filenameFromDisposition(
+      response.headers.get("content-disposition"),
+      fallbackFilename,
+    ),
+  };
 }
 
 export interface SessionResponse {
@@ -95,7 +172,10 @@ type WireUser = Omit<User, "departmentId"> & {
   department_id?: string;
   is_active?: boolean;
 };
-type BootstrapResponse = Omit<ReferenceDataState, "projects" | "tasks" | "users" | "currentUser"> & {
+type BootstrapResponse = Omit<
+  ReferenceDataState,
+  "projects" | "tasks" | "users" | "currentUser"
+> & {
   currentUser: WireUser;
 };
 export async function loginSession(email: string, password: string) {
@@ -129,19 +209,31 @@ export async function logoutSession() {
   setAccessToken(null);
   try {
     await apiRequest("/auth/logout", { method: "POST", retryAuth: false });
-  } finally { /* access token was cleared synchronously above */ }
+  } finally {
+    /* access token was cleared synchronously above */
+  }
 }
 export const changePassword = (
-  current_password: string,
+  current_password: string | undefined,
   new_password: string,
-) => apiRequest<SessionResponse>("/auth/change-password", {
+) =>
+  apiRequest<SessionResponse>("/auth/change-password", {
     method: "POST",
-    body: JSON.stringify({ current_password, new_password }),
+    body: JSON.stringify({
+      ...(current_password ? { current_password } : {}),
+      new_password,
+    }),
     notify: false,
-  }).then((session) => { setAccessToken(session.access_token); return session; });
+  }).then((session) => {
+    setAccessToken(session.access_token);
+    return session;
+  });
 
 export async function loadBootstrap(signal?: AbortSignal) {
-  const bootstrap = await apiRequest<ApiResponse<BootstrapResponse>>("/bootstrap", { signal });
+  const bootstrap = await apiRequest<ApiResponse<BootstrapResponse>>(
+    "/bootstrap",
+    { signal },
+  );
   const normalizeUser = (user: WireUser): User => ({
     ...user,
     departmentId: user.department_id,
@@ -154,23 +246,62 @@ export async function loadBootstrap(signal?: AbortSignal) {
 }
 export const loadUsers = (signal?: AbortSignal) =>
   apiRequest<ApiResponse<WireUser[]>>("/users", { signal }).then((response) =>
-    response.data.filter((user) => user.is_active !== false).map((user) => ({ ...user, departmentId: user.department_id })),
+    response.data
+      .filter((user) => user.is_active !== false)
+      .map((user) => ({ ...user, departmentId: user.department_id })),
   );
 export const loadPermissions = (signal?: AbortSignal) =>
-  apiRequest<ApiResponse<ReferenceDataState["rolePermissions"]>>("/role-permissions", { signal }).then((response) => response.data);
-const wireKind = (kind: "project" | "task") => kind === "project" ? "PROJECT" : "OPERATIONAL_TASK";
-export const loadInitiativeYears = (kind: "project" | "task", signal?: AbortSignal, year?: number) =>
-  apiRequest<ApiResponse<InitiativeYearReadModel[]>>(`/initiative-years?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}`, { signal }).then((response) => response.data);
+  apiRequest<ApiResponse<ReferenceDataState["rolePermissions"]>>(
+    "/role-permissions",
+    { signal },
+  ).then((response) => response.data);
+const wireKind = (kind: "project" | "task") =>
+  kind === "project" ? "PROJECT" : "OPERATIONAL_TASK";
+export const loadInitiativeYears = (
+  kind: "project" | "task",
+  signal?: AbortSignal,
+  year?: number,
+) =>
+  apiRequest<ApiResponse<InitiativeYearReadModel[]>>(
+    `/initiative-years?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}`,
+    { signal },
+  ).then((response) => response.data);
 export const loadInitiativeYearCounts = (year: number, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<{ projects: number; operational_tasks: number }>>(`/initiative-years/counts?year=${year}`, { signal }).then((response) => response.data);
-export const loadQuarterCards = (kind: "project" | "task", signal?: AbortSignal, year?: number, quarter?: string) =>
-  apiRequest<ApiResponse<QuarterCardReadModel[]>>(`/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}`, { signal }).then((response) => response.data);
-export const loadAnalytics = (mode: AnalyticsMode, params: URLSearchParams, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<AnalyticsResponse>>(`/analytics/${mode}/summary?${params.toString()}`, { signal }).then((response) => response.data);
-export const loadAnalyticsDrilldown = (params: URLSearchParams, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<AnalyticsDrilldownResponse>>(`/analytics/drilldown?${params.toString()}`, { signal }).then((response) => response.data);
+  apiRequest<ApiResponse<{ projects: number; operational_tasks: number }>>(
+    `/initiative-years/counts?year=${year}`,
+    { signal },
+  ).then((response) => response.data);
+export const loadQuarterCards = (
+  kind: "project" | "task",
+  signal?: AbortSignal,
+  year?: number,
+  quarter?: string,
+) =>
+  apiRequest<ApiResponse<QuarterCardReadModel[]>>(
+    `/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}`,
+    { signal },
+  ).then((response) => response.data);
+export const loadAnalytics = (
+  mode: AnalyticsMode,
+  params: URLSearchParams,
+  signal?: AbortSignal,
+) =>
+  apiRequest<ApiResponse<AnalyticsResponse>>(
+    `/analytics/${mode}/summary?${params.toString()}`,
+    { signal },
+  ).then((response) => response.data);
+export const loadAnalyticsDrilldown = (
+  params: URLSearchParams,
+  signal?: AbortSignal,
+) =>
+  apiRequest<ApiResponse<AnalyticsDrilldownResponse>>(
+    `/analytics/drilldown?${params.toString()}`,
+    { signal },
+  ).then((response) => response.data);
 
-export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): InitiativeViewModel => ({
+export const toInitiativeYearViewModel = (
+  year: InitiativeYearReadModel,
+): InitiativeViewModel => ({
   id: year.id,
   initiative_id: year.initiative_id,
   revision: year.revision,
@@ -197,7 +328,9 @@ export const toInitiativeYearViewModel = (year: InitiativeYearReadModel): Initia
   },
 });
 
-export const toQuarterCardViewModel = (card: QuarterCardReadModel): InitiativeViewModel => ({
+export const toQuarterCardViewModel = (
+  card: QuarterCardReadModel,
+): InitiativeViewModel => ({
   id: card.id,
   initiative_id: card.initiative_id,
   initiative_year_id: card.initiative_year_id,
@@ -223,17 +356,26 @@ export const toQuarterCardViewModel = (card: QuarterCardReadModel): InitiativeVi
     color: item.status_code,
     status_code: item.status_code,
     weightId: item.weight_definition_id ?? undefined,
-    weightSnapshot: { definitionId: item.weight_definition_id ?? undefined, name: item.weight_snapshot.name, value: item.weight_snapshot.value },
+    weightSnapshot: {
+      definitionId: item.weight_definition_id ?? undefined,
+      name: item.weight_snapshot.name,
+      value: item.weight_snapshot.value,
+    },
     implementer_dept_ids: item.executor_department_ids,
   })),
   record_type: "CARD",
-  moved_from: card.moved_from ? `${card.moved_from.quarter} ${card.moved_from.year}` : undefined,
+  moved_from: card.moved_from
+    ? `${card.moved_from.quarter} ${card.moved_from.year}`
+    : undefined,
   history: [],
-  sizeSnapshot: { definitionId: card.size_snapshot.definition_id ?? undefined, name: card.size_snapshot.name, totalWeight: card.total_weight },
+  sizeSnapshot: {
+    definitionId: card.size_snapshot.definition_id ?? undefined,
+    name: card.size_snapshot.name,
+    totalWeight: card.total_weight,
+  },
   is_locked: card.is_locked,
   locked_at: card.locked_at,
 });
-
 
 export const command = <T = ApiResponse<unknown>>(
   path: string,
@@ -253,6 +395,10 @@ export type ApiResponse<T = undefined> = {
 };
 
 export const loadInitiativeCardModel = (id: string, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<QuarterCardReadModel>>(`/quarter-cards/${id}`, { signal });
+  apiRequest<ApiResponse<QuarterCardReadModel>>(`/quarter-cards/${id}`, {
+    signal,
+  });
 export const loadInitiativeYearModel = (id: string, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<InitiativeYearReadModel>>(`/initiative-years/${id}`, { signal });
+  apiRequest<ApiResponse<InitiativeYearReadModel>>(`/initiative-years/${id}`, {
+    signal,
+  });

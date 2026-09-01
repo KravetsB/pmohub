@@ -4,7 +4,8 @@ export const NOTIFICATION_KINDS = {
   error: "error",
 } as const;
 
-export type NotificationKind = typeof NOTIFICATION_KINDS[keyof typeof NOTIFICATION_KINDS];
+export type NotificationKind =
+  (typeof NOTIFICATION_KINDS)[keyof typeof NOTIFICATION_KINDS];
 
 /**
  * Поведінка сповіщень.
@@ -35,4 +36,3 @@ export const NOTIFICATION_A11Y = {
   regionLabel: "Повідомлення системи",
   closeLabel: "Закрити повідомлення",
 } as const;
-

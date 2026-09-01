@@ -48,6 +48,26 @@ describe("server-first mutation flow", () => {
     expect(hydrate).toHaveBeenCalledTimes(3);
   });
 
+  it("preserves one-time response data when canonical hydration fails", async () => {
+    const hydrate = vi.fn(async () => { throw new Error("offline"); });
+    const result = await executeBackendMutation(
+      async () => ({
+        success: true,
+        message: "committed",
+        data: { temporary_password: "OneTime-Password-123" },
+      }),
+      hydrate,
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      committed: true,
+      status: "COMMITTED_REFRESH_FAILED",
+      data: { temporary_password: "OneTime-Password-123" },
+    });
+    expect(hydrate).toHaveBeenCalledTimes(3);
+  });
+
   it("keeps cached state untouched when a command fails", async () => {
     const hydrate = vi.fn(async () => undefined);
     const result = await executeBackendMutation(

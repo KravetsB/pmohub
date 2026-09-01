@@ -40,7 +40,9 @@ interface Props {
   kind: Kind;
   item: Initiative | null;
   onClose: () => void;
-  onSave: (item: Initiative) => void | MutationResult | Promise<void | MutationResult>;
+  onSave: (
+    item: Initiative,
+  ) => void | MutationResult | Promise<void | MutationResult>;
   onDelete?: (id: string) => void | Promise<void>;
   isReadOnly?: boolean;
   openInViewMode?: boolean;
@@ -113,11 +115,18 @@ export const InitiativeCardModal = ({
     item && !locked && canEditInitiative(item, currentUser, rolePermissions),
   );
   const permissions = getPermissions(currentUser, rolePermissions);
-  const canCopyScope = Boolean(item && permissions?.canCreateEditInitiatives && !permissions.isReadOnly);
-  const hasCompletedScope = Boolean(item?.checklist.some((scopeItem) =>
-    scopeItem.status_code === "GREEN" || scopeItem.color === "GREEN",
-  ));
-  const scopeWeightLocked = Boolean(item && (item.is_locked ?? isPeriodLocked(year, quarter)));
+  const canCopyScope = Boolean(
+    item && permissions?.canCreateEditInitiatives && !permissions.isReadOnly,
+  );
+  const hasCompletedScope = Boolean(
+    item?.checklist.some(
+      (scopeItem) =>
+        scopeItem.status_code === "GREEN" || scopeItem.color === "GREEN",
+    ),
+  );
+  const scopeWeightLocked = Boolean(
+    item && (item.is_locked ?? isPeriodLocked(year, quarter)),
+  );
   const [name, setName] = useState(item?.name ?? "");
   const [goal, setGoal] = useState(item?.strategic_goal ?? "");
   const [managerId, setManagerId] = useState(item?.manager_id ?? "");
@@ -133,7 +142,10 @@ export const InitiativeCardModal = ({
     item?.custom_fields ?? {},
   );
   const [activeTab, setActiveTab] = useState<"SCOPE" | "HISTORY">("SCOPE");
-  const auditQuery = useAuditQuery(activeTab === "HISTORY" && item ? "QuarterCard" : undefined, activeTab === "HISTORY" ? item?.id : undefined);
+  const auditQuery = useAuditQuery(
+    activeTab === "HISTORY" && item ? "QuarterCard" : undefined,
+    activeTab === "HISTORY" ? item?.id : undefined,
+  );
   const [newText, setNewText] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
@@ -154,22 +166,35 @@ export const InitiativeCardModal = ({
     initialMovePeriod.quarter,
   );
   const [movingId, setMovingId] = useState<string | null>(null);
-  const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">("MOVE");
-  const hasUnsavedChanges = Boolean(item) && (
-    managerId !== (item?.manager_id ?? "") || priority !== (item?.priority ?? "") || notes !== (item?.notes ?? "") ||
-    JSON.stringify(involved) !== JSON.stringify(item?.cross_functional_dept_ids ?? []) ||
-    JSON.stringify(checklist) !== JSON.stringify(item?.checklist ?? []) ||
-    JSON.stringify(fieldVals) !== JSON.stringify(item?.custom_fields ?? {})
+  const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">(
+    "MOVE",
   );
+  const hasUnsavedChanges =
+    Boolean(item) &&
+    (managerId !== (item?.manager_id ?? "") ||
+      priority !== (item?.priority ?? "") ||
+      notes !== (item?.notes ?? "") ||
+      JSON.stringify(involved) !==
+        JSON.stringify(item?.cross_functional_dept_ids ?? []) ||
+      JSON.stringify(checklist) !== JSON.stringify(item?.checklist ?? []) ||
+      JSON.stringify(fieldVals) !== JSON.stringify(item?.custom_fields ?? {}));
   const refreshCanonicalCard = async () => {
     if (!item) return;
     const response = await loadInitiativeCardModel(item.id);
     queryClient.setQueryData(queryKeys.initiativeCard(item.id), response.data);
-    queryClient.setQueriesData<QuarterCardReadModel[]>({ queryKey: ["quarter-cards", kind] }, (current) =>
-      current?.map((card) => card.id === item.id ? response.data : card),
+    queryClient.setQueriesData<QuarterCardReadModel[]>(
+      { queryKey: ["quarter-cards", kind] },
+      (current) =>
+        current?.map((card) => (card.id === item.id ? response.data : card)),
     );
-    await queryClient.invalidateQueries({ queryKey: ["analytics"], refetchType: "none" });
-    await queryClient.refetchQueries({ queryKey: ["initiative-years", kind], type: "active" });
+    await queryClient.invalidateQueries({
+      queryKey: ["analytics"],
+      refetchType: "none",
+    });
+    await queryClient.refetchQueries({
+      queryKey: ["initiative-years", kind],
+      type: "active",
+    });
   };
   const executors = useMemo(
     () =>
@@ -208,27 +233,35 @@ export const InitiativeCardModal = ({
       ? undefined
       : movingId
         ? scopeTransferMode === "COPY"
-          ? copyScopeItem(item.id, movingId, moveYear, moveQuarter, kind === "project")
+          ? copyScopeItem(
+              item.id,
+              movingId,
+              moveYear,
+              moveQuarter,
+              kind === "project",
+            )
           : moveScopeItem(
-            item.id,
-            movingId,
-            moveYear,
-            moveQuarter,
-            kind === "project",
-          )
-        : moveCard(
-            item.id,
-            moveYear,
-            moveQuarter,
-            kind === "project",
-          );
+              item.id,
+              movingId,
+              moveYear,
+              moveQuarter,
+              kind === "project",
+            )
+        : moveCard(item.id, moveYear, moveQuarter, kind === "project");
   const requestMove = async () => {
     if (isPending || hasRevisionConflict || committedRefreshFailed) return;
     if (!item) {
-      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.initiatives.saveNewCardFirst);
+      notify(
+        NOTIFICATION_KINDS.error,
+        SYSTEM_MESSAGES.initiatives.saveNewCardFirst,
+      );
       return;
     }
-    if (hasUnsavedChanges && !window.confirm(SYSTEM_MESSAGES.initiatives.discardDraftForTransfer)) return;
+    if (
+      hasUnsavedChanges &&
+      !window.confirm(SYSTEM_MESSAGES.initiatives.discardDraftForTransfer)
+    )
+      return;
     setIsPending(true);
     try {
       const result = await performMove();
@@ -268,10 +301,20 @@ export const InitiativeCardModal = ({
       try {
         await refreshCanonicalCard();
         setHasRevisionConflict(false);
-        notify(NOTIFICATION_KINDS.success, 'Актуальну версію завантажено. Перевірте чернетку та збережіть ще раз.');
+        notify(
+          NOTIFICATION_KINDS.success,
+          "Актуальну версію завантажено. Перевірте чернетку та збережіть ще раз.",
+        );
       } catch (refreshError) {
-        notify(NOTIFICATION_KINDS.error, refreshError instanceof ApiError ? refreshError.message : SYSTEM_MESSAGES.api.genericError);
-      } finally { setIsPending(false); }
+        notify(
+          NOTIFICATION_KINDS.error,
+          refreshError instanceof ApiError
+            ? refreshError.message
+            : SYSTEM_MESSAGES.api.genericError,
+        );
+      } finally {
+        setIsPending(false);
+      }
       return;
     }
     if (committedRefreshFailed && item) {
@@ -281,8 +324,15 @@ export const InitiativeCardModal = ({
         setCommittedRefreshFailed(false);
         onClose();
       } catch (refreshError) {
-        notify(NOTIFICATION_KINDS.error, refreshError instanceof ApiError ? refreshError.message : SYSTEM_MESSAGES.api.genericError);
-      } finally { setIsPending(false); }
+        notify(
+          NOTIFICATION_KINDS.error,
+          refreshError instanceof ApiError
+            ? refreshError.message
+            : SYSTEM_MESSAGES.api.genericError,
+        );
+      } finally {
+        setIsPending(false);
+      }
       return;
     }
     if (!name.trim()) {
@@ -297,31 +347,33 @@ export const InitiativeCardModal = ({
     setIsPending(true);
     try {
       const result = await onSave({
-      ...(item ?? {}),
-      id:
-        item?.id ??
-        `${kind === "project" ? "PRJ" : "TSK"}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-      name: name.trim(),
-      strategic_goal: goal,
-      manager_id: managerId || undefined,
-      priority: priority || undefined,
-      notes,
-      implementer_dept_ids: executors,
-      cross_functional_dept_ids: effectiveInvolved,
-      custom_fields: fieldVals,
-      year,
-      quarter,
-      health_status: item?.health_status ?? "DEFAULT",
-      checklist,
-      record_type: "CARD",
-      initiative_id: item?.initiative_id ?? item?.id ?? "",
-      initiative_year_id: item?.initiative_year_id,
-      history: item?.history ?? [],
+        ...(item ?? {}),
+        id:
+          item?.id ??
+          `${kind === "project" ? "PRJ" : "TSK"}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+        name: name.trim(),
+        strategic_goal: goal,
+        manager_id: managerId || undefined,
+        priority: priority || undefined,
+        notes,
+        implementer_dept_ids: executors,
+        cross_functional_dept_ids: effectiveInvolved,
+        custom_fields: fieldVals,
+        year,
+        quarter,
+        health_status: item?.health_status ?? "DEFAULT",
+        checklist,
+        record_type: "CARD",
+        initiative_id: item?.initiative_id ?? item?.id ?? "",
+        initiative_year_id: item?.initiative_year_id,
+        history: item?.history ?? [],
       } as Initiative);
       if (result && !result.success) {
         notify(NOTIFICATION_KINDS.error, result.message);
-        if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
-        if (result.status === "COMMITTED_REFRESH_FAILED") setCommittedRefreshFailed(true);
+        if (result.errorCode === "REVISION_CONFLICT")
+          setHasRevisionConflict(true);
+        if (result.status === "COMMITTED_REFRESH_FAILED")
+          setCommittedRefreshFailed(true);
       }
     } finally {
       setIsPending(false);
@@ -330,7 +382,10 @@ export const InitiativeCardModal = ({
   const requestDelete = async () => {
     if (!item || !onDelete || isPending) return;
     if (hasCompletedScope) {
-      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.initiatives.cardHasCompletedScope);
+      notify(
+        NOTIFICATION_KINDS.error,
+        SYSTEM_MESSAGES.initiatives.cardHasCompletedScope,
+      );
       return;
     }
     setIsPending(true);
@@ -444,9 +499,15 @@ export const InitiativeCardModal = ({
     return (
       <section className={`move-panel ${scopeMove ? "mt-3" : "mb-4"}`}>
         <h3>
-          {scopeMove && scopeTransferMode === "COPY" ? <Copy size={16} /> : <ArrowRight size={16} />}
+          {scopeMove && scopeTransferMode === "COPY" ? (
+            <Copy size={16} />
+          ) : (
+            <ArrowRight size={16} />
+          )}
           {scopeMove
-            ? scopeTransferMode === "COPY" ? "Копіювання завдання в інший період" : "Перенесення завдання в інший період"
+            ? scopeTransferMode === "COPY"
+              ? "Копіювання завдання в інший період"
+              : "Перенесення завдання в інший період"
             : "Продовжити / перенести картку"}
         </h3>
         <div className={styles.moveControls}>
@@ -505,7 +566,9 @@ export const InitiativeCardModal = ({
             disabled={isPending}
             className="modal-secondary h-10 px-3 text-sm text-indigo-900"
           >
-            {scopeMove && scopeTransferMode === "COPY" ? "Копіювати" : "Перенести"}
+            {scopeMove && scopeTransferMode === "COPY"
+              ? "Копіювати"
+              : "Перенести"}
           </button>
           <button
             type="button"
@@ -548,7 +611,11 @@ export const InitiativeCardModal = ({
                   type="button"
                   onClick={requestDelete}
                   disabled={isPending || hasCompletedScope}
-                  title={hasCompletedScope ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope : undefined}
+                  title={
+                    hasCompletedScope
+                      ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope
+                      : undefined
+                  }
                   className={`modal-secondary ${styles.headerAction} ${styles.deleteAction}`}
                 >
                   <Trash2 size={16} className="text-rose-500" />
@@ -586,7 +653,11 @@ export const InitiativeCardModal = ({
                   type="button"
                   onClick={requestDelete}
                   disabled={isPending || hasCompletedScope}
-                  title={hasCompletedScope ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope : undefined}
+                  title={
+                    hasCompletedScope
+                      ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope
+                      : undefined
+                  }
                   className={`modal-secondary ${styles.mobileAction}`}
                 >
                   <Trash2 size={15} className="text-rose-500" />
@@ -856,23 +927,23 @@ export const InitiativeCardModal = ({
                             />
                           ))}
                         </div>
-                          {item && !isReadOnly && (
-                            <button
-                             type="button"
-                             title="Перенести завдання"
-                             disabled={scope.color === "GREEN"}
-                             onClick={() => {
-                               setMovingId(scope.id);
-                               setScopeTransferMode("MOVE");
-                               setShowMove(true);
+                        {item && !isReadOnly && (
+                          <button
+                            type="button"
+                            title="Перенести завдання"
+                            disabled={scope.color === "GREEN"}
+                            onClick={() => {
+                              setMovingId(scope.id);
+                              setScopeTransferMode("MOVE");
+                              setShowMove(true);
                             }}
                             className="icon-action shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                           <ArrowRight size={17} />
-                           </button>
-                          )}
-                          {canCopyScope && (
-                           <button
+                            <ArrowRight size={17} />
+                          </button>
+                        )}
+                        {canCopyScope && (
+                          <button
                             type="button"
                             title="Копіювати завдання"
                             disabled={scope.color === "GREEN"}
@@ -884,8 +955,8 @@ export const InitiativeCardModal = ({
                             className="icon-action shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Copy size={16} />
-                            </button>
-                          )}
+                          </button>
+                        )}
                         {!isReadOnly && !scopeWeightLocked && (
                           <button
                             type="button"
@@ -1016,7 +1087,13 @@ export const InitiativeCardModal = ({
               disabled={isPending}
               className={`modal-primary ${styles.footerPrimary}`}
             >
-              {isPending ? "Завантаження…" : committedRefreshFailed ? "Повторити завантаження" : hasRevisionConflict ? "Оновити версію" : "Зберегти"}
+              {isPending
+                ? "Завантаження…"
+                : committedRefreshFailed
+                  ? "Повторити завантаження"
+                  : hasRevisionConflict
+                    ? "Оновити версію"
+                    : "Зберегти"}
             </button>
           )}
         </footer>

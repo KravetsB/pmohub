@@ -1,7 +1,13 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Response } from 'express';
-import { AppError } from '../errors/app-error';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Response } from "express";
+import { AppError } from "../errors/app-error";
 
 @Catch()
 export class AppExceptionFilter implements ExceptionFilter {
@@ -10,15 +16,24 @@ export class AppExceptionFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
     if (error instanceof AppError) {
-      response.status(error.status).json({ success: false, code: error.code, message: error.message, details: error.details });
+      response
+        .status(error.status)
+        .json({
+          success: false,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        });
       return;
     }
     if (this.isPayloadTooLarge(error)) {
-      const details = this.config.get<boolean>('EXPOSE_ERROR_DETAILS') ? this.serializeError(error) : undefined;
+      const details = this.config.get<boolean>("EXPOSE_ERROR_DETAILS")
+        ? this.serializeError(error)
+        : undefined;
       response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
         success: false,
-        code: 'PAYLOAD_TOO_LARGE',
-        message: 'Розмір запиту перевищує допустимий ліміт',
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Розмір запиту перевищує допустимий ліміт",
         ...(details ? { details } : {}),
       });
       return;
@@ -26,23 +41,30 @@ export class AppExceptionFilter implements ExceptionFilter {
     if (error instanceof HttpException) {
       const status = error.getStatus();
       const body = error.getResponse();
-      if (typeof body === 'object' && body !== null && 'success' in body && body.success === false) {
+      if (
+        typeof body === "object" &&
+        body !== null &&
+        "success" in body &&
+        body.success === false
+      ) {
         response.status(status).json(body);
         return;
       }
       response.status(status).json({
         success: false,
-        code: 'HTTP_ERROR',
+        code: "HTTP_ERROR",
         message: this.httpMessage(status),
       });
       return;
     }
     console.error(error);
-    const details = this.config.get<boolean>('EXPOSE_ERROR_DETAILS') ? this.serializeError(error) : undefined;
+    const details = this.config.get<boolean>("EXPOSE_ERROR_DETAILS")
+      ? this.serializeError(error)
+      : undefined;
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
-      code: 'INTERNAL_ERROR',
-      message: 'Внутрішня помилка сервера',
+      code: "INTERNAL_ERROR",
+      message: "Внутрішня помилка сервера",
       ...(details ? { details } : {}),
     });
   }
@@ -59,22 +81,30 @@ export class AppExceptionFilter implements ExceptionFilter {
     return { message: String(error) };
   }
 
-  private isPayloadTooLarge(error: unknown): error is Error & { status?: number; type?: string } {
-    return typeof error === 'object' && error !== null
-      && ('status' in error && (error as { status?: number }).status === HttpStatus.PAYLOAD_TOO_LARGE
-        || 'type' in error && (error as { type?: string }).type === 'entity.too.large');
+  private isPayloadTooLarge(
+    error: unknown,
+  ): error is Error & { status?: number; type?: string } {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      (("status" in error &&
+        (error as { status?: number }).status ===
+          HttpStatus.PAYLOAD_TOO_LARGE) ||
+        ("type" in error &&
+          (error as { type?: string }).type === "entity.too.large"))
+    );
   }
 
   private httpMessage(status: number) {
     const messages: Record<number, string> = {
-      [HttpStatus.BAD_REQUEST]: 'Некоректний запит',
-      [HttpStatus.UNAUTHORIZED]: 'Потрібна авторизація',
-      [HttpStatus.FORBIDDEN]: 'Недостатньо прав',
-      [HttpStatus.NOT_FOUND]: 'Запитаний ресурс не знайдено',
-      [HttpStatus.CONFLICT]: 'Операція конфліктує з актуальним станом даних',
-      [HttpStatus.UNPROCESSABLE_ENTITY]: 'Не вдалося опрацювати передані дані',
-      [HttpStatus.TOO_MANY_REQUESTS]: 'Забагато запитів. Спробуйте пізніше',
+      [HttpStatus.BAD_REQUEST]: "Некоректний запит",
+      [HttpStatus.UNAUTHORIZED]: "Потрібна авторизація",
+      [HttpStatus.FORBIDDEN]: "Недостатньо прав",
+      [HttpStatus.NOT_FOUND]: "Запитаний ресурс не знайдено",
+      [HttpStatus.CONFLICT]: "Операція конфліктує з актуальним станом даних",
+      [HttpStatus.UNPROCESSABLE_ENTITY]: "Не вдалося опрацювати передані дані",
+      [HttpStatus.TOO_MANY_REQUESTS]: "Забагато запитів. Спробуйте пізніше",
     };
-    return messages[status] ?? 'Не вдалося виконати запит';
+    return messages[status] ?? "Не вдалося виконати запит";
   }
 }

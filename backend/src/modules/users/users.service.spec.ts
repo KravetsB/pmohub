@@ -10,6 +10,7 @@ vi.mock('argon2', () => ({
 const actor = {
   id: '00000000-0000-4000-8000-000000000099',
   name: 'Super Admin',
+  email: 'admin@example.com',
   role: 'SUPER_ADMIN',
 };
 
@@ -101,5 +102,34 @@ describe('UsersService role integrity', () => {
     }));
     expect(tx.refreshToken.updateMany).toHaveBeenCalledOnce();
     expect(result.data).toMatchObject({ role: 'ADMIN' });
+  });
+
+  it('does not issue a temporary password for the current user email', async () => {
+    const currentUser = {
+      id: '00000000-0000-4000-8000-000000000010',
+      name: 'Current Admin',
+      email: ' ADMIN@EXAMPLE.COM ',
+      role: 'SUPER_ADMIN',
+    };
+    const prisma: any = {
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          canAccessAdmin: true,
+          isReadOnly: false,
+        })),
+      },
+      user: { findUnique: vi.fn(async () => currentUser) },
+      $transaction: vi.fn(),
+    };
+
+    await expect(
+      new UsersService(prisma).issueTemporaryPassword(currentUser.id, actor),
+    ).rejects.toMatchObject({
+      code: 'SELF_TEMPORARY_PASSWORD_FORBIDDEN',
+      status: 403,
+    });
+
+    expect(argon2.hash).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

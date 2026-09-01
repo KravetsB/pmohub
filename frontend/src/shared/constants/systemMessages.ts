@@ -34,6 +34,8 @@ export const SYSTEM_MESSAGES = {
     denied: "Недостатньо прав",
     adminDenied: "Недостатньо прав адміністратора",
     activeUserDeleteDenied: "Не можна видалити активного користувача",
+    ownTemporaryPasswordDenied:
+      "Не можна створити тимчасовий пароль для власного облікового запису",
   },
 
   // Валідація команд ініціатив, карток і річних записів.
@@ -45,11 +47,14 @@ export const SYSTEM_MESSAGES = {
     cardRevisionMissing: "Картку не знайдено або відсутня revision",
     yearRevisionMissing: "Річний запис не знайдено або відсутня revision",
     activeWeightRequired: "Для кожного завдання потрібна активна вага",
-    initialCardDataInvalid: "Для картки потрібно вибрати доступний статус і вагу кожного завдання",
-    onlyOneInitialCard: "За одну операцію можна створити лише одну початкову квартальну картку",
+    initialCardDataInvalid:
+      "Для картки потрібно вибрати доступний статус і вагу кожного завдання",
+    onlyOneInitialCard:
+      "За одну операцію можна створити лише одну початкову квартальну картку",
     snapshotCreated: "Річний запис створено",
     saveNewCardFirst: "Спочатку збережіть нову картку",
-    discardDraftForTransfer: "У формі є незбережені зміни. Відкинути їх і продовжити операцію?",
+    discardDraftForTransfer:
+      "У формі є незбережені зміни. Відкинути їх і продовжити операцію?",
     cardCreationPeriodRestricted:
       "Картки можна створювати лише для поточного або майбутніх кварталів",
     yearHasQuarterCards:
@@ -69,5 +74,13 @@ export const SYSTEM_MESSAGES = {
   // Повідомлення екранів, які завантажують агреговані серверні дані.
   loading: {
     analyticsFailed: "Не вдалося завантажити аналітику.",
+  },
+
+  // Формування та завантаження звітів і санітизованого snapshot БД.
+  exports: {
+    downloadReady: "Файл сформовано та завантажено",
+    downloadFailed: "Не вдалося сформувати файл експорту",
+    noData: "За вибраними параметрами даних немає",
+    invalidPeriod: "Оберіть коректний діапазон років і хоча б один період",
   },
 } as const;

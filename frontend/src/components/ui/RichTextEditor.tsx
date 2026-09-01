@@ -1,4 +1,10 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { List, ListOrdered, RemoveFormatting } from "lucide-react";
 
@@ -87,8 +93,12 @@ export const RichTextPreview: React.FC<RichTextPreviewProps> = ({
     const content = contentRef.current;
     if (!content || content.scrollHeight <= content.clientHeight + 1) return;
     const rect = content.getBoundingClientRect();
-    const pointerX = Number.isFinite(event.clientX) ? event.clientX : rect.right;
-    const pointerY = Number.isFinite(event.clientY) ? event.clientY : rect.bottom;
+    const pointerX = Number.isFinite(event.clientX)
+      ? event.clientX
+      : rect.right;
+    const pointerY = Number.isFinite(event.clientY)
+      ? event.clientY
+      : rect.bottom;
     setTooltip({
       x: pointerX + 14,
       y: pointerY + 14,
@@ -100,8 +110,14 @@ export const RichTextPreview: React.FC<RichTextPreviewProps> = ({
     const rect = tooltipRef.current.getBoundingClientRect();
     const sourceX = Number.isFinite(tooltip.x) ? tooltip.x : 12;
     const sourceY = Number.isFinite(tooltip.y) ? tooltip.y : 12;
-    const x = Math.max(12, Math.min(sourceX, window.innerWidth - rect.width - 12));
-    const y = Math.max(12, Math.min(sourceY, window.innerHeight - rect.height - 12));
+    const x = Math.max(
+      12,
+      Math.min(sourceX, window.innerWidth - rect.width - 12),
+    );
+    const y = Math.max(
+      12,
+      Math.min(sourceY, window.innerHeight - rect.height - 12),
+    );
     if (x !== tooltip.x || y !== tooltip.y) setTooltip({ x, y });
   }, [tooltip]);
 
@@ -139,16 +155,19 @@ export const RichTextPreview: React.FC<RichTextPreviewProps> = ({
         style={{ maxHeight: `${maxLines * 1.35}em`, overflow: "hidden" }}
         dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
-      {tooltip && plainText && typeof document !== "undefined" && createPortal(
-        <div
-          ref={tooltipRef}
-          role="tooltip"
-          className="rich-text-tooltip pointer-events-none fixed z-[100] w-[min(32rem,calc(100vw-1.5rem))] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 shadow-xl"
-          style={{ left: tooltip.x, top: tooltip.y }}
-          dangerouslySetInnerHTML={{ __html: safeHtml }}
-        />,
-        document.body,
-      )}
+      {tooltip &&
+        plainText &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            role="tooltip"
+            className="rich-text-tooltip pointer-events-none fixed z-[100] w-[min(32rem,calc(100vw-1.5rem))] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 shadow-xl"
+            style={{ left: tooltip.x, top: tooltip.y }}
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
+          />,
+          document.body,
+        )}
     </div>
   );
 };

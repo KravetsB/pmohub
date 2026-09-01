@@ -628,6 +628,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/exports/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ExportsController_availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ExportsController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Завантажити Excel-звіт за ініціативами */
+        post: operations["ExportsController_excel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/json/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Завантажити приватний JSON для AI */
+        post: operations["ExportsController_aiJson"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/json/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Завантажити санітизований snapshot усієї БД */
+        post: operations["ExportsController_fullJson"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -638,7 +721,7 @@ export interface components {
             password: string;
         };
         ChangePasswordDto: {
-            current_password: string;
+            current_password?: string;
             new_password: string;
         };
         ApiSuccessDto: {
@@ -654,34 +737,27 @@ export interface components {
             };
         };
         PreparationInputDto: {
-            /** Format: uuid */
             manager_id?: string;
-            /** Format: uuid */
             priority_id?: string;
             /** @default [] */
             department_ids: string[];
         };
         CreateScopeItemDto: {
-            /** Format: uuid */
             lineage_id?: string;
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
-            /** Format: uuid */
             weight_definition_id: string;
             /** @default [] */
             executor_department_ids: string[];
         };
         InitialQuarterCardDto: {
-            /** Format: uuid */
             manager_id?: string;
-            /** Format: uuid */
             priority_id?: string;
             /** @default [] */
             department_ids: string[];
             /** @enum {string} */
             quarter: "Q1" | "Q2" | "Q3" | "Q4";
-            /** Format: uuid */
             status_id?: string;
             notes?: string;
             custom_fields?: {
@@ -762,9 +838,7 @@ export interface components {
             year_revision: number;
         };
         UpdatePreparationDto: {
-            /** Format: uuid */
             manager_id?: string;
-            /** Format: uuid */
             priority_id?: string;
             /** @default [] */
             department_ids: string[];
@@ -775,7 +849,6 @@ export interface components {
             quarter: "Q1" | "Q2" | "Q3" | "Q4";
         };
         RevisionTargetDto: {
-            /** Format: uuid */
             id: string;
             revision: number;
         };
@@ -844,28 +917,22 @@ export interface components {
             data: components["schemas"]["QuarterCardReadModelDto"];
         };
         ScopeItemDto: {
-            /** Format: uuid */
             lineage_id?: string;
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
-            /** Format: uuid */
             weight_definition_id: string;
             /** @default [] */
             executor_department_ids: string[];
-            /** Format: uuid */
             id?: string;
             revision?: number;
         };
         UpdateCardDto: {
             revision: number;
-            /** Format: uuid */
             manager_id?: string;
-            /** Format: uuid */
             priority_id?: string;
             /** @default [] */
             department_ids: string[];
-            /** Format: uuid */
             status_id: string;
             notes?: string;
             custom_fields?: {
@@ -875,7 +942,6 @@ export interface components {
             scope: components["schemas"]["ScopeItemDto"][];
         };
         ArchiveScopeStatusDto: {
-            /** Format: uuid */
             id: string;
             revision: number;
             /** @enum {string} */
@@ -884,7 +950,6 @@ export interface components {
         UpdateArchivedCardDto: {
             revision: number;
             notes?: string;
-            /** Format: uuid */
             status_id?: string;
             /** @default [] */
             scope_status_updates: components["schemas"]["ArchiveScopeStatusDto"][];
@@ -1023,6 +1088,86 @@ export interface components {
             success: true;
             message?: string;
             data: components["schemas"]["AnalyticsDrilldownDataDto"];
+        };
+        ExportCustomFieldDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            entity_type: "project" | "task";
+            /** @enum {string} */
+            field_type: "TEXT" | "NUMBER" | "SELECT" | "CHECKBOX" | "RICHTEXT";
+            is_active: boolean;
+        };
+        ExportAvailabilityDto: {
+            years: number[];
+            counts: {
+                [key: string]: unknown;
+            };
+            custom_fields: components["schemas"]["ExportCustomFieldDto"][];
+        };
+        ExportAvailabilityResponseDto: {
+            /** @example true */
+            success: boolean;
+            data: components["schemas"]["ExportAvailabilityDto"];
+        };
+        ExportYearRangeDto: {
+            /** @example 2026 */
+            from: number;
+            /** @example 2027 */
+            to: number;
+        };
+        InitiativeExportFilterDto: {
+            years: components["schemas"]["ExportYearRangeDto"];
+            periods: ("BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4")[];
+            kinds: ("PROJECT" | "OPERATIONAL_TASK")[];
+        };
+        ExportPreviewMatrixCellDto: {
+            year: number;
+            /** @enum {string} */
+            period: "BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4";
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            count: number;
+        };
+        ExportPreviewDto: {
+            total: number;
+            backlog_records: number;
+            quarter_cards: number;
+            by_year: {
+                [key: string]: unknown;
+            };
+            by_period: {
+                [key: string]: unknown;
+            };
+            by_kind: {
+                [key: string]: unknown;
+            };
+            matrix: components["schemas"]["ExportPreviewMatrixCellDto"][];
+        };
+        ExportPreviewResponseDto: {
+            /** @example true */
+            success: boolean;
+            data: components["schemas"]["ExportPreviewDto"];
+        };
+        AiExportPrivacyDto: {
+            /** @default true */
+            include_name: boolean;
+            /** @default false */
+            include_strategic_goal: boolean;
+            /** @default true */
+            include_manager: boolean;
+            /** @default true */
+            include_departments: boolean;
+            /** @default false */
+            include_notes: boolean;
+            /** @default [] */
+            selected_custom_field_ids: string[];
+        };
+        AiJsonExportDto: {
+            years: components["schemas"]["ExportYearRangeDto"];
+            periods: ("BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4")[];
+            kinds: ("PROJECT" | "OPERATIONAL_TASK")[];
+            privacy: components["schemas"]["AiExportPrivacyDto"];
         };
     };
     responses: never;
@@ -2167,6 +2312,116 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    ExportsController_availability: {
+        parameters: {
+            query?: {
+                kinds?: ("PROJECT" | "OPERATIONAL_TASK")[];
+                include_custom_fields?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportAvailabilityResponseDto"];
+                };
+            };
+        };
+    };
+    ExportsController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitiativeExportFilterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportPreviewResponseDto"];
+                };
+            };
+        };
+    };
+    ExportsController_excel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitiativeExportFilterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+        };
+    };
+    ExportsController_aiJson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiJsonExportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+        };
+    };
+    ExportsController_fullJson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
             };
         };
     };

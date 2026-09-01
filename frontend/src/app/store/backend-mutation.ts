@@ -31,13 +31,22 @@ export const executeBackendMutation = async <T>(
     }
     let hydrationError: unknown;
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      try { await hydrate(); hydrationError = undefined; break; }
-      catch (error) { hydrationError = error; }
+      try {
+        await hydrate();
+        hydrationError = undefined;
+        break;
+      } catch (error) {
+        hydrationError = error;
+      }
     }
     if (hydrationError) {
-      notify(NOTIFICATION_KINDS.error, NOTIFICATION_MESSAGES.committedRefreshFailed);
+      notify(
+        NOTIFICATION_KINDS.error,
+        NOTIFICATION_MESSAGES.committedRefreshFailed,
+      );
       return {
         success: false,
+        data: response.data,
         committed: true,
         status: "COMMITTED_REFRESH_FAILED",
         message: NOTIFICATION_MESSAGES.committedRefreshFailed,
@@ -45,7 +54,11 @@ export const executeBackendMutation = async <T>(
     }
     const message = response.message ?? NOTIFICATION_MESSAGES.changesSaved;
     notify(NOTIFICATION_KINDS.success, message);
-    return { ...ok(message, response.data), committed: true, status: "SUCCESS" };
+    return {
+      ...ok(message, response.data),
+      committed: true,
+      status: "SUCCESS",
+    };
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       await hydrate().catch(() => undefined);
@@ -55,6 +68,11 @@ export const executeBackendMutation = async <T>(
         ? error.message
         : NOTIFICATION_MESSAGES.commitFailed;
     notify(NOTIFICATION_KINDS.error, message);
-    return { ...fail(message), committed: false, status: "COMMIT_FAILED", errorCode: error instanceof ApiError ? error.code : undefined };
+    return {
+      ...fail(message),
+      committed: false,
+      status: "COMMIT_FAILED",
+      errorCode: error instanceof ApiError ? error.code : undefined,
+    };
   }
 };

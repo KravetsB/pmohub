@@ -79,6 +79,14 @@ There are no optimistic server-state updates. A failed commit keeps the form and
 
 Dashboard data is not sourced from the portfolio collections. `GET /analytics/quarterly/summary` and `GET /analytics/annual/summary` apply `kind`, `year`, `quarter`, `department_id`, and `manager_id` on the server and return aggregates only. Paginated records are loaded separately from `GET /analytics/drilldown`.
 
+## Export flow
+
+- `GET /exports/availability` and `POST /exports/preview` return lightweight metadata and counts only.
+- `POST /exports/excel` builds filtered initiative sheets on the backend; the browser only downloads the resulting Blob.
+- `POST /exports/json/ai` never includes scope-item text and includes custom fields only by explicitly selected definition IDs.
+- `POST /exports/json/full` is SUPER_ADMIN-only and returns all table rows except refresh sessions, with user password hashes redacted.
+- Export attempts are audited. Excel and AI exports require `canAccessAdmin`; exports never mutate portfolio data.
+
 ## Analytics aggregation rules
 
 - Quarterly mode includes only the selected quarter. Every widget uses the same type, year, quarter, department and manager filters.

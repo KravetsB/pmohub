@@ -38,16 +38,43 @@ export const RbacSection = () => {
   const [newUserDept, setNewUserDept] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("USER");
   const [copied, setCopied] = useState(false);
-  const [temporaryPassword, setTemporaryPassword] = useState<{ name: string; value: string } | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<{
+    name: string;
+    value: string;
+  } | null>(null);
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
 
-  const handleResetPassword = async (user: { id: string; name: string; role: UserRole }) => {
-    const result = await resetUserPassword(user.id);
-    if (!result.success || !result.data) {
-      notify(NOTIFICATION_KINDS.error, result.message);
+  const isCurrentUserEmail = (email: string) =>
+    email.trim().toLowerCase() === currentUser?.email.trim().toLowerCase();
+
+  const handleResetPassword = async (user: {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+  }) => {
+    if (isCurrentUserEmail(user.email)) {
+      notify(
+        NOTIFICATION_KINDS.error,
+        SYSTEM_MESSAGES.access.ownTemporaryPasswordDenied,
+      );
       return;
     }
-    setCopied(false);
-    setTemporaryPassword({ name: user.name, value: result.data.temporary_password });
+    setResettingUserId(user.id);
+    try {
+      const result = await resetUserPassword(user.id);
+      if (!result.data?.temporary_password) {
+        notify(NOTIFICATION_KINDS.error, result.message);
+        return;
+      }
+      setCopied(false);
+      setTemporaryPassword({
+        name: user.name,
+        value: result.data.temporary_password,
+      });
+    } finally {
+      setResettingUserId(null);
+    }
   };
 
   const handleAddUser = async () => {
@@ -187,7 +214,7 @@ export const RbacSection = () => {
             <thead>
               <tr>
                 <th>ПІБ</th>
-                <th>Ел. пошта</th>
+                <th>Електронна адреса</th>
                 <th>Департамент</th>
                 <th>Роль</th>
                 <th className={styles.headerRight}></th>
@@ -220,14 +247,27 @@ export const RbacSection = () => {
                     </select>
                   </td>
                   <td className={styles.tableCellRight}>
-                    {!(currentUser?.role !== "SUPER_ADMIN" && user.role === "SUPER_ADMIN") && (
+                    {!(
+                      currentUser?.role !== "SUPER_ADMIN" &&
+                      user.role === "SUPER_ADMIN"
+                    ) && (
                       <button
                         onClick={() => void handleResetPassword(user)}
                         className={styles.resetPasswordButton}
-                        title="Видати тимчасовий пароль"
+                        disabled={
+                          isCurrentUserEmail(user.email) ||
+                          resettingUserId !== null
+                        }
+                        title={
+                          isCurrentUserEmail(user.email)
+                            ? SYSTEM_MESSAGES.access.ownTemporaryPasswordDenied
+                            : "Видати тимчасовий пароль"
+                        }
                       >
                         <KeyRound size={15} />
-                        Тимчасовий пароль
+                        {resettingUserId === user.id
+                          ? "Створення…"
+                          : "Тимчасовий пароль"}
                       </button>
                     )}
                     <button
@@ -294,20 +334,42 @@ export const RbacSection = () => {
         <div className={styles.backdrop}>
           <div className={styles.dialog}>
             <div className={styles.dialogLead}>
-              <div className={styles.resetIcon}><KeyRound size={22} /></div>
+              <div className={styles.resetIcon}>
+                <KeyRound size={22} />
+              </div>
               <h3 className={styles.dialogTitle}>Тимчасовий пароль</h3>
             </div>
             <p className={styles.dialogDescription}>
-              Передайте пароль користувачу <span className={styles.emphasis}>«{temporaryPassword.name}»</span> захищеним каналом. Він показується лише зараз і має бути змінений після входу.
+              Передайте пароль користувачу{" "}
+              <span className={styles.emphasis}>
+                «{temporaryPassword.name}»
+              </span>{" "}
+              захищеним каналом. Він показується лише зараз і має бути змінений
+              після входу.
             </p>
             <div className={styles.passwordRow}>
-              <div className={`${styles.valueBox} ${styles.passwordBox}`}>{temporaryPassword.value}</div>
-              <button onClick={() => { navigator.clipboard.writeText(temporaryPassword.value); setCopied(true); window.setTimeout(() => setCopied(false), 2000); }} className={styles.copyButton} title="Скопіювати пароль">
+              <div className={`${styles.valueBox} ${styles.passwordBox}`}>
+                {temporaryPassword.value}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(temporaryPassword.value);
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 2000);
+                }}
+                className={styles.copyButton}
+                title="Скопіювати пароль"
+              >
                 {copied ? <Check size={20} /> : <Copy size={20} />}
               </button>
             </div>
             <div className={styles.dialogActions}>
-              <button onClick={() => setTemporaryPassword(null)} className={styles.closeButton}>Готово</button>
+              <button
+                onClick={() => setTemporaryPassword(null)}
+                className={styles.closeButton}
+              >
+                Готово
+              </button>
             </div>
           </div>
         </div>
@@ -328,7 +390,7 @@ export const RbacSection = () => {
                 </div>
 
                 <div>
-                  <label className={styles.fieldLabel}>Ел. пошта</label>
+                  <label className={styles.fieldLabel}>Електронна адреса</label>
                   <div className={styles.valueBox}>{newUserEmail}</div>
                 </div>
 
@@ -384,7 +446,7 @@ export const RbacSection = () => {
                     />
                   </div>
                   <div>
-                    <label className={styles.fieldLabel}>Ел. пошта</label>
+                    <label className={styles.fieldLabel}>Електронна адреса</label>
                     <input
                       type="email"
                       value={newUserEmail}

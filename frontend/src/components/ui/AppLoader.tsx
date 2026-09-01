@@ -1,12 +1,19 @@
-import styles from './AppLoader.module.css';
+import styles from "./AppLoader.module.css";
 
 interface AppLoaderProps {
   label?: string;
   fullPage?: boolean;
 }
 
-export const AppLoader = ({ label = 'Завантаження даних…', fullPage = false }: AppLoaderProps) => (
-  <div className={`${styles.loader} ${fullPage ? styles.fullPage : ''}`} role="status" aria-live="polite">
+export const AppLoader = ({
+  label = "Завантаження даних…",
+  fullPage = false,
+}: AppLoaderProps) => (
+  <div
+    className={`${styles.loader} ${fullPage ? styles.fullPage : ""}`}
+    role="status"
+    aria-live="polite"
+  >
     <div className={styles.content}>
       <div className={styles.visual} aria-hidden="true">
         <span className={styles.orbit}>
@@ -23,7 +30,11 @@ export const AppLoader = ({ label = 'Завантаження даних…', fu
         <strong>{label}</strong>
         <span>Готуємо актуальні показники</span>
       </div>
-      <span className={styles.pulse} aria-hidden="true"><i /><i /><i /></span>
+      <span className={styles.pulse} aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
     </div>
   </div>
 );

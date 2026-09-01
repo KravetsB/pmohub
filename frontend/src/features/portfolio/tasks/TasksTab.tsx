@@ -10,7 +10,10 @@ import { TaskCard } from "./TaskCard";
 import { InitiativeViewModel } from "../../../shared/types";
 import styles from "../components/shared/PortfolioTab.module.css";
 import { PortfolioTable } from "../components/shared/PortfolioTable";
-import { loadInitiativeCardModel, toQuarterCardViewModel } from "../../../api/apiClient";
+import {
+  loadInitiativeCardModel,
+  toQuarterCardViewModel,
+} from "../../../api/apiClient";
 import { AppLoader } from "../../../components/ui/AppLoader";
 
 export const TasksTab = () => {
@@ -29,7 +32,9 @@ export const TasksTab = () => {
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<InitiativeViewModel | null>(null);
+  const [editingTask, setEditingTask] = useState<InitiativeViewModel | null>(
+    null,
+  );
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const currentYear = new Date().getFullYear();
@@ -47,7 +52,11 @@ export const TasksTab = () => {
   const [selectedQuarter, setSelectedQuarter] =
     useState<import("../../../shared/types").Quarter>(currentQuarter);
   useEffect(() => {
-    setInitiativeDataScope({ mode: "tasks", year: selectedYear, quarter: selectedQuarter });
+    setInitiativeDataScope({
+      mode: "tasks",
+      year: selectedYear,
+      quarter: selectedQuarter,
+    });
   }, [selectedQuarter, selectedYear, setInitiativeDataScope]);
   const isArchive = isPeriodLocked(selectedYear, selectedQuarter);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
@@ -59,7 +68,9 @@ export const TasksTab = () => {
 
   let portfolioTasks = tasks.filter(
     (t) =>
-      t.record_type === "CARD" && t.year === selectedYear && t.quarter === selectedQuarter,
+      t.record_type === "CARD" &&
+      t.year === selectedYear &&
+      t.quarter === selectedQuarter,
   );
   if (filterManager) {
     portfolioTasks = portfolioTasks.filter(
@@ -105,7 +116,9 @@ export const TasksTab = () => {
       setEditingTask(toQuarterCardViewModel(response.data));
       setIsReadOnlyModal(!canEdit);
       setIsModalOpen(true);
-    } finally { setIsLoadingCard(false); }
+    } finally {
+      setIsLoadingCard(false);
+    }
   };
   const openCreateModal = () => {
     setEditingTask(null);
@@ -143,22 +156,16 @@ export const TasksTab = () => {
             }}
             className={styles.returnButton}
           >
-            <span className={styles.returnArrow}>
-              ←
-            </span>{" "}
-            Повернутись на поточний період
+            <span className={styles.returnArrow}>←</span> Повернутись на
+            поточний період
           </button>
         </div>
       )}
 
       <div className={styles.pageHeader}>
         <div>
-          <h2 className={styles.title}>
-            Портфель Операційних задач
-          </h2>
-          <p className={styles.subtitle}>
-            Всі задачі обраного періоду.
-          </p>
+          <h2 className={styles.title}>Портфель Операційних задач</h2>
+          <p className={styles.subtitle}>Всі задачі обраного періоду.</p>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.periodSelectors}>
@@ -199,10 +206,7 @@ export const TasksTab = () => {
             </button>
           </div>
           {canEdit && (
-            <button
-              onClick={openCreateModal}
-              className={styles.addButton}
-            >
+            <button onClick={openCreateModal} className={styles.addButton}>
               + Додати задачу
             </button>
           )}
@@ -243,7 +247,13 @@ export const TasksTab = () => {
             className={`${styles.filterSelect} ${styles.priorityFilter}`}
           >
             <option value="">Всі пріоритети</option>
-            {(priorities || []).filter((priority) => priority.is_active !== false).map((priority) => <option key={priority.id} value={priority.id}>{priority.name}</option>)}
+            {(priorities || [])
+              .filter((priority) => priority.is_active !== false)
+              .map((priority) => (
+                <option key={priority.id} value={priority.id}>
+                  {priority.name}
+                </option>
+              ))}
           </select>
           {(filterManager || filterPriority || searchQuery || searchGoal) && (
             <button

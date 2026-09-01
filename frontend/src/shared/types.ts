@@ -1,4 +1,3 @@
-
 export interface HistoryEvent {
   id: string;
   date: string;
@@ -7,12 +6,12 @@ export interface HistoryEvent {
 }
 
 export type CapacityWeight = string;
-export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
+export type Quarter = "Q1" | "Q2" | "Q3" | "Q4";
 export type HealthStatus = string;
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'USER';
+export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER";
 
-export type InitiativeKind = 'PROJECT' | 'OPERATIONAL_TASK';
-export type ScopeStatusCode = 'DEFAULT' | 'GREEN' | 'YELLOW' | 'RED';
+export type InitiativeKind = "PROJECT" | "OPERATIONAL_TASK";
+export type ScopeStatusCode = "DEFAULT" | "GREEN" | "YELLOW" | "RED";
 
 export interface PreparationStageReadModel {
   initiative_year_id: string;
@@ -85,7 +84,12 @@ export interface QuarterCardReadModel {
   status: { id: string; code: string; name: string; color: string };
   notes: string | null;
   total_weight: number;
-  size_snapshot: { definition_id: string | null; name: string; min: number | null; max: number | null };
+  size_snapshot: {
+    definition_id: string | null;
+    name: string;
+    min: number | null;
+    max: number | null;
+  };
   custom_fields: Record<string, unknown>;
   scope: ScopeItemReadModel[];
   moved_from: { year: number; quarter: Quarter } | null;
@@ -113,11 +117,16 @@ export interface RolePermissions {
   canEditArchive: boolean;
 }
 
-export type CustomFieldType = 'TEXT' | 'NUMBER' | 'SELECT' | 'CHECKBOX' | 'RICHTEXT';
+export type CustomFieldType =
+  | "TEXT"
+  | "NUMBER"
+  | "SELECT"
+  | "CHECKBOX"
+  | "RICHTEXT";
 
 export interface CustomFieldDef {
   id: string;
-  entityType: 'project' | 'task';
+  entityType: "project" | "task";
   name: string;
   type: CustomFieldType;
   isRequired: boolean;
@@ -146,7 +155,7 @@ export interface ChecklistItem {
   revision?: number;
   text: string;
   is_completed: boolean;
-  color?: 'GREEN' | 'YELLOW' | 'RED' | 'GRAY' | 'DEFAULT';
+  color?: "GREEN" | "YELLOW" | "RED" | "GRAY" | "DEFAULT";
   status_id?: string;
   status_code?: string;
   weightId?: string;
@@ -175,7 +184,7 @@ export interface MutationResult<T = undefined> {
   success: boolean;
   message: string;
   data?: T;
-  status?: 'COMMIT_FAILED' | 'COMMITTED_REFRESH_FAILED' | 'SUCCESS';
+  status?: "COMMIT_FAILED" | "COMMITTED_REFRESH_FAILED" | "SUCCESS";
   committed?: boolean;
   errorCode?: string;
 }

@@ -20,7 +20,10 @@ export const Login = () => {
     if (isSubmitting) return;
     const normalizedEmail = email.trim();
     if (!normalizedEmail || !password) {
-      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.auth.credentialsRequired);
+      notify(
+        NOTIFICATION_KINDS.error,
+        SYSTEM_MESSAGES.auth.credentialsRequired,
+      );
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
@@ -67,9 +70,13 @@ export const Login = () => {
           </p>
         </div>
 
-        <form onSubmit={handleEmailLogin} className={styles.loginForm} noValidate>
+        <form
+          onSubmit={handleEmailLogin}
+          className={styles.loginForm}
+          noValidate
+        >
           <div>
-            <label className={styles.fieldLabel}>Ел. пошта</label>
+            <label className={styles.fieldLabel}>Електронна адреса</label>
             <input
               type="email"
               value={email}
@@ -96,44 +103,53 @@ export const Login = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className={styles.passwordToggle}
+                aria-label={showPassword ? "Приховати пароль" : "Показати пароль"}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
-          <button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+          <button
+            type="submit"
+            className={styles.submitButton}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Вхід…" : "Увійти"}
           </button>
         </form>
 
-        {!backendEnabled && <><div className={styles.divider}>
-          <div className={styles.dividerLine}>
-            <div></div>
-          </div>
-          <div className={styles.dividerContent}>
-            <span>швидкий вибір тестового користувача</span>
-          </div>
-        </div>
-
-        <div className={styles.usersList}>
-          {(users || []).map((user) => (
-            <button
-              key={user.id}
-              onClick={() => handleTestUserClick(user)}
-              className={styles.userButton}
-            >
-              <div>
-                <div className={styles.userName}>{user.name}</div>
-                <div className={styles.userDetails}>
-                  {user.email} &bull;{" "}
-                  {departments.find((d) => d.id === user.departmentId)?.name ||
-                    "—"}
-                </div>
+        {!backendEnabled && (
+          <>
+            <div className={styles.divider}>
+              <div className={styles.dividerLine}>
+                <div></div>
               </div>
-              <div className={styles.roleBadge}>{user.role}</div>
-            </button>
-          ))}
-        </div></>}
+              <div className={styles.dividerContent}>
+                <span>швидкий вибір тестового користувача</span>
+              </div>
+            </div>
+
+            <div className={styles.usersList}>
+              {(users || []).map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => handleTestUserClick(user)}
+                  className={styles.userButton}
+                >
+                  <div>
+                    <div className={styles.userName}>{user.name}</div>
+                    <div className={styles.userDetails}>
+                      {user.email} &bull;{" "}
+                      {departments.find((d) => d.id === user.departmentId)
+                        ?.name || "—"}
+                    </div>
+                  </div>
+                  <div className={styles.roleBadge}>{user.role}</div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

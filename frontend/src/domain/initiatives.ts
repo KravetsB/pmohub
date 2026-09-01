@@ -11,7 +11,9 @@ export type InitiativeRecord = InitiativeViewModel;
 export const isCompletedItem = (item: ChecklistItem) =>
   item.is_completed || item.color === "GREEN";
 
-export const metadataFrom = (record: InitiativeMetadata): InitiativeMetadata => ({
+export const metadataFrom = (
+  record: InitiativeMetadata,
+): InitiativeMetadata => ({
   name: record.name,
   strategic_goal: record.strategic_goal,
   manager_id: record.manager_id,
@@ -22,7 +24,9 @@ export const metadataFrom = (record: InitiativeMetadata): InitiativeMetadata => 
   custom_fields: record.custom_fields ? { ...record.custom_fields } : undefined,
 });
 
-export const preparationMetadataFrom = (record: InitiativeMetadata): PreparationStage => ({
+export const preparationMetadataFrom = (
+  record: InitiativeMetadata,
+): PreparationStage => ({
   manager_id: record.manager_id,
   priority: record.priority,
   cross_functional_dept_ids: [...(record.cross_functional_dept_ids ?? [])],
@@ -31,15 +35,28 @@ export const preparationMetadataFrom = (record: InitiativeMetadata): Preparation
   history: [],
 });
 
-export const getYearSnapshot = (master: InitiativeRecord, year: number): InitiativeYearContext | undefined =>
+export const getYearSnapshot = (
+  master: InitiativeRecord,
+  year: number,
+): InitiativeYearContext | undefined =>
   master.record_type === "YEAR" && master.year === year
-    ? { ...metadataFrom(master), year, history: [], preparationStage: master.preparation_stage }
+    ? {
+        ...metadataFrom(master),
+        year,
+        history: [],
+        preparationStage: master.preparation_stage,
+      }
     : undefined;
 
 export const getChainId = (record: InitiativeRecord): string =>
   record.initiative_id;
 
-export const materializeBacklogYear = <T extends InitiativeRecord>(master: T, year: number): T | undefined => {
+export const materializeBacklogYear = <T extends InitiativeRecord>(
+  master: T,
+  year: number,
+): T | undefined => {
   const snapshot = getYearSnapshot(master, year);
-  return snapshot ? { ...master, ...metadataFrom(snapshot), year, checklist: [] } : undefined;
+  return snapshot
+    ? { ...master, ...metadataFrom(snapshot), year, checklist: [] }
+    : undefined;
 };

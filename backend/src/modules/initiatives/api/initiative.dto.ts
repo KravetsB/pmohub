@@ -1,9 +1,20 @@
-import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { IsUniqueIdentifier } from '../../../common/validation/unique-identifier.decorator';
+import { Type } from "class-transformer";
+import {
+  IsArray,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+import { IsUniqueIdentifier } from "../../../common/validation/unique-identifier.decorator";
 
-export const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'] as const;
+export const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 export type QuarterDto = (typeof QUARTERS)[number];
 
 export class PreparationInputDto {
@@ -40,9 +51,15 @@ export class CreateQuarterCardDto {
 export class CreateScopeItemDto {
   @IsOptional() @IsUniqueIdentifier() lineage_id?: string;
   @IsString() @IsNotEmpty() text!: string;
-  @IsIn(['DEFAULT', 'GREEN', 'YELLOW', 'RED']) status_code!: 'DEFAULT' | 'GREEN' | 'YELLOW' | 'RED';
+  @IsIn(["DEFAULT", "GREEN", "YELLOW", "RED"]) status_code!:
+    | "DEFAULT"
+    | "GREEN"
+    | "YELLOW"
+    | "RED";
   @IsUniqueIdentifier() weight_definition_id!: string;
-  @IsArray() @IsUniqueIdentifier({ each: true }) executor_department_ids: string[] = [];
+  @IsArray()
+  @IsUniqueIdentifier({ each: true })
+  executor_department_ids: string[] = [];
 }
 
 export class ScopeItemDto extends CreateScopeItemDto {
@@ -55,16 +72,24 @@ export class InitialQuarterCardDto extends PreparationInputDto {
   @IsOptional() @IsUniqueIdentifier() status_id?: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsObject() custom_fields?: Record<string, unknown>;
-  @IsArray() @ValidateNested({ each: true }) @Type(() => CreateScopeItemDto) scope: CreateScopeItemDto[] = [];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateScopeItemDto)
+  scope: CreateScopeItemDto[] = [];
 }
 
 export class CreateInitiativeDto {
-  @IsIn(['PROJECT', 'OPERATIONAL_TASK']) kind!: 'PROJECT' | 'OPERATIONAL_TASK';
+  @IsIn(["PROJECT", "OPERATIONAL_TASK"]) kind!: "PROJECT" | "OPERATIONAL_TASK";
   @IsString() @IsNotEmpty() name!: string;
   @IsInt() @Min(2000) @Max(2200) year!: number;
   @IsOptional() @IsString() strategic_goal?: string;
-  @ValidateNested() @Type(() => PreparationInputDto) preparation!: PreparationInputDto;
-  @IsOptional() @ValidateNested() @Type(() => InitialQuarterCardDto) initial_card?: InitialQuarterCardDto;
+  @ValidateNested()
+  @Type(() => PreparationInputDto)
+  preparation!: PreparationInputDto;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InitialQuarterCardDto)
+  initial_card?: InitialQuarterCardDto;
 }
 
 export class UpdateCardDto {
@@ -75,20 +100,30 @@ export class UpdateCardDto {
   @IsUniqueIdentifier() status_id!: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsObject() custom_fields?: Record<string, unknown>;
-  @IsArray() @ValidateNested({ each: true }) @Type(() => ScopeItemDto) scope: ScopeItemDto[] = [];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScopeItemDto)
+  scope: ScopeItemDto[] = [];
 }
 
 export class ArchiveScopeStatusDto {
   @IsUniqueIdentifier() id!: string;
   @IsInt() @Min(1) revision!: number;
-  @IsIn(['DEFAULT', 'GREEN', 'YELLOW', 'RED']) status_code!: 'DEFAULT' | 'GREEN' | 'YELLOW' | 'RED';
+  @IsIn(["DEFAULT", "GREEN", "YELLOW", "RED"]) status_code!:
+    | "DEFAULT"
+    | "GREEN"
+    | "YELLOW"
+    | "RED";
 }
 
 export class UpdateArchivedCardDto {
   @IsInt() @Min(1) revision!: number;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsUniqueIdentifier() status_id?: string;
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ArchiveScopeStatusDto)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ArchiveScopeStatusDto)
   scope_status_updates: ArchiveScopeStatusDto[] = [];
 }
 
@@ -109,7 +144,9 @@ export class RevisionTargetDto {
 }
 
 export class ExtendYearsDto {
-  @IsArray() @ValidateNested({ each: true }) @Type(() => RevisionTargetDto)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RevisionTargetDto)
   source_years!: RevisionTargetDto[];
   @IsInt() @Min(2000) @Max(2200) target_year!: number;
 }
@@ -117,11 +154,20 @@ export class ExtendYearsDto {
 export class PreparationStageReadModelDto {
   @ApiProperty() initiative_year_id!: string;
   @ApiProperty({ nullable: true }) manager_id!: string | null;
-  @ApiProperty({ nullable: true, type: Object }) manager!: { id: string; name: string } | null;
+  @ApiProperty({ nullable: true, type: Object }) manager!: {
+    id: string;
+    name: string;
+  } | null;
   @ApiProperty({ nullable: true }) priority_id!: string | null;
-  @ApiProperty({ nullable: true, type: Object }) priority!: { id: string; name: string } | null;
+  @ApiProperty({ nullable: true, type: Object }) priority!: {
+    id: string;
+    name: string;
+  } | null;
   @ApiProperty({ type: [String] }) department_ids!: string[];
-  @ApiProperty({ type: [Object] }) departments!: Array<{ id: string; name: string }>;
+  @ApiProperty({ type: [Object] }) departments!: Array<{
+    id: string;
+    name: string;
+  }>;
   @ApiProperty() revision!: number;
 }
 
@@ -139,14 +185,16 @@ export class QuarterCardSummaryDto {
 export class InitiativeYearReadModelDto {
   @ApiProperty() id!: string;
   @ApiProperty() initiative_id!: string;
-  @ApiProperty({ enum: ['PROJECT', 'OPERATIONAL_TASK'] }) kind!: string;
+  @ApiProperty({ enum: ["PROJECT", "OPERATIONAL_TASK"] }) kind!: string;
   @ApiProperty() name!: string;
   @ApiProperty() initiative_revision!: number;
   @ApiProperty() year!: number;
   @ApiProperty({ nullable: true }) strategic_goal!: string | null;
   @ApiProperty() revision!: number;
-  @ApiProperty({ nullable: true, type: PreparationStageReadModelDto }) preparation!: PreparationStageReadModelDto | null;
-  @ApiProperty({ type: [QuarterCardSummaryDto] }) cards!: QuarterCardSummaryDto[];
+  @ApiProperty({ nullable: true, type: PreparationStageReadModelDto })
+  preparation!: PreparationStageReadModelDto | null;
+  @ApiProperty({ type: [QuarterCardSummaryDto] })
+  cards!: QuarterCardSummaryDto[];
   @ApiProperty() is_locked!: boolean;
   @ApiProperty() locked_at!: string;
 }
@@ -156,11 +204,18 @@ export class ScopeItemReadModelDto {
   @ApiProperty() lineage_id!: string;
   @ApiProperty({ nullable: true }) copied_from_item_id!: string | null;
   @ApiProperty() text!: string;
-  @ApiProperty({ enum: ['DEFAULT', 'GREEN', 'YELLOW', 'RED'] }) status_code!: string;
+  @ApiProperty({ enum: ["DEFAULT", "GREEN", "YELLOW", "RED"] })
+  status_code!: string;
   @ApiProperty() weight_definition_id!: string;
-  @ApiProperty({ type: Object }) weight_snapshot!: { name: string; value: number };
+  @ApiProperty({ type: Object }) weight_snapshot!: {
+    name: string;
+    value: number;
+  };
   @ApiProperty({ type: [String] }) executor_department_ids!: string[];
-  @ApiProperty({ type: [Object] }) executors!: Array<{ id: string; name: string }>;
+  @ApiProperty({ type: [Object] }) executors!: Array<{
+    id: string;
+    name: string;
+  }>;
   @ApiProperty({ nullable: true }) moved_from_card_id!: string | null;
   @ApiProperty() revision!: number;
 }
@@ -169,26 +224,42 @@ export class QuarterCardReadModelDto {
   @ApiProperty() id!: string;
   @ApiProperty() initiative_year_id!: string;
   @ApiProperty() initiative_id!: string;
-  @ApiProperty({ enum: ['PROJECT', 'OPERATIONAL_TASK'] }) kind!: string;
+  @ApiProperty({ enum: ["PROJECT", "OPERATIONAL_TASK"] }) kind!: string;
   @ApiProperty() name!: string;
   @ApiProperty({ nullable: true }) strategic_goal!: string | null;
   @ApiProperty() year!: number;
   @ApiProperty({ enum: QUARTERS }) quarter!: QuarterDto;
   @ApiProperty({ nullable: true }) manager_id!: string | null;
-  @ApiProperty({ nullable: true, type: Object }) manager!: { id: string; name: string } | null;
+  @ApiProperty({ nullable: true, type: Object }) manager!: {
+    id: string;
+    name: string;
+  } | null;
   @ApiProperty({ nullable: true }) priority_id!: string | null;
-  @ApiProperty({ nullable: true, type: Object }) priority!: { id: string; name: string } | null;
+  @ApiProperty({ nullable: true, type: Object }) priority!: {
+    id: string;
+    name: string;
+  } | null;
   @ApiProperty({ type: [String] }) department_ids!: string[];
   @ApiProperty({ type: [String] }) effective_involved_department_ids!: string[];
   @ApiProperty() status_id!: string;
   @ApiProperty() status_code!: string;
-  @ApiProperty({ type: Object }) status!: { id: string; code: string; name: string; color: string };
+  @ApiProperty({ type: Object }) status!: {
+    id: string;
+    code: string;
+    name: string;
+    color: string;
+  };
   @ApiProperty({ nullable: true }) notes!: string | null;
   @ApiProperty() total_weight!: number;
   @ApiProperty({ type: Object }) size_snapshot!: Record<string, unknown>;
-  @ApiProperty({ type: Object, additionalProperties: true }) custom_fields!: Record<string, unknown>;
-  @ApiProperty({ type: [ScopeItemReadModelDto] }) scope!: ScopeItemReadModelDto[];
-  @ApiProperty({ nullable: true, type: Object }) moved_from!: { year: number; quarter: QuarterDto } | null;
+  @ApiProperty({ type: Object, additionalProperties: true })
+  custom_fields!: Record<string, unknown>;
+  @ApiProperty({ type: [ScopeItemReadModelDto] })
+  scope!: ScopeItemReadModelDto[];
+  @ApiProperty({ nullable: true, type: Object }) moved_from!: {
+    year: number;
+    quarter: QuarterDto;
+  } | null;
   @ApiProperty() revision!: number;
   @ApiProperty() is_locked!: boolean;
   @ApiProperty() locked_at!: string;
@@ -197,23 +268,27 @@ export class QuarterCardReadModelDto {
 export class InitiativeYearResponseDto {
   @ApiProperty({ enum: [true] }) success!: true;
   @ApiProperty() message!: string;
-  @ApiProperty({ type: InitiativeYearReadModelDto }) data!: InitiativeYearReadModelDto;
+  @ApiProperty({ type: InitiativeYearReadModelDto })
+  data!: InitiativeYearReadModelDto;
 }
 
 export class InitiativeYearsResponseDto {
   @ApiProperty({ enum: [true] }) success!: true;
   @ApiProperty() message!: string;
-  @ApiProperty({ type: [InitiativeYearReadModelDto] }) data!: InitiativeYearReadModelDto[];
+  @ApiProperty({ type: [InitiativeYearReadModelDto] })
+  data!: InitiativeYearReadModelDto[];
 }
 
 export class QuarterCardResponseDto {
   @ApiProperty({ enum: [true] }) success!: true;
   @ApiProperty() message!: string;
-  @ApiProperty({ type: QuarterCardReadModelDto }) data!: QuarterCardReadModelDto;
+  @ApiProperty({ type: QuarterCardReadModelDto })
+  data!: QuarterCardReadModelDto;
 }
 
 export class QuarterCardsResponseDto {
   @ApiProperty({ enum: [true] }) success!: true;
   @ApiProperty() message!: string;
-  @ApiProperty({ type: [QuarterCardReadModelDto] }) data!: QuarterCardReadModelDto[];
+  @ApiProperty({ type: [QuarterCardReadModelDto] })
+  data!: QuarterCardReadModelDto[];
 }

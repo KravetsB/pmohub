@@ -1875,6 +1875,197 @@
           "audit"
         ]
       }
+    },
+    "/api/v1/exports/availability": {
+      "get": {
+        "operationId": "ExportsController_availability",
+        "parameters": [
+          {
+            "name": "kinds",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "PROJECT",
+                  "OPERATIONAL_TASK"
+                ]
+              }
+            }
+          },
+          {
+            "name": "include_custom_fields",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportAvailabilityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/api/v1/exports/preview": {
+      "post": {
+        "operationId": "ExportsController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiativeExportFilterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/api/v1/exports/excel": {
+      "post": {
+        "operationId": "ExportsController_excel",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiativeExportFilterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Завантажити Excel-звіт за ініціативами",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/api/v1/exports/json/ai": {
+      "post": {
+        "operationId": "ExportsController_aiJson",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiJsonExportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Завантажити приватний JSON для AI",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/api/v1/exports/json/full": {
+      "post": {
+        "operationId": "ExportsController_fullJson",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Завантажити санітизований snapshot усієї БД",
+        "tags": [
+          "exports"
+        ]
+      }
     }
   },
   "info": {
@@ -1927,7 +2118,6 @@
           }
         },
         "required": [
-          "current_password",
           "new_password"
         ]
       },
@@ -1958,19 +2148,16 @@
         "type": "object",
         "properties": {
           "manager_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "priority_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "department_ids": {
             "default": [],
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         },
@@ -1982,8 +2169,7 @@
         "type": "object",
         "properties": {
           "lineage_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "text": {
             "type": "string"
@@ -1998,15 +2184,13 @@
             "type": "string"
           },
           "weight_definition_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "executor_department_ids": {
             "default": [],
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         },
@@ -2021,19 +2205,16 @@
         "type": "object",
         "properties": {
           "manager_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "priority_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "department_ids": {
             "default": [],
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           },
           "quarter": {
@@ -2046,8 +2227,7 @@
             "type": "string"
           },
           "status_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "notes": {
             "type": "string"
@@ -2374,19 +2554,16 @@
         "type": "object",
         "properties": {
           "manager_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "priority_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "department_ids": {
             "default": [],
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           },
           "revision": {
@@ -2420,8 +2597,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "revision": {
             "type": "number",
@@ -2708,8 +2884,7 @@
         "type": "object",
         "properties": {
           "lineage_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "text": {
             "type": "string"
@@ -2724,20 +2899,17 @@
             "type": "string"
           },
           "weight_definition_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "executor_department_ids": {
             "default": [],
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           },
           "id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "revision": {
             "type": "number",
@@ -2759,24 +2931,20 @@
             "minimum": 1
           },
           "manager_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "priority_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "department_ids": {
             "default": [],
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           },
           "status_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "notes": {
             "type": "string"
@@ -2804,8 +2972,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "revision": {
             "type": "number",
@@ -2838,8 +3005,7 @@
             "type": "string"
           },
           "status_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "scope_status_updates": {
             "default": [],
@@ -3407,6 +3573,319 @@
         "required": [
           "success",
           "data"
+        ]
+      },
+      "ExportCustomFieldDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "project",
+              "task"
+            ]
+          },
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "NUMBER",
+              "SELECT",
+              "CHECKBOX",
+              "RICHTEXT"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "entity_type",
+          "field_type",
+          "is_active"
+        ]
+      },
+      "ExportAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "custom_fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExportCustomFieldDto"
+            }
+          }
+        },
+        "required": [
+          "years",
+          "counts",
+          "custom_fields"
+        ]
+      },
+      "ExportAvailabilityResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExportAvailabilityDto"
+          }
+        },
+        "required": [
+          "success",
+          "data"
+        ]
+      },
+      "ExportYearRangeDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "number",
+            "minimum": 2000,
+            "maximum": 2200,
+            "example": 2026
+          },
+          "to": {
+            "type": "number",
+            "minimum": 2000,
+            "maximum": 2200,
+            "example": 2027
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "InitiativeExportFilterDto": {
+        "type": "object",
+        "properties": {
+          "years": {
+            "$ref": "#/components/schemas/ExportYearRangeDto"
+          },
+          "periods": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "BACKLOG",
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            }
+          },
+          "kinds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          }
+        },
+        "required": [
+          "years",
+          "periods",
+          "kinds"
+        ]
+      },
+      "ExportPreviewMatrixCellDto": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "number"
+          },
+          "period": {
+            "enum": [
+              "BACKLOG",
+              "Q1",
+              "Q2",
+              "Q3",
+              "Q4"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "PROJECT",
+              "OPERATIONAL_TASK"
+            ],
+            "type": "string"
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "year",
+          "period",
+          "kind",
+          "count"
+        ]
+      },
+      "ExportPreviewDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "backlog_records": {
+            "type": "number"
+          },
+          "quarter_cards": {
+            "type": "number"
+          },
+          "by_year": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "by_period": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "by_kind": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "matrix": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExportPreviewMatrixCellDto"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "backlog_records",
+          "quarter_cards",
+          "by_year",
+          "by_period",
+          "by_kind",
+          "matrix"
+        ]
+      },
+      "ExportPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExportPreviewDto"
+          }
+        },
+        "required": [
+          "success",
+          "data"
+        ]
+      },
+      "AiExportPrivacyDto": {
+        "type": "object",
+        "properties": {
+          "include_name": {
+            "type": "boolean",
+            "default": true
+          },
+          "include_strategic_goal": {
+            "type": "boolean",
+            "default": false
+          },
+          "include_manager": {
+            "type": "boolean",
+            "default": true
+          },
+          "include_departments": {
+            "type": "boolean",
+            "default": true
+          },
+          "include_notes": {
+            "type": "boolean",
+            "default": false
+          },
+          "selected_custom_field_ids": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "include_name",
+          "include_strategic_goal",
+          "include_manager",
+          "include_departments",
+          "include_notes",
+          "selected_custom_field_ids"
+        ]
+      },
+      "AiJsonExportDto": {
+        "type": "object",
+        "properties": {
+          "years": {
+            "$ref": "#/components/schemas/ExportYearRangeDto"
+          },
+          "periods": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "BACKLOG",
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            }
+          },
+          "kinds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/AiExportPrivacyDto"
+          }
+        },
+        "required": [
+          "years",
+          "periods",
+          "kinds",
+          "privacy"
         ]
       }
     }

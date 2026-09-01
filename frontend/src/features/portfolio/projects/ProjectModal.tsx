@@ -1,11 +1,17 @@
 import React from "react";
-import { InitiativeViewModel, MutationResult, Quarter } from "../../../shared/types";
+import {
+  InitiativeViewModel,
+  MutationResult,
+  Quarter,
+} from "../../../shared/types";
 import { InitiativeCardModal } from "../../initiatives/components/InitiativeCardModal";
 
 interface Props {
   project: InitiativeViewModel | null;
   onClose: () => void;
-  onSave: (project: InitiativeViewModel) => void | MutationResult | Promise<void | MutationResult>;
+  onSave: (
+    project: InitiativeViewModel,
+  ) => void | MutationResult | Promise<void | MutationResult>;
   isReadOnly?: boolean;
   onDelete?: (id: string) => void | Promise<void>;
   defaultYear?: number;

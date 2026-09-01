@@ -46,7 +46,8 @@ export const PreparationStageModal = ({
       });
       if (!result.success) {
         notify(NOTIFICATION_KINDS.error, result.message);
-        if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
+        if (result.errorCode === "REVISION_CONFLICT")
+          setHasRevisionConflict(true);
         return;
       }
       onClose();
@@ -60,16 +61,14 @@ export const PreparationStageModal = ({
         <div className={styles.preparationHeader}>
           <div>
             <h2 className={styles.preparationTitle}>
-              {isViewing ? "Перегляд" : "Редагування"} підготовчого етапу · {item.year}
+              {isViewing ? "Перегляд" : "Редагування"} підготовчого етапу ·{" "}
+              {item.year}
             </h2>
             <p className={styles.preparationDescription}>
               Нульовий квартал: дані використаються для першої картки року.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className={styles.plainCloseButton}
-          >
+          <button onClick={onClose} className={styles.plainCloseButton}>
             ×
           </button>
         </div>
@@ -119,9 +118,7 @@ export const PreparationStageModal = ({
             </label>
           </div>
           <div>
-            <p className={styles.departmentLabel}>
-              Залучені підрозділи
-            </p>
+            <p className={styles.departmentLabel}>Залучені підрозділи</p>
             <div className={styles.departmentPicker}>
               {departments
                 .filter(
@@ -145,10 +142,7 @@ export const PreparationStageModal = ({
           </div>
         </div>
         <div className={styles.preparationFooter}>
-          <button
-            onClick={onClose}
-            className={styles.preparationCancel}
-          >
+          <button onClick={onClose} className={styles.preparationCancel}>
             {isViewing ? "Закрити" : "Скасувати"}
           </button>
           {isViewing && !isReadOnly && (
@@ -166,7 +160,11 @@ export const PreparationStageModal = ({
               disabled={isSaving || hasRevisionConflict}
               className={styles.preparationSave}
             >
-              {isSaving ? "Збереження…" : hasRevisionConflict ? "Оновіть запис" : "Зберегти"}
+              {isSaving
+                ? "Збереження…"
+                : hasRevisionConflict
+                  ? "Оновіть запис"
+                  : "Зберегти"}
             </button>
           )}
         </div>

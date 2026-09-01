@@ -6,7 +6,8 @@ import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants
 export const SystemAlertDialog = () => {
   useEffect(() => {
     const nativeAlert = window.alert;
-    window.alert = (nextMessage?: string) => notify(NOTIFICATION_KINDS.error, String(nextMessage ?? ""));
+    window.alert = (nextMessage?: string) =>
+      notify(NOTIFICATION_KINDS.error, String(nextMessage ?? ""));
     return () => {
       window.alert = nativeAlert;
     };

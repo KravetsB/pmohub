@@ -1,10 +1,7 @@
 import React from "react";
 import { Edit2, Eye } from "lucide-react";
 import { useAppContext } from "../../../../app/store";
-import {
-  CustomFieldDef,
-  InitiativeViewModel,
-} from "../../../../shared/types";
+import { CustomFieldDef, InitiativeViewModel } from "../../../../shared/types";
 import { stripHtml } from "../../../../shared/utils";
 import {
   colorWithAlpha,
@@ -135,10 +132,18 @@ export const PortfolioTable = ({
               <tr
                 key={initiative.id}
                 className={styles.row}
-                style={{
-                  "--row-background": colorWithAlpha(statusPresentation.color, 0.07),
-                  "--row-hover-background": colorWithAlpha(statusPresentation.color, 0.13),
-                } as React.CSSProperties}
+                style={
+                  {
+                    "--row-background": colorWithAlpha(
+                      statusPresentation.color,
+                      0.07,
+                    ),
+                    "--row-hover-background": colorWithAlpha(
+                      statusPresentation.color,
+                      0.13,
+                    ),
+                  } as React.CSSProperties
+                }
               >
                 <td className={`${styles.cell} ${styles.managerCell}`}>
                   <span className={styles.clampedTwo} title={managerName}>
@@ -293,28 +298,26 @@ export const PortfolioTable = ({
                 </td>
                 {customFields.map((field) => {
                   const value = initiative.custom_fields?.[field.id];
-                  const displayValue = field.type === "CHECKBOX"
-                    ? value === true ? "Так" : "Ні"
-                    : value !== undefined && value !== null && value !== ""
-                      ? String(value)
-                      : "—";
+                  const displayValue =
+                    field.type === "CHECKBOX"
+                      ? value === true
+                        ? "Так"
+                        : "Ні"
+                      : value !== undefined && value !== null && value !== ""
+                        ? String(value)
+                        : "—";
                   return (
                     <td
                       key={field.id}
                       className={`${styles.cell} ${styles.customCell}`}
                     >
-                      <span
-                        className={styles.clampedTwo}
-                        title={displayValue}
-                      >
+                      <span className={styles.clampedTwo} title={displayValue}>
                         {displayValue}
                       </span>
                     </td>
                   );
                 })}
-                <td
-                  className={styles.actionsCell}
-                >
+                <td className={styles.actionsCell}>
                   <button
                     onClick={() => onOpen(initiative)}
                     className={styles.openButton}

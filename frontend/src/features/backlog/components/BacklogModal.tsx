@@ -1,10 +1,7 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppContext } from "../../../app/store";
-import {
-  InitiativeViewModel,
-  Quarter,
-} from "../../../shared/types";
+import { InitiativeViewModel, Quarter } from "../../../shared/types";
 import styles from "./BacklogModals.module.css";
 import { notify } from "../../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
@@ -24,16 +21,13 @@ export const BacklogModal = ({
   selectedYear,
   isReadOnly = false,
 }: BacklogModalProps) => {
-  const {
-    projects,
-    tasks,
-    updateProject,
-    updateTask,
-    createBacklogWithCards,
-  } = useAppContext();
+  const { projects, tasks, updateProject, updateTask, createBacklogWithCards } =
+    useAppContext();
   const sourceRecords = type === "PROJECTS" ? projects : tasks;
   const master = editItem
-    ? sourceRecords.find((item) => item.record_type === "YEAR" && item.id === editItem.id)
+    ? sourceRecords.find(
+        (item) => item.record_type === "YEAR" && item.id === editItem.id,
+      )
     : undefined;
   const [name, setName] = useState(editItem?.name ?? "");
   const [strategicGoal, setStrategicGoal] = useState(
@@ -51,7 +45,10 @@ export const BacklogModal = ({
   const handleSave = async () => {
     if (isSaving || hasRevisionConflict) return;
     if (!name.trim()) {
-      notify(NOTIFICATION_KINDS.error, `Вкажіть назву ${type === "PROJECTS" ? "проєкту" : "операційної задачі"}`);
+      notify(
+        NOTIFICATION_KINDS.error,
+        `Вкажіть назву ${type === "PROJECTS" ? "проєкту" : "операційної задачі"}`,
+      );
       return;
     }
     setIsSaving(true);
@@ -62,7 +59,8 @@ export const BacklogModal = ({
           : updateTask(master.id, metadata()));
         if (!result.success) {
           notify(NOTIFICATION_KINDS.error, result.message);
-          if (result.errorCode === "REVISION_CONFLICT") setHasRevisionConflict(true);
+          if (result.errorCode === "REVISION_CONFLICT")
+            setHasRevisionConflict(true);
           return;
         }
       } else {
@@ -126,9 +124,7 @@ export const BacklogModal = ({
             />
           </div>
           <div>
-            <label className={styles.fieldLabel}>
-              Стратегічна задача
-            </label>
+            <label className={styles.fieldLabel}>Стратегічна задача</label>
             <textarea
               disabled={isReadOnly}
               value={strategicGoal}
@@ -145,10 +141,7 @@ export const BacklogModal = ({
           </p>
         </div>
         <div className={styles.modalFooter}>
-          <button
-            onClick={onClose}
-            className={styles.footerCancel}
-          >
+          <button onClick={onClose} className={styles.footerCancel}>
             {isReadOnly ? "Закрити" : "Скасувати"}
           </button>
           {!isReadOnly && (
@@ -157,7 +150,11 @@ export const BacklogModal = ({
               disabled={isSaving || hasRevisionConflict}
               className={styles.footerSave}
             >
-              {isSaving ? "Збереження…" : hasRevisionConflict ? "Оновіть запис" : "Зберегти"}
+              {isSaving
+                ? "Збереження…"
+                : hasRevisionConflict
+                  ? "Оновіть запис"
+                  : "Зберегти"}
             </button>
           )}
         </div>

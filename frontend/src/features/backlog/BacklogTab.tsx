@@ -17,10 +17,18 @@ import { ArchiveBanner, BacklogNotice } from "./components/BacklogFeedback";
 import { BacklogFilters } from "./components/BacklogFilters";
 import { BacklogTable } from "./components/BacklogTable";
 import { BacklogDeleteDialog } from "./components/BacklogDeleteDialog";
-import { BacklogInitiative as Initiative, BacklogTabKind as Tab, QuarterFilter } from "./backlogTypes";
+import {
+  BacklogInitiative as Initiative,
+  BacklogTabKind as Tab,
+  QuarterFilter,
+} from "./backlogTypes";
 import styles from "./BacklogTab.module.css";
 import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
-import { ApiError, loadInitiativeCardModel, toQuarterCardViewModel } from "../../api/apiClient";
+import {
+  ApiError,
+  loadInitiativeCardModel,
+  toQuarterCardViewModel,
+} from "../../api/apiClient";
 import { useInitiativeYearCountsQuery } from "../../api/hooks";
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
@@ -48,7 +56,11 @@ export const BacklogTab = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const countsQuery = useInitiativeYearCountsQuery(selectedYear);
   useEffect(() => {
-    setInitiativeDataScope({ mode: "backlog", kind: activeTab === "PROJECTS" ? "project" : "task", year: selectedYear });
+    setInitiativeDataScope({
+      mode: "backlog",
+      kind: activeTab === "PROJECTS" ? "project" : "task",
+      year: selectedYear,
+    });
   }, [activeTab, selectedYear, setInitiativeDataScope]);
   const [quarterFilter, setQuarterFilter] = useState<QuarterFilter>("ALL");
   const [nameSearch, setNameSearch] = useState("");
@@ -75,7 +87,13 @@ export const BacklogTab = () => {
       const response = await loadInitiativeCardModel(card.id);
       setEditingCard(toQuarterCardViewModel(response.data));
     } catch (error) {
-      setNotice({ type: 'error', message: error instanceof ApiError ? error.message : SYSTEM_MESSAGES.api.genericError });
+      setNotice({
+        type: "error",
+        message:
+          error instanceof ApiError
+            ? error.message
+            : SYSTEM_MESSAGES.api.genericError,
+      });
     }
   };
 
@@ -98,8 +116,7 @@ export const BacklogTab = () => {
     source
       .filter(
         (record) =>
-          record.record_type === "YEAR" &&
-          record.year === selectedYear,
+          record.record_type === "YEAR" && record.year === selectedYear,
       )
       .map((record) => materializeBacklogYear(record, selectedYear)!)
       .filter((record) => canViewInitiative(record, currentUser));
@@ -108,8 +125,12 @@ export const BacklogTab = () => {
     () => materializeVisibleMasters(records),
     [records, selectedYear, currentUser],
   );
-  const projectCount = countsQuery.data?.projects ?? (activeTab === "PROJECTS" ? allMasters.length : 0);
-  const taskCount = countsQuery.data?.operational_tasks ?? (activeTab === "TASKS" ? allMasters.length : 0);
+  const projectCount =
+    countsQuery.data?.projects ??
+    (activeTab === "PROJECTS" ? allMasters.length : 0);
+  const taskCount =
+    countsQuery.data?.operational_tasks ??
+    (activeTab === "TASKS" ? allMasters.length : 0);
 
   const masters = useMemo(
     () =>
@@ -213,15 +234,23 @@ export const BacklogTab = () => {
     const commandKey = `quarter-${master.id}-${selectedYear}-${quarter}`;
     if (pendingCommands.current.has(commandKey)) return;
     if (isPastQuarter(quarter)) {
-      setNotice({ type: "error", message: SYSTEM_MESSAGES.initiatives.cardCreationPeriodRestricted });
+      setNotice({
+        type: "error",
+        message: SYSTEM_MESSAGES.initiatives.cardCreationPeriodRestricted,
+      });
       return;
     }
     pendingCommands.current.add(commandKey);
     try {
-      const existing = cardsFor(master.id).find((card) => card.year === selectedYear && card.quarter === quarter);
+      const existing = cardsFor(master.id).find(
+        (card) => card.year === selectedYear && card.quarter === quarter,
+      );
       if (existing) {
-        const result = await (activeTab === "PROJECTS" ? deleteProject(existing.id) : deleteTask(existing.id));
-        if (!result.success) setNotice({ type: "error", message: result.message });
+        const result = await (activeTab === "PROJECTS"
+          ? deleteProject(existing.id)
+          : deleteTask(existing.id));
+        if (!result.success)
+          setNotice({ type: "error", message: result.message });
         return;
       }
       const card = {
@@ -236,15 +265,20 @@ export const BacklogTab = () => {
         checklist: [],
         history: [],
       };
-      const result = await (activeTab === "PROJECTS" ? addProject(card as InitiativeViewModel) : addTask(card as InitiativeViewModel));
-      if (!result.success) setNotice({ type: "error", message: result.message });
+      const result = await (activeTab === "PROJECTS"
+        ? addProject(card as InitiativeViewModel)
+        : addTask(card as InitiativeViewModel));
+      if (!result.success)
+        setNotice({ type: "error", message: result.message });
     } finally {
       pendingCommands.current.delete(commandKey);
     }
   };
   const removeMaster = async () => {
     if (!masterToDelete) return;
-    const result = await (activeTab === "PROJECTS" ? deleteProject(masterToDelete.id) : deleteTask(masterToDelete.id));
+    const result = await (activeTab === "PROJECTS"
+      ? deleteProject(masterToDelete.id)
+      : deleteTask(masterToDelete.id));
     if (!result.success) setNotice({ type: "error", message: result.message });
     setMasterToDelete(null);
   };
@@ -282,7 +316,9 @@ export const BacklogTab = () => {
         onChange={changeTab}
       />
 
-      {notice && <BacklogNotice notice={notice} onClose={() => setNotice(null)} />}
+      {notice && (
+        <BacklogNotice notice={notice} onClose={() => setNotice(null)} />
+      )}
       {archive && <ArchiveBanner year={selectedYear} onReturn={changeYear} />}
 
       <section className={styles.dataSection}>
@@ -315,7 +351,9 @@ export const BacklogTab = () => {
           allVisibleSelected={allVisibleSelected}
           selectableIds={selectableMasterIds}
           expandedId={expandedId}
-          onToggleExpanded={(id) => setExpandedId(expandedId === id ? null : id)}
+          onToggleExpanded={(id) =>
+            setExpandedId(expandedId === id ? null : id)
+          }
           onToggleSelected={toggleSelected}
           onToggleAll={toggleSelectAll}
           onToggleQuarter={toggleQuarter}
@@ -325,7 +363,9 @@ export const BacklogTab = () => {
             setIsModalOpen(true);
           }}
           onDeleteMaster={setMasterToDelete}
-          onOpenCard={(card) => { void openCard(card); }}
+          onOpenCard={(card) => {
+            void openCard(card);
+          }}
           onOpenPreparation={setPreparationItem}
         />
       </section>
@@ -355,11 +395,9 @@ export const BacklogTab = () => {
           openInViewMode
           onClose={() => setEditingCard(null)}
           onSave={async (item) => {
-            const result = await (
-              activeTab === "PROJECTS"
-                ? updateProject(item.id, item)
-                : updateTask(item.id, item)
-            );
+            const result = await (activeTab === "PROJECTS"
+              ? updateProject(item.id, item)
+              : updateTask(item.id, item));
             if (!result.success) {
               setNotice({ type: "error", message: result.message });
               return result;
@@ -368,9 +406,9 @@ export const BacklogTab = () => {
             return result;
           }}
           onDelete={async (id) => {
-            const result = await (
-              activeTab === "PROJECTS" ? deleteProject(id) : deleteTask(id)
-            );
+            const result = await (activeTab === "PROJECTS"
+              ? deleteProject(id)
+              : deleteTask(id));
             if (!result.success) {
               setNotice({ type: "error", message: result.message });
               return;

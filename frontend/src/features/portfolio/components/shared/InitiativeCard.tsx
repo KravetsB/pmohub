@@ -59,9 +59,8 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
   const cardFields = customFields.filter(
     (field) => field.entityType === kind && field.showInCards,
   );
-  const effectiveStatus = initiative.record_type === "YEAR"
-    ? "DEFAULT"
-    : initiative.health_status;
+  const effectiveStatus =
+    initiative.record_type === "YEAR" ? "DEFAULT" : initiative.health_status;
   const statusDefinition = getInitiativeStatus(
     effectiveStatus,
     initiativeStatuses,

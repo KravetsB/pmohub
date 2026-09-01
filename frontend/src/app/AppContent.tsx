@@ -25,7 +25,11 @@ const AdminTab = React.lazy(() =>
     default: module.AdminTab,
   })),
 );
-const Dashboard = React.lazy(() => import("../features/analytics/Dashboard").then((module) => ({ default: module.Dashboard })));
+const Dashboard = React.lazy(() =>
+  import("../features/analytics/Dashboard").then((module) => ({
+    default: module.Dashboard,
+  })),
+);
 const wideTabs: AppTabId[] = ["projects", "tasks", "backlog", "dashboard"];
 const getRoleLabel = (role: string) =>
   role === "SUPER_ADMIN"
@@ -35,16 +39,37 @@ const getRoleLabel = (role: string) =>
       : "Користувач";
 
 export const AppContent = () => {
-  const { currentUser, logout, departments, rolePermissions, isHydrating, setInitiativeDataScope } = useAppContext();
+  const {
+    currentUser,
+    logout,
+    departments,
+    rolePermissions,
+    isHydrating,
+    setInitiativeDataScope,
+  } = useAppContext();
   const [activeTab, setActiveTab] = useState<AppTabId>(() => {
     const saved = window.sessionStorage.getItem("pmohub-active-tab");
-    return (["dashboard", "projects", "tasks", "backlog", "admin"] as AppTabId[]).includes(saved as AppTabId) ? saved as AppTabId : "dashboard";
+    return (
+      ["dashboard", "projects", "tasks", "backlog", "admin"] as AppTabId[]
+    ).includes(saved as AppTabId)
+      ? (saved as AppTabId)
+      : "dashboard";
   });
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   if (isHydrating) return <AppLoader label="Відновлення сесії…" fullPage />;
   if (!currentUser) return <Login />;
+  if (currentUser.must_change_password) {
+    return (
+      <PasswordChangeModal
+        isOpen
+        required
+        presentation="page"
+        onClose={() => undefined}
+      />
+    );
+  }
 
   const userRolePerm = rolePermissions.find(
     (permission) => permission.role === currentUser.role,
@@ -132,7 +157,13 @@ export const AppContent = () => {
           />
         }
       >
-        {currentTab.id === "dashboard" && <React.Suspense fallback={<AppLoader label="Завантаження аналітики…" />}><Dashboard /></React.Suspense>}
+        {currentTab.id === "dashboard" && (
+          <React.Suspense
+            fallback={<AppLoader label="Завантаження аналітики…" />}
+          >
+            <Dashboard />
+          </React.Suspense>
+        )}
         {currentTab.id === "projects" && <ProjectsTab />}
         {currentTab.id === "tasks" && <TasksTab />}
         {currentTab.id === "backlog" && <BacklogTab />}
@@ -145,8 +176,7 @@ export const AppContent = () => {
         )}
       </AppContentArea>
       <PasswordChangeModal
-        isOpen={isPasswordModalOpen || Boolean(currentUser.must_change_password)}
-        required={Boolean(currentUser.must_change_password)}
+        isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
       />
     </div>
